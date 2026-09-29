@@ -68,7 +68,7 @@ def evaluate_rules(
             gains = r[r > 0].sum()
             losses = -r[r < 0].sum()
             avg_win = r[r > 0].mean() if wins else 0.0
-            avg_loss = -r[r < 0].mean() if (n - wins) else 0.0
+            avg_loss = -r[r < 0].mean() if (r < 0).any() else 0.0
             rows.append({
                 "pattern": pat.name,
                 "direction": pat.direction,

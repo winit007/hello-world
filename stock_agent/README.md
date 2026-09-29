@@ -70,6 +70,34 @@ The outlook score is 60% technical (active patterns weighted by their proven edg
 sentiment (VADER with a finance-tuned lexicon) and 15% trend (close vs SMA20 vs SMA50). Patterns
 with no historical edge on that ticker are shown but not counted.
 
+## Top 5 picks: the screener
+
+```bash
+python -m stock_agent screen                          # Nifty 50, top 5, 5-day holding period
+python -m stock_agent screen --universe us            # US mega caps
+python -m stock_agent screen --horizon 10 --top 10    # longer hold, more picks
+python -m stock_agent screen INFY.NS TCS.NS WIPRO.NS HCLTECH.NS TECHM.NS   # your own list
+python -m stock_agent screen --universe-file mylist.txt --out reports/screen.md
+```
+
+For every stock in the universe the screener:
+
+1. **Finds active setups**: candlestick patterns that completed in the last `--lookback` bars (default 3).
+2. **Measures the success rate** of that pattern on that stock over the holding period, blended with
+   the same pattern's rate across the whole universe: `(wins + 20 × universe rate) / (signals + 20)`.
+   A stock with 120 past signals keeps its own rate; one with 8 mostly inherits the universe's. This
+   stops a lucky 5-for-5 history from topping the list.
+3. **Filters** out setups less than 2 points above the stock's baseline, setups whose average move is
+   not in the trade's direction, and stocks where bullish and bearish setups with an edge fire together.
+4. **Reads the news** for the survivors and shifts the score by up to ±0.10: headlines agreeing with
+   the trade push it up, disagreeing ones push it down, and strongly contradicting news removes it.
+5. **Checks recency**: the *Last 3y* column repeats the test on recent data only and flags a pick
+   whose edge has faded.
+6. **Ranks** by score and prints the top N as BUY CALL / BUY PUT ideas. See
+   [docs/sample_screen_nifty50.md](../docs/sample_screen_nifty50.md).
+
+If fewer than N stocks qualify, fewer are shown. On quiet days the honest answer can be zero picks.
+
 ## The call / put verdict
 
 `trade` (and the *Options trade* section of `research`) works like this:
@@ -124,8 +152,10 @@ stock_agent/
   news.py       Google News + Yahoo RSS, filing-spam filter, VADER sentiment, themes
   report.py     outlook scoring and markdown report
   options.py    call/put verdict: expiry & strike selection, breakeven odds, Black-Scholes IV
+  screener.py   top-N picks across a universe: shrunk success rate + news tilt + recency check
+  universes.py  built-in Nifty 50 and US mega-cap lists
   llm.py        optional local Ollama narrative
-  __main__.py   CLI (research / trade / rules / news)
+  __main__.py   CLI (screen / research / trade / rules / news)
 tests/          unit tests: python -m unittest discover -s tests
 ```
 

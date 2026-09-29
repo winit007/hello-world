@@ -1,0 +1,215 @@
+"""Screen a universe of stocks and pick the N best setups right now.
+
+For every stock we look for candlestick patterns that completed in the last few bars and ask:
+how often did this exact pattern work on this stock, over the chosen holding period?
+
+Small samples lie, so each stock's own win rate is shrunk toward the same pattern's win rate across
+the whole universe (a Bayesian average with `prior_strength` pseudo-signals):
+
+    success = (wins_on_stock + k * pooled_rate) / (signals_on_stock + k)
+
+A stock with 200 past signals keeps essentially its own rate; one with 8 signals mostly inherits the
+universe's. News sentiment then tilts the score: headlines agreeing with the trade add up to
+`news_weight`, disagreeing headlines subtract it, and strongly contradicting news vetoes the pick.
+"""
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
+
+from .backtest import evaluate_rules, pool_rules
+from .data import DEFAULT_CACHE, load_prices
+from .news import load_news, summarize
+from .patterns import BULLISH, PATTERN_BY_NAME, detect_all
+
+
+@dataclass
+class Pick:
+    ticker: str
+    pattern: str
+    direction: str
+    signal_date: str
+    last_close: float
+    horizon: int
+    n: int                    # signals of this pattern on this stock
+    raw_win_rate: float       # this stock only
+    pooled_win_rate: float    # whole universe
+    success: float            # shrunk estimate
+    baseline: float
+    avg_return: float
+    news_mean: float = 0.0
+    news_count: int = 0
+    news_aligned: float = 0.0     # -1..1, positive = headlines agree with the trade
+    score: float = 0.0
+    trend: str = ""
+    recent_n: int = 0             # signals in the most recent `recent_bars`
+    recent_win_rate: float = float("nan")
+    notes: list[str] = field(default_factory=list)
+
+    @property
+    def side(self) -> str:
+        return "CALL" if self.direction == BULLISH else "PUT"
+
+    @property
+    def edge(self) -> float:
+        return self.success - self.baseline
+
+
+def _trend(close: pd.Series) -> str:
+    s20, s50, last = close.rolling(20).mean().iloc[-1], close.rolling(50).mean().iloc[-1], close.iloc[-1]
+    return "up" if last > s20 > s50 else "down" if last < s20 < s50 else "flat"
+
+
+def load_universe(tickers, period, interval, offline, cache_dir, log=print) -> dict[str, pd.DataFrame]:
+    def one(t):
+        try:
+            df = load_prices(t, period, interval, offline, cache_dir)
+            return t, df if len(df) >= 250 else None
+        except Exception as exc:
+            log(f"[screen] skip {t}: {exc}")
+            return t, None
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        return {t: df for t, df in ex.map(one, tickers) if df is not None}
+
+
+def screen(
+    tickers: list[str],
+    period: str = "10y",
+    interval: str = "1d",
+    horizon: int = 5,
+    lookback: int = 3,
+    top: int = 5,
+    prior_strength: int = 20,
+    min_edge: float = 0.02,
+    news_weight: float = 0.10,
+    offline: bool = False,
+    cache_dir=None,
+    use_context: bool = True,
+    recent_bars: int = 750,
+    log=print,
+) -> tuple[list[Pick], list[Pick], dict]:
+    """Return (top picks, every candidate ranked, stats)."""
+    cache_dir = cache_dir or DEFAULT_CACHE
+    kw = {"cache_dir": cache_dir}
+    prices = load_universe(tickers, period, interval, offline, cache_dir, log)
+    log(f"[screen] {len(prices)}/{len(tickers)} stocks loaded; backtesting {horizon}-bar rules ...")
+
+    rules = {t: evaluate_rules(df, horizons=(horizon,), use_context=use_context) for t, df in prices.items()}
+    pooled = pool_rules(rules).set_index("pattern")
+
+    # ---- candidates: best active setup per stock
+    candidates: list[Pick] = []
+    for t, df in prices.items():
+        signals = detect_all(df, use_context=use_context)
+        recent = signals.tail(lookback)
+        active = {}
+        for date, row in recent.iterrows():           # newest occurrence of each pattern wins
+            for name in row.index[row.to_numpy()]:
+                active[name] = date
+        best = None
+        for name, date in active.items():
+            r = rules[t].set_index("pattern").loc[name]
+            if name not in pooled.index or pooled.loc[name, "n"] < 30:
+                continue
+            p_rate = float(pooled.loc[name, "win_rate"])
+            n, wins = int(r["n"]), int(r["wins"])
+            success = (wins + prior_strength * p_rate) / (n + prior_strength)
+            pick = Pick(
+                ticker=t, pattern=name, direction=PATTERN_BY_NAME[name].direction, signal_date=str(date.date()),
+                last_close=float(df["Close"].iloc[-1]), horizon=horizon, n=n,
+                raw_win_rate=float(r["win_rate"]) if n else float("nan"), pooled_win_rate=p_rate,
+                success=success, baseline=float(r["baseline"]),
+                avg_return=float(r["avg_return"]) if n else float(pooled.loc[name, "avg_return"]),
+                trend=_trend(df["Close"]),
+            )
+            if pick.edge < min_edge or pick.avg_return <= 0:
+                continue
+            if best is None or pick.success > best.success:
+                if best is not None and best.direction != pick.direction:
+                    pick.notes.append(f"conflicting {best.pattern} ({best.direction}) also active")
+                best = pick
+            elif best.direction != pick.direction:
+                best.notes.append(f"conflicting {name} ({pick.direction}) also active")
+        if best and any(n.startswith("conflicting") for n in best.notes):
+            log(f"[screen] {t}: skipped, bullish and bearish setups with an edge are both active")
+            best = None
+        if best:
+            # out-of-sample-ish check: does the setup still work in the most recent years?
+            close = df["Close"].to_numpy()
+            idx = np.flatnonzero(signals[best.pattern].to_numpy())
+            idx = idx[(idx >= len(close) - recent_bars) & (idx + horizon < len(close))]
+            if len(idx):
+                fwd = close[idx + horizon] / close[idx] - 1
+                wins = (fwd > 0) if best.direction == BULLISH else (fwd < 0)
+                best.recent_n, best.recent_win_rate = len(idx), float(wins.mean())
+                if len(idx) >= 5 and best.recent_win_rate < best.baseline:
+                    best.notes.append(f"edge faded: {best.recent_win_rate:.0%} in the last {recent_bars // 250}y")
+            candidates.append(best)
+    log(f"[screen] {len(candidates)} stocks have an active setup with a historical edge; reading news ...")
+
+    # ---- news for candidates only
+    def news(p: Pick):
+        try:
+            s = summarize(load_news(p.ticker, None, offline, **kw))
+        except Exception as exc:
+            log(f"[screen] news failed for {p.ticker}: {exc}")
+            s = {"count": 0, "mean": 0.0}
+        return p, s
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        results = list(ex.map(news, candidates))
+
+    ranked = []
+    for p, s in results:
+        p.news_mean, p.news_count = float(s["mean"]), int(s["count"])
+        sign = 1 if p.direction == BULLISH else -1
+        p.news_aligned = float(np.clip(sign * p.news_mean * 4, -1, 1)) if p.news_count else 0.0
+        p.score = p.success + news_weight * p.news_aligned
+        if p.news_aligned <= -0.6:
+            p.notes.append("news strongly contradicts the setup; excluded")
+            continue
+        if PATTERN_BY_NAME[p.pattern].context is None and (
+            (p.direction == BULLISH and p.trend == "down") or (p.direction != BULLISH and p.trend == "up")
+        ):
+            p.notes.append(f"continuation pattern against the {p.trend}trend")
+        if p.news_aligned <= -0.2:
+            p.notes.append("news leans against the trade")
+        ranked.append(p)
+    ranked.sort(key=lambda p: p.score, reverse=True)
+    stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked)}
+    return ranked[:top], ranked, stats
+
+
+def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon: int, top: int) -> str:
+    as_of = max((p.signal_date for p in ranked), default="")
+    md = [f"# Top {top} setups", "",
+          f"*Signals up to {as_of} · {stats['loaded']} stocks scanned · {stats['candidates']} with an active "
+          f"setup that has a historical edge · holding period {horizon} trading days*", ""]
+    if not picks:
+        md.append("_No stock has an active candlestick setup with a historical edge right now. That is a valid "
+                  "answer: sit out, or widen `--lookback`._")
+        return "\n".join(md)
+    if len(picks) < top:
+        md += [f"Only {len(picks)} stocks qualify today; the rest have no setup with an edge.", ""]
+    md += ["| # | Stock | Trade | Setup | Signal | Success rate | Baseline | Stock history | Last 3y | Universe | Avg move | News | Score |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for i, p in enumerate(picks, 1):
+        own = f"{p.raw_win_rate:.0%} of {p.n}" if p.n else "none"
+        news = f"{p.news_mean:+.2f} ({p.news_count})" if p.news_count else "n/a"
+        recent = f"{p.recent_win_rate:.0%} of {p.recent_n}" if p.recent_n else "none"
+        md.append(f"| {i} | **{p.ticker}** | BUY {p.side} | {p.pattern} | {p.signal_date} | **{p.success:.0%}** | "
+                  f"{p.baseline:.0%} | {own} | {recent} | {p.pooled_win_rate:.0%} | {p.avg_return:+.2%} | {news} | {p.score:.3f} |")
+    md += ["", "Notes:", ""]
+    for p in picks:
+        extra = "; ".join(p.notes) if p.notes else "none"
+        md.append(f"- **{p.ticker}** close {p.last_close:.2f}, trend {p.trend}: {extra}")
+    md += ["", "*Success rate* is the stock's own win rate for this pattern blended with the universe-wide rate "
+           "(small samples lean on the universe). *Last 3y* repeats the test on recent data only, as a check that "
+           "the edge has not faded. *Avg move* is the average gain in the trade's direction. *Score* adds up to ±0.10 for news that agrees or disagrees "
+           "with the trade. Run `python -m stock_agent trade <TICKER>` for the strike, expiry and breakeven check.",
+           "", "_Statistical screen, not investment advice. A 60% setup still loses 4 times in 10._", ""]
+    return "\n".join(md)

@@ -1,6 +1,7 @@
 > **This repository now hosts `stock_agent`, an offline stock research agent.** It backtests candlestick
 > patterns against a stock's own history, ranks the rules by win rate, scores recent news sentiment and
-> turns the outlook into a BUY CALL / BUY PUT / NO TRADE options verdict. See [stock_agent/README.md](stock_agent/README.md) for install and usage, and
+> turns the outlook into a BUY CALL / BUY PUT / NO TRADE options verdict. `python -m stock_agent screen`
+> picks the top 5 stocks by success rate and news sentiment. See [stock_agent/README.md](stock_agent/README.md) for install and usage, and
 > [docs/sample_report_AAPL.md](docs/sample_report_AAPL.md) for an example report.
 
 # Welcome to GitHub

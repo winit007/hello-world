@@ -4,6 +4,8 @@
     python -m stock_agent rules AAPL --period 10y   # only the ranked candlestick rules
     python -m stock_agent news AAPL                 # only headlines + sentiment
     python -m stock_agent trade AAPL TSLA NVDA      # one line each: BUY CALL / BUY PUT / NO TRADE
+    python -m stock_agent screen                    # top 5 Nifty 50 setups by success rate + news
+    python -m stock_agent screen --universe us      # same for US mega caps
     python -m stock_agent research AAPL --offline   # use cached prices/news, no network
 """
 from __future__ import annotations
@@ -12,7 +14,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import llm, options
+from . import llm, options, screener
+from .universes import UNIVERSES
 from .backtest import DEFAULT_HORIZONS, evaluate_rules, pool_rules, rank_rules
 from .data import DEFAULT_CACHE, load_prices
 from .news import load_news, summarize
@@ -83,6 +86,25 @@ def cmd_trade(args) -> int:
     return 0
 
 
+def cmd_screen(args) -> int:
+    tickers = list(args.tickers or [])
+    if args.universe_file:
+        tickers += [l.strip() for l in args.universe_file.read_text().splitlines() if l.strip() and not l.startswith("#")]
+    if not tickers:
+        tickers = UNIVERSES[args.universe]
+    picks, ranked, stats = screener.screen(
+        tickers, args.period, args.interval, args.horizon, args.lookback, args.top, args.prior_strength,
+        args.min_edge, args.news_weight, args.offline, args.cache_dir, not args.no_context,
+    )
+    md = screener.render_markdown(picks, ranked, stats, args.horizon, args.top)
+    print(md)
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(md)
+        print(f"[screen] written to {args.out}")
+    return 0
+
+
 def cmd_research(args) -> int:
     horizons = [int(h) for h in args.horizons.split(",")]
     if args.horizon not in horizons:
@@ -140,6 +162,24 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--min-confidence", type=float, default=0.15)
     tr.add_argument("--lot-size", type=int, help="shares per option lot (US default 100; NSE lots vary per stock)")
     tr.set_defaults(func=cmd_trade)
+
+    sc = sub.add_parser("screen", help="scan a universe and pick the top N setups by success rate + news")
+    sc.add_argument("tickers", nargs="*", help="symbols to scan (default: the --universe list)")
+    sc.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    sc.add_argument("--universe-file", type=Path, help="text file with one symbol per line")
+    sc.add_argument("--period", default="10y")
+    sc.add_argument("--interval", default="1d")
+    sc.add_argument("--horizon", type=int, default=5, help="holding period in bars (default 5)")
+    sc.add_argument("--lookback", type=int, default=3, help="a setup counts if it completed in the last N bars")
+    sc.add_argument("--top", type=int, default=5)
+    sc.add_argument("--prior-strength", type=int, default=20, help="pseudo-signals pulling small samples to the universe rate")
+    sc.add_argument("--min-edge", type=float, default=0.02, help="minimum success rate above baseline")
+    sc.add_argument("--news-weight", type=float, default=0.10, help="max score shift from news sentiment")
+    sc.add_argument("--offline", action="store_true")
+    sc.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    sc.add_argument("--no-context", action="store_true")
+    sc.add_argument("--out", type=Path, help="also write the table to this markdown file")
+    sc.set_defaults(func=cmd_screen)
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")
     _common(ru)
