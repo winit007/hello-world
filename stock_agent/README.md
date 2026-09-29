@@ -3,7 +3,8 @@
 A local agent that pulls a stock's price history and headlines, reads every classic candlestick
 pattern, **backtests each pattern on that stock's own history**, and tells you which rule
 ("pattern X completed → hold N days") has had the best win rate (conversion ratio). It then combines
-the patterns firing right now, the trend and the news sentiment into a short-term outlook.
+the patterns firing right now, the trend and the news sentiment into a short-term outlook and turns
+that into an options verdict: **BUY CALL, BUY PUT or NO TRADE**, with the contract and its historical odds.
 
 Everything runs on your machine. The only network calls are the free Yahoo Finance price feed and
 two public RSS feeds, and both are cached so you can re-run with `--offline` on a plane. The optional
@@ -29,6 +30,9 @@ python -m stock_agent rules AAPL --period 10y --top 15
 
 # find rules that work ACROSS a watchlist (much more trustworthy than one ticker)
 python -m stock_agent rules AAPL MSFT NVDA JPM XOM --period 10y --pooled
+
+# one line per ticker: BUY CALL / BUY PUT / NO TRADE with strike, expiry, premium and odds
+python -m stock_agent trade AAPL TSLA NVDA MSFT --period 10y
 
 # headlines with sentiment and themes
 python -m stock_agent news TSLA --company Tesla
@@ -66,6 +70,37 @@ The outlook score is 60% technical (active patterns weighted by their proven edg
 sentiment (VADER with a finance-tuned lexicon) and 15% trend (close vs SMA20 vs SMA50). Patterns
 with no historical edge on that ticker are shown but not counted.
 
+## The call / put verdict
+
+`trade` (and the *Options trade* section of `research`) works like this:
+
+1. **Direction** comes from the outlook. Neutral bias, or confidence under `--min-confidence`
+   (default 15%), is NO TRADE: buying premium without an edge is a coin flip minus time decay.
+2. **Expiry** is the first listed expiry that still has time value after the holding period ends
+   (`--horizon` bars ≈ calendar days × 7/5, plus a 3-day buffer).
+3. **Strike** is the at-the-money contract with a live price. Premium is the bid/ask mid, or the
+   last trade when the market is closed (a warning says so).
+4. **Reality check.** Breakeven = strike ± premium. The agent looks at every time the same
+   candlestick setup fired on this stock (or every bar, when no counted pattern is active) and
+   measures how often price got past the breakeven within the holding period, and the average
+   P&L per 100-share contract at that point with leftover time value counted as zero. If that
+   average is negative the verdict is downgraded to NO TRADE even when the direction looks right,
+   because the premium is eating the expected move.
+5. **Volatility.** Implied vol is read from the chain, or solved from the price with Black-Scholes
+   when the feed returns zeros after hours, and compared with 20-day realised vol. A rich premium
+   triggers a suggestion to use a debit spread instead.
+
+Example output:
+
+```
+AAPL: BUY CALL 337.5 exp 2026-10-09 @ 6.25 (spot 338.40, breakeven 343.75, needs +1.6%) · hist. P(profit) 40% · avg P&L/contract +34
+MSFT: NO TRADE — bullish bias, but the ATM call needs +2.0% in 5 bars; history cleared that only 30% of the time ... average -205 per contract
+TSLA: NO TRADE — bias neutral with 1% confidence is below the 15% threshold
+```
+
+Option chains come from Yahoo and are cached under `.cache/options/` for offline runs. Listings
+without a chain (many non-US symbols) get a direction-only verdict.
+
 ## Layout
 
 ```
@@ -75,8 +110,9 @@ stock_agent/
   backtest.py   forward-return evaluation, Wilson ranking, cross-ticker pooling
   news.py       Google News + Yahoo RSS, filing-spam filter, VADER sentiment, themes
   report.py     outlook scoring and markdown report
+  options.py    call/put verdict: expiry & strike selection, breakeven odds, Black-Scholes IV
   llm.py        optional local Ollama narrative
-  __main__.py   CLI (research / rules / news)
+  __main__.py   CLI (research / trade / rules / news)
 tests/          unit tests: python -m unittest discover -s tests
 ```
 
@@ -86,4 +122,6 @@ tests/          unit tests: python -m unittest discover -s tests
   samples; prefer the `--pooled` view and rules whose Wilson LB stays above 50%.
 - No transaction costs, slippage or overnight gaps are modelled. Returns are close-to-close.
 - News sentiment is headline-only and lexicon-based; it is a tilt, not an analysis.
+- Options P&L is estimated at the end of the holding period with remaining time value set to zero,
+  and ignores commissions and the bid/ask spread. Long options can and regularly do go to zero.
 - Nothing here is investment advice.

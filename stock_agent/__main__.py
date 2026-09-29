@@ -3,6 +3,7 @@
     python -m stock_agent research AAPL MSFT        # full report per ticker
     python -m stock_agent rules AAPL --period 10y   # only the ranked candlestick rules
     python -m stock_agent news AAPL                 # only headlines + sentiment
+    python -m stock_agent trade AAPL TSLA NVDA      # one line each: BUY CALL / BUY PUT / NO TRADE
     python -m stock_agent research AAPL --offline   # use cached prices/news, no network
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import llm
+from . import llm, options
 from .backtest import DEFAULT_HORIZONS, evaluate_rules, pool_rules, rank_rules
 from .data import DEFAULT_CACHE, load_prices
 from .news import load_news, summarize
@@ -64,6 +65,24 @@ def cmd_news(args) -> int:
     return 0
 
 
+def cmd_trade(args) -> int:
+    """One line per ticker: BUY CALL / BUY PUT / NO TRADE, with the contract and its historical odds."""
+    horizons = [int(h) for h in args.horizons.split(",")]
+    if args.horizon not in horizons:
+        horizons.append(args.horizon)
+    for t in args.tickers:
+        df = load_prices(t, args.period, args.interval, args.offline, args.cache_dir)
+        rules = evaluate_rules(df, horizons=horizons, use_context=not args.no_context)
+        heads = load_news(t, args.company, args.offline, args.cache_dir)
+        outlook = build_outlook(t, df, rules, heads, horizon=args.horizon, lookback=args.lookback, min_samples=args.min_samples)
+        chain = options.load_chain(t, args.offline, args.cache_dir)
+        trade = options.recommend(outlook, df, chain, args.min_confidence)
+        print(trade.one_liner())
+        for w in trade.warnings:
+            print(f"    ! {w}")
+    return 0
+
+
 def cmd_research(args) -> int:
     horizons = [int(h) for h in args.horizons.split(",")]
     if args.horizon not in horizons:
@@ -84,6 +103,11 @@ def cmd_research(args) -> int:
             if narrative is None:
                 print("[research] Ollama not reachable; skipping narrative")
         md = render_markdown(outlook, rules, heads, args.min_samples, narrative, top_n=args.top)
+        if not args.no_options:
+            print(f"[research] {t}: loading option chain ...")
+            chain = options.load_chain(t, args.offline, args.cache_dir)
+            trade = options.recommend(outlook, df, chain, args.min_confidence)
+            md = md.replace("## Best rules", options.render_markdown(trade) + "\n\n## Best rules", 1)
         path = args.out / f"{t.upper()}_{outlook.as_of.date()}.md"
         path.write_text(md)
         print(md)
@@ -102,8 +126,18 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--company", help="company name for the news search (default: ticker)")
     r.add_argument("--llm", action="store_true", help="add a briefing from a local Ollama model if running")
     r.add_argument("--out", type=Path, default=Path("reports"))
+    r.add_argument("--no-options", action="store_true", help="skip the option chain and the call/put verdict")
+    r.add_argument("--min-confidence", type=float, default=0.15, help="outlook confidence needed to recommend a trade")
     r.add_argument("--top", type=int, default=10)
     r.set_defaults(func=cmd_research)
+
+    tr = sub.add_parser("trade", help="just the verdict: BUY CALL / BUY PUT / NO TRADE per ticker")
+    _common(tr)
+    tr.add_argument("--horizon", type=int, default=5)
+    tr.add_argument("--lookback", type=int, default=3)
+    tr.add_argument("--company")
+    tr.add_argument("--min-confidence", type=float, default=0.15)
+    tr.set_defaults(func=cmd_trade)
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")
     _common(ru)

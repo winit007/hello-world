@@ -74,7 +74,7 @@ def build_outlook(
         sigs.append({
             "pattern": name, "date": str(date.date()), "direction": pat.direction, "n": int(r["n"]),
             "win_rate": float(r["win_rate"]), "baseline": float(r["baseline"]), "avg_return": float(r["avg_return"]),
-            "edge": float(r["edge"]),
+            "edge": float(r["edge"]), "counted": weight > 0,
         })
         stats = (f"historically {r['win_rate']:.0%} win rate over {horizon} bars vs "
                  f"{r['baseline']:.0%} baseline, n={int(r['n'])}")

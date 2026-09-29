@@ -9,8 +9,31 @@
 Why:
 
 - Trend: up (close 338.40 above SMA20 330.33 above SMA50 321.84)
-- Bearish Harami (bearish) on 2026-09-28: historically 36% win rate over 5 bars vs 41% baseline, n=77; no edge on this ticker, not counted
+- Bearish Harami (bearish) on 2026-09-28: historically 37% win rate over 5 bars vs 41% baseline, n=76; no edge on this ticker, not counted
 - News: 40 headlines, mean sentiment +0.14 (15 positive / 7 negative)
+
+## Options trade
+
+**AAPL: BUY CALL 337.5 exp 2026-10-09 @ 6.25 (spot 338.40, breakeven 343.75, needs +1.6%) · hist. P(profit) 40% · avg P&L/contract +34**
+
+| | |
+|---|---|
+| Contract evaluated | BUY CALL 337.5 expiring 2026-10-09 |
+| Premium (per share / per contract) | 6.25 / 625 |
+| Breakeven at expiry | 343.75 (+1.58% from spot) |
+| Historical P(beyond breakeven in 5 bars) | 40% (all bars (no counted pattern), n=2507) |
+| Historical avg P&L per contract at day 5 | +34 |
+| Implied vol / 20d realised vol | 24% / 22% |
+| Implied move to expiry (1σ) | ±4.1% |
+
+Reason: bullish bias (22%): Trend: up (close 338.40 above SMA20 330.33 above SMA50 321.84); Bearish Harami (bearish) on 2026-09-28: historically 37% win rate over 5 bars vs 41% baseline, n=76; no edge on this ticker, not counted; News: 40 headlines, mean sentiment +0.14 (15 positive / 7 negative)
+
+Warnings:
+
+- bid/ask unavailable (market closed?); premium is the last trade, re-check live quotes
+- price got past the breakeven only 40% of the time historically
+
+_Options lose value every day you hold them. Risk only the premium you can afford to lose entirely._
 
 ## Best rules for this ticker (highest reliable win rate first)
 
@@ -26,8 +49,8 @@ Only rules with at least 10 historical occurrences are ranked. *Win rate* is the
 | Doji after downtrend | bullish | 3d | 94 | 59.6% | 57.8% | +1.8% | +0.48% | 1.43 | 49.5% |
 | Tweezer Bottom | bullish | 3d | 37 | 64.9% | 57.8% | +7.1% | +1.18% | 3.28 | 48.8% |
 | Three White Soldiers | bullish | 3d | 15 | 73.3% | 57.8% | +15.6% | +1.29% | 7.18 | 48.0% |
+| Bullish Harami | bullish | 5d | 41 | 63.4% | 58.9% | +4.5% | +0.90% | 1.72 | 48.1% |
 | Doji after downtrend | bullish | 5d | 94 | 58.5% | 58.9% | -0.4% | +0.57% | 1.40 | 48.4% |
-| Doji after downtrend | bullish | 10d | 94 | 57.4% | 61.5% | -4.0% | +0.62% | 1.33 | 47.4% |
 
 **Recommended rule:** when a **Three White Soldiers** completes, trade bullish and hold **5 bars**. Historically 80% win rate over 15 signals (+21% vs baseline), average +2.08% per trade.
 
@@ -40,23 +63,23 @@ Only rules with at least 10 historical occurrences are ranked. *Win rate* is the
 | Bullish Marubozu | bullish | 3d | 56 | 66.1% | 57.8% | +8.3% | +0.68% | 2.51 | 53.0% |
 | Doji after downtrend | bullish | 3d | 94 | 59.6% | 57.8% | +1.8% | +0.48% | 1.43 | 49.5% |
 | Tweezer Bottom | bullish | 3d | 37 | 64.9% | 57.8% | +7.1% | +1.18% | 3.28 | 48.8% |
-| Bullish Harami | bullish | 5d | 42 | 61.9% | 58.9% | +3.0% | +0.83% | 1.65 | 46.8% |
+| Bullish Harami | bullish | 5d | 41 | 63.4% | 58.9% | +4.5% | +0.90% | 1.72 | 48.1% |
 | Evening Star | bearish | 1d | 24 | 66.7% | 46.1% | +20.6% | +0.38% | 1.56 | 46.7% |
 | Doji after uptrend | bearish | 1d | 178 | 48.3% | 46.1% | +2.2% | -0.04% | 0.92 | 41.1% |
 | Hammer | bullish | 1d | 27 | 59.3% | 53.7% | +5.6% | +0.08% | 1.10 | 40.7% |
 | Tweezer Top | bearish | 1d | 66 | 51.5% | 46.1% | +5.4% | +0.10% | 1.25 | 39.7% |
 | Dark Cloud Cover | bearish | 3d | 22 | 59.1% | 42.0% | +17.1% | +0.91% | 3.03 | 38.7% |
-| Bearish Harami | bearish | 1d | 77 | 49.4% | 46.1% | +3.3% | -0.15% | 0.72 | 38.5% |
+| Bearish Harami | bearish | 1d | 76 | 48.7% | 46.1% | +2.6% | -0.16% | 0.72 | 37.8% |
 | Inverted Hammer | bullish | 10d | 23 | 56.5% | 61.5% | -4.9% | +0.63% | 1.27 | 36.8% |
-| Bearish Engulfing | bearish | 1d | 60 | 48.3% | 46.1% | +2.3% | -0.17% | 0.77 | 36.2% |
+| Bearish Engulfing | bearish | 1d | 61 | 49.2% | 46.1% | +3.1% | -0.11% | 0.84 | 37.1% |
 | Bullish Engulfing | bullish | 10d | 28 | 50.0% | 61.5% | -11.5% | -0.07% | 0.97 | 32.6% |
-| Hanging Man | bearish | 3d | 39 | 43.6% | 42.0% | +1.6% | -0.61% | 0.44 | 29.3% |
+| Hanging Man | bearish | 3d | 38 | 44.7% | 42.0% | +2.8% | -0.60% | 0.45 | 30.1% |
 | Shooting Star | bearish | 3d | 47 | 38.3% | 42.0% | -3.7% | -0.74% | 0.50 | 25.8% |
 | Bearish Marubozu | bearish | 1d | 20 | 45.0% | 46.1% | -1.1% | -0.97% | 0.27 | 25.8% |
 
 ## Patterns seen in the last bars
 
-- 2026-09-28: **Bearish Harami** (bearish) — 36% win rate (-5% vs baseline), n=77
+- 2026-09-28: **Bearish Harami** (bearish) — 37% win rate (-4% vs baseline), n=76
 
 ## News sentiment
 
