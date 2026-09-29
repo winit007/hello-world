@@ -1,3 +1,8 @@
+> **This repository now hosts `stock_agent`, an offline stock research agent.** It backtests candlestick
+> patterns against a stock's own history, ranks the rules by win rate, scores recent news sentiment and
+> produces an outlook. See [stock_agent/README.md](stock_agent/README.md) for install and usage, and
+> [docs/sample_report_AAPL.md](docs/sample_report_AAPL.md) for an example report.
+
 # Welcome to GitHub
 
 Welcome to GitHub—where millions of developers work together on software. Ready to get started? Let’s learn how this all works by building and publishing your first GitHub Pages website!
