@@ -98,8 +98,21 @@ MSFT: NO TRADE — bullish bias, but the ATM call needs +2.0% in 5 bars; history
 TSLA: NO TRADE — bias neutral with 1% confidence is below the 15% threshold
 ```
 
-Option chains come from Yahoo and are cached under `.cache/options/` for offline runs. Listings
-without a chain (many non-US symbols) get a direction-only verdict.
+Option chains come from Yahoo and are cached under `.cache/options/` for offline runs.
+
+**Indian stocks (NSE/BSE).** Use Yahoo symbols such as `RELIANCE.NS`, `TCS.NS`, `INFY.BO`. Prices and
+news work the same way and the company name is looked up automatically for the news search. Yahoo
+carries no option chains for NSE, so the agent fetches the chain from NSE's own website
+(`nseindia.com/api/option-chain-equities`). NSE requires a browser-style cookie handshake and blocks
+some networks (cloud servers, VPNs); when that happens the verdict is direction-only and a
+`[options] chain fetch failed` line explains why. NSE lot sizes vary by stock and are not in the
+chain, so pass `--lot-size` (for example `--lot-size 500` for RELIANCE) to get P&L per lot instead
+of per share.
+
+```bash
+python -m stock_agent trade RELIANCE.NS TCS.NS --period 10y --lot-size 500
+python -m stock_agent research RELIANCE.NS TCS.NS INFY.NS --period 10y
+```
 
 ## Layout
 

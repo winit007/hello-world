@@ -76,7 +76,7 @@ def cmd_trade(args) -> int:
         heads = load_news(t, args.company, args.offline, args.cache_dir)
         outlook = build_outlook(t, df, rules, heads, horizon=args.horizon, lookback=args.lookback, min_samples=args.min_samples)
         chain = options.load_chain(t, args.offline, args.cache_dir)
-        trade = options.recommend(outlook, df, chain, args.min_confidence)
+        trade = options.recommend(outlook, df, chain, args.min_confidence, args.lot_size)
         print(trade.one_liner())
         for w in trade.warnings:
             print(f"    ! {w}")
@@ -106,7 +106,7 @@ def cmd_research(args) -> int:
         if not args.no_options:
             print(f"[research] {t}: loading option chain ...")
             chain = options.load_chain(t, args.offline, args.cache_dir)
-            trade = options.recommend(outlook, df, chain, args.min_confidence)
+            trade = options.recommend(outlook, df, chain, args.min_confidence, args.lot_size)
             md = md.replace("## Best rules", options.render_markdown(trade) + "\n\n## Best rules", 1)
         path = args.out / f"{t.upper()}_{outlook.as_of.date()}.md"
         path.write_text(md)
@@ -123,11 +123,12 @@ def main(argv: list[str] | None = None) -> int:
     _common(r)
     r.add_argument("--horizon", type=int, default=5, help="holding period used for the outlook")
     r.add_argument("--lookback", type=int, default=3, help="how many recent bars count as a live signal")
-    r.add_argument("--company", help="company name for the news search (default: ticker)")
+    r.add_argument("--company", help="company name for the news search (default: looked up from Yahoo, cached)")
     r.add_argument("--llm", action="store_true", help="add a briefing from a local Ollama model if running")
     r.add_argument("--out", type=Path, default=Path("reports"))
     r.add_argument("--no-options", action="store_true", help="skip the option chain and the call/put verdict")
     r.add_argument("--min-confidence", type=float, default=0.15, help="outlook confidence needed to recommend a trade")
+    r.add_argument("--lot-size", type=int, help="shares per option lot (US default 100; NSE lots vary per stock)")
     r.add_argument("--top", type=int, default=10)
     r.set_defaults(func=cmd_research)
 
@@ -137,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--lookback", type=int, default=3)
     tr.add_argument("--company")
     tr.add_argument("--min-confidence", type=float, default=0.15)
+    tr.add_argument("--lot-size", type=int, help="shares per option lot (US default 100; NSE lots vary per stock)")
     tr.set_defaults(func=cmd_trade)
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")

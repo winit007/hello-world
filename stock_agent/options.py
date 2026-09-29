@@ -19,7 +19,8 @@ from .data import DEFAULT_CACHE
 from .patterns import PATTERN_BY_NAME, detect_all
 
 RISK_FREE = 0.04
-CONTRACT_SIZE = 100
+CONTRACT_SIZE = 100          # US equity options; NSE lots differ per stock, pass --lot-size
+INDIA_SUFFIXES = (".NS", ".BO")
 
 
 # --------------------------------------------------------------------------- pricing helpers
@@ -62,28 +63,74 @@ def _cache_path(cache_dir: Path, ticker: str) -> Path:
     return cache_dir / "options" / f"{ticker.upper()}.json"
 
 
+def _nse_chain(ticker: str, max_expiries: int) -> dict:
+    """NSE publishes the chain as JSON but only after a cookie handshake with its website."""
+    import requests
+
+    symbol = ticker.upper().split(".")[0]
+    sess = requests.Session()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "*/*", "Accept-Language": "en-US,en;q=0.9", "Referer": "https://www.nseindia.com/option-chain",
+    }
+    sess.get("https://www.nseindia.com/option-chain", headers={**headers, "Accept": "text/html,*/*"}, timeout=15)
+    r = sess.get(f"https://www.nseindia.com/api/option-chain-equities?symbol={symbol}", headers=headers, timeout=15)
+    r.raise_for_status()
+    recs = r.json().get("records") or {}
+    if not recs.get("data"):
+        raise RuntimeError("NSE returned an empty chain (cookie handshake refused?)")
+    out = {"spot": recs.get("underlyingValue"), "expiries": {}}
+    for exp in recs["expiryDates"][:max_expiries]:
+        iso = pd.to_datetime(exp, format="%d-%b-%Y").date().isoformat()
+        calls, puts = [], []
+        for row in recs["data"]:
+            if row.get("expiryDate") != exp:
+                continue
+            for side, bucket in (("CE", calls), ("PE", puts)):
+                leg = row.get(side)
+                if leg:
+                    bucket.append({
+                        "strike": float(row["strikePrice"]), "lastPrice": float(leg.get("lastPrice") or 0),
+                        "bid": float(leg.get("bidprice") or 0), "ask": float(leg.get("askPrice") or 0),
+                        "impliedVolatility": float(leg.get("impliedVolatility") or 0) / 100.0,
+                        "openInterest": float(leg.get("openInterest") or 0), "volume": float(leg.get("totalTradedVolume") or 0),
+                    })
+        out["expiries"][iso] = {"calls": calls, "puts": puts}
+    return out
+
+
+def _yahoo_chain(ticker: str, max_expiries: int) -> dict:
+    import yfinance as yf
+
+    tk = yf.Ticker(ticker)
+    expiries = list(tk.options)[:max_expiries]
+    if not expiries:
+        raise RuntimeError("Yahoo lists no option expiries for this symbol")
+    out = {"expiries": {}}
+    keep = ["strike", "lastPrice", "bid", "ask", "impliedVolatility", "openInterest", "volume"]
+    for e in expiries:
+        ch = tk.option_chain(e)
+        out["expiries"][e] = {
+            "calls": ch.calls[keep].fillna(0).to_dict("records"),
+            "puts": ch.puts[keep].fillna(0).to_dict("records"),
+        }
+    return out
+
+
 def load_chain(ticker: str, offline: bool = False, cache_dir: Path = DEFAULT_CACHE, max_expiries: int = 10) -> dict:
-    """{"spot": float, "expiries": {expiry: {"calls": [...], "puts": [...]}}} or {} if unavailable."""
+    """{"spot": float, "expiries": {expiry: {"calls": [...], "puts": [...]}}} or {} if unavailable.
+
+    US and most listings come from Yahoo; .NS/.BO symbols use NSE's own chain endpoint.
+    """
     path = _cache_path(cache_dir, ticker)
     if not offline:
+        provider = _nse_chain if ticker.upper().endswith(INDIA_SUFFIXES) else _yahoo_chain
         try:
-            import yfinance as yf
-
-            tk = yf.Ticker(ticker)
-            expiries = list(tk.options)[:max_expiries]
-            out = {"expiries": {}}
-            keep = ["strike", "lastPrice", "bid", "ask", "impliedVolatility", "openInterest", "volume"]
-            for e in expiries:
-                ch = tk.option_chain(e)
-                out["expiries"][e] = {
-                    "calls": ch.calls[keep].fillna(0).to_dict("records"),
-                    "puts": ch.puts[keep].fillna(0).to_dict("records"),
-                }
-            if out["expiries"]:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(out))
-                return out
-        except Exception as exc:  # no options on this listing, or network trouble
+            out = provider(ticker, max_expiries)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(out))
+            return out
+        except Exception as exc:  # no options on this listing, blocked, or network trouble
             print(f"[options] chain fetch failed for {ticker} ({exc}); trying cache")
     if path.exists():
         return json.loads(path.read_text())
@@ -133,15 +180,21 @@ class OptionTrade:
     hv: float | None = None
     implied_move: float | None = None
     sample: int = 0
+    contract_size: int = CONTRACT_SIZE
     warnings: list[str] = field(default_factory=list)
 
     def one_liner(self) -> str:
         if self.action == "NO TRADE":
             return f"{self.ticker}: NO TRADE — {self.reason}"
+        if self.expiry is None:
+            s = f"{self.ticker}: {self.action} (direction only, no chain) · spot {self.spot:.2f}"
+            if self.prob_profit is not None:
+                s += f" · hist. P(move your way in {self.horizon} bars) {self.prob_profit:.0%}"
+            return s
         s = (f"{self.ticker}: {self.action} {self.strike:g} exp {self.expiry} @ {self.premium:.2f} "
              f"(spot {self.spot:.2f}, breakeven {self.breakeven:.2f}, needs {self.required_move:+.1%})")
         if self.prob_profit is not None:
-            s += f" · hist. P(profit) {self.prob_profit:.0%} · avg P&L/contract {self.exp_pnl_contract:+.0f}"
+            s += f" · hist. P(profit) {self.prob_profit:.0%} · avg P&L/lot {self.exp_pnl_contract:+.0f}"
         return s
 
 
@@ -158,10 +211,16 @@ def forward_returns_for(df: pd.DataFrame, horizon: int, pattern_names: list[str]
     return r, "all bars (no counted pattern)"
 
 
-def recommend(outlook, df: pd.DataFrame, chain: dict, min_confidence: float = 0.15) -> OptionTrade:
+def recommend(outlook, df: pd.DataFrame, chain: dict, min_confidence: float = 0.15,
+              contract_size: int | None = None) -> OptionTrade:
     spot = outlook.last_close
     h = outlook.horizon
     trade = OptionTrade(outlook.ticker, "NO TRADE", "", spot, h, hv=historical_vol(df["Close"]))
+    if contract_size:
+        trade.contract_size = contract_size
+    elif outlook.ticker.upper().endswith(INDIA_SUFFIXES):
+        trade.contract_size = 1
+        trade.warnings.append("NSE lot size not known; P&L shown per share, pass --lot-size to get it per lot")
 
     if outlook.bias == "neutral" or outlook.confidence < min_confidence:
         trade.reason = (f"bias {outlook.bias} with {outlook.confidence:.0%} confidence is below the "
@@ -206,7 +265,7 @@ def recommend(outlook, df: pd.DataFrame, chain: dict, min_confidence: float = 0.
         trade.prob_profit = float((rets < trade.required_move).mean())
         payoff = np.maximum(strike - spot * (1 + rets), 0.0)
     # payoff at the horizon, not at expiry: the leftover time value is treated as zero (conservative)
-    trade.exp_pnl_contract = float((payoff.mean() - prem) * CONTRACT_SIZE)
+    trade.exp_pnl_contract = float((payoff.mean() - prem) * trade.contract_size)
 
     dte = (date.fromisoformat(expiry) - outlook.as_of.date()).days
     t_years = max(dte, 1) / 365
@@ -226,7 +285,7 @@ def recommend(outlook, df: pd.DataFrame, chain: dict, min_confidence: float = 0.
         trade.action = "NO TRADE"
         trade.reason = (f"{outlook.bias} bias, but the ATM {kind} needs {trade.required_move:+.1%} in {h} bars; "
                         f"history cleared that only {trade.prob_profit:.0%} of the time ({trade.prob_basis}) for an "
-                        f"average {trade.exp_pnl_contract:+.0f} per contract. Wait for a cheaper entry or use a spread")
+                        f"average {trade.exp_pnl_contract:+.0f} per lot. Wait for a cheaper entry or use a spread")
     return trade
 
 
@@ -235,10 +294,10 @@ def render_markdown(trade: OptionTrade) -> str:
     if trade.expiry:
         md += ["| | |", "|---|---|",
                f"| Contract evaluated | {'BUY CALL' if trade.breakeven > trade.strike else 'BUY PUT'} {trade.strike:g} expiring {trade.expiry} |",
-               f"| Premium (per share / per contract) | {trade.premium:.2f} / {trade.premium * CONTRACT_SIZE:.0f} |",
+               f"| Premium (per share / per lot of {trade.contract_size}) | {trade.premium:.2f} / {trade.premium * trade.contract_size:.0f} |",
                f"| Breakeven at expiry | {trade.breakeven:.2f} ({trade.required_move:+.2%} from spot) |",
                f"| Historical P(beyond breakeven in {trade.horizon} bars) | {trade.prob_profit:.0%} ({trade.prob_basis}, n={trade.sample}) |",
-               f"| Historical avg P&L per contract at day {trade.horizon} | {trade.exp_pnl_contract:+.0f} |",
+               f"| Historical avg P&L per lot at day {trade.horizon} | {trade.exp_pnl_contract:+.0f} |",
                f"| Implied vol / 20d realised vol | {trade.iv:.0%} / {trade.hv:.0%} |" if trade.iv is not None and not math.isnan(trade.iv) else f"| 20d realised vol | {trade.hv:.0%} |",
                f"| Implied move to expiry (1σ) | ±{trade.implied_move:.1%} |" if trade.implied_move else "| Implied move | n/a |",
                ""]

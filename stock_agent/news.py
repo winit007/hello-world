@@ -69,6 +69,13 @@ def _analyzer():
         "all-time high": 2.0, "lawsuit": -1.5, "probe": -1.0, "recall": -1.5, "buyback": 1.5,
         "outperform": 1.5, "underperform": -1.5, "overweight": 1.0, "underweight": -1.0,
         "guidance cut": -2.0, "raises guidance": 2.0, "layoffs": -1.0,
+        # plain market verbs that VADER treats as neutral
+        "fall": -1.5, "falls": -1.5, "fell": -1.5, "falling": -1.5, "drop": -1.5, "drops": -1.5, "dropped": -1.5,
+        "slide": -1.2, "slides": -1.2, "slips": -1.2, "dip": -1.0, "dips": -1.0, "decline": -1.2, "declines": -1.2,
+        "red": -1.0, "weak": -1.0, "soft": -0.8, "selloff": -1.5, "sell-off": -1.5, "crash": -2.5, "crashes": -2.5,
+        "gain": 1.5, "gains": 1.5, "gained": 1.5, "jump": 1.5, "jumps": 1.5, "jumped": 1.5, "climb": 1.2,
+        "climbs": 1.2, "rise": 1.2, "rises": 1.2, "rose": 1.2, "green": 1.0, "strong": 1.0, "rebound": 1.2,
+        "rebounds": 1.2, "recovery": 1.0, "high": 0.5, "low": -0.5, "buy": 0.8, "sell": -0.8,
     })
     return an
 
@@ -76,6 +83,32 @@ def _analyzer():
 def _themes_for(title: str) -> str:
     t = title.lower()
     return ", ".join(k for k, words in THEMES.items() if any(w in t for w in words))
+
+
+def resolve_company(ticker: str, offline: bool = False, cache_dir: Path = DEFAULT_CACHE) -> str:
+    """Company name for the news search: Yahoo's long name when reachable, else the bare symbol."""
+    path = cache_dir / "names.json"
+    names = json.loads(path.read_text()) if path.exists() else {}
+    key = ticker.upper()
+    if key in names:
+        return names[key]
+    bare = key.split(".")[0]
+    if offline:
+        return bare
+    try:
+        import yfinance as yf
+
+        info = yf.Ticker(ticker).get_info() or {}
+        name = info.get("longName") or info.get("shortName") or bare
+        for suffix in (" Limited", " Ltd", " Ltd.", " Inc.", " Inc", " Corporation", " Corp.", " plc", " PLC"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+    except Exception:
+        name = bare
+    names[key] = name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(names, indent=1))
+    return name
 
 
 def fetch_headlines(ticker: str, company: str | None = None, limit: int = 40) -> list[Headline]:
@@ -129,6 +162,7 @@ def load_news(ticker: str, company: str | None = None, offline: bool = False, ca
     path = _cache_path(cache_dir, ticker)
     if not offline:
         try:
+            company = company or resolve_company(ticker, offline, cache_dir)
             headlines = score(fetch_headlines(ticker, company))
             if headlines:
                 path.parent.mkdir(parents=True, exist_ok=True)
