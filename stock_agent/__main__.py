@@ -14,7 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import llm, options, screener
+from . import llm, options, screener, sizing
 from .universes import UNIVERSES
 from .backtest import DEFAULT_HORIZONS, evaluate_rules, pool_rules, rank_rules
 from .data import DEFAULT_CACHE, load_prices
@@ -81,6 +81,15 @@ def cmd_trade(args) -> int:
         chain = options.load_chain(t, args.offline, args.cache_dir)
         trade = options.recommend(outlook, df, chain, args.min_confidence, args.lot_size)
         print(trade.one_liner())
+        if trade.action != "NO TRADE":
+            counted = [s for s in outlook.signals if s.get("counted")]
+            sig = counted[0] if counted else None
+            plan = sizing.plan_trade(t, df, outlook.bias, args.horizon, sig["pattern"] if sig else None,
+                                     sig["date"] if sig else None, chain, args.capital, args.risk / 100,
+                                     lot_override=args.lot_size, offline=args.offline, cache_dir=args.cache_dir)
+            print("\n".join(plan.lines()))
+            print(f"   (sized for {sizing.money(plan.capital, plan.currency)} capital, {args.risk:g}% risk; "
+                  f"lot size from {plan.lot_source})")
         for w in trade.warnings:
             print(f"    ! {w}")
     return 0
@@ -95,9 +104,14 @@ def cmd_screen(args) -> int:
     picks, ranked, stats = screener.screen(
         tickers, args.period, args.interval, args.horizon, args.lookback, args.top, args.prior_strength,
         args.min_edge, args.news_weight, args.offline, args.cache_dir, not args.no_context,
+        size=not args.no_size, capital=args.capital, risk_pct=args.risk / 100,
     )
     md = screener.render_markdown(picks, ranked, stats, args.horizon, args.top)
-    print(md)
+    if args.brief:
+        name = "custom" if (args.tickers or args.universe_file) else args.universe
+        print(screener.render_brief(picks, stats, args.horizon, args.top, name))
+    else:
+        print(md)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(md)
@@ -160,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--lookback", type=int, default=3)
     tr.add_argument("--company")
     tr.add_argument("--min-confidence", type=float, default=0.15)
-    tr.add_argument("--lot-size", type=int, help="shares per option lot (US default 100; NSE lots vary per stock)")
+    tr.add_argument("--lot-size", type=int, help="override the lot size (default: NSE lot file / 100 for US)")
+    tr.add_argument("--capital", type=float, help="trading capital (default ₹5,00,000 for NSE, $25,000 for US)")
+    tr.add_argument("--risk", type=float, default=2.0, help="percent of capital to risk per trade (default 2)")
     tr.set_defaults(func=cmd_trade)
 
     sc = sub.add_parser("screen", help="scan a universe and pick the top N setups by success rate + news")
@@ -179,6 +195,10 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
     sc.add_argument("--no-context", action="store_true")
     sc.add_argument("--out", type=Path, help="also write the table to this markdown file")
+    sc.add_argument("--brief", action="store_true", help="short plain-text output for notifications")
+    sc.add_argument("--capital", type=float, help="trading capital (default ₹5,00,000 for NSE, $25,000 for US)")
+    sc.add_argument("--risk", type=float, default=2.0, help="percent of capital to risk per trade (default 2)")
+    sc.add_argument("--no-size", action="store_true", help="skip lots / stop-loss / target sizing")
     sc.set_defaults(func=cmd_screen)
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")

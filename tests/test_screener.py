@@ -39,6 +39,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertTrue(lo - 1e-9 <= p.success <= hi + 1e-9)
         md = screener.render_markdown(picks, ranked, stats, 5, 5)
         self.assertIn("Top 5 setups", md)
+        brief = screener.render_brief(picks, stats, 5, 5, "test")
+        self.assertEqual(sum(1 for l in brief.splitlines() if l[:2] in {f"{i}." for i in range(1, 6)}), len(picks))
+        self.assertIn("Sit out", screener.render_brief([], stats, 5, 5))
 
     def test_news_tilts_score(self):
         p = screener.Pick("X", "Hammer", "bullish", "2024-01-01", 1, 5, 10, .6, .55, .58, .5, .01)

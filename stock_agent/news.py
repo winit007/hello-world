@@ -96,8 +96,11 @@ def resolve_company(ticker: str, offline: bool = False, cache_dir: Path = DEFAUL
     if offline:
         return bare
     try:
+        import logging
+
         import yfinance as yf
 
+        logging.getLogger("yfinance").setLevel(logging.CRITICAL)  # its crumb errors are noise here
         info = yf.Ticker(ticker).get_info() or {}
         name = info.get("longName") or info.get("shortName") or bare
         for suffix in (" Limited", " Ltd", " Ltd.", " Inc.", " Inc", " Corporation", " Corp.", " plc", " PLC"):

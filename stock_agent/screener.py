@@ -47,6 +47,7 @@ class Pick:
     trend: str = ""
     recent_n: int = 0             # signals in the most recent `recent_bars`
     recent_win_rate: float = float("nan")
+    plan: object = None           # sizing.TradePlan once sized
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -91,6 +92,9 @@ def screen(
     use_context: bool = True,
     recent_bars: int = 750,
     log=print,
+    size: bool = True,
+    capital: float | None = None,
+    risk_pct: float = 0.02,
 ) -> tuple[list[Pick], list[Pick], dict]:
     """Return (top picks, every candidate ranked, stats)."""
     cache_dir = cache_dir or DEFAULT_CACHE
@@ -180,6 +184,16 @@ def screen(
             p.notes.append("news leans against the trade")
         ranked.append(p)
     ranked.sort(key=lambda p: p.score, reverse=True)
+    if size:
+        from . import options, sizing
+
+        for p in ranked[:top]:
+            try:
+                chain = options.load_chain(p.ticker, offline, cache_dir)
+                p.plan = sizing.plan_trade(p.ticker, prices[p.ticker], p.direction, horizon, p.pattern,
+                                           p.signal_date, chain, capital, risk_pct, offline=offline, cache_dir=cache_dir)
+            except Exception as exc:
+                log(f"[screen] sizing failed for {p.ticker}: {exc}")
     stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked)}
     return ranked[:top], ranked, stats
 
@@ -203,6 +217,19 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
         recent = f"{p.recent_win_rate:.0%} of {p.recent_n}" if p.recent_n else "none"
         md.append(f"| {i} | **{p.ticker}** | BUY {p.side} | {p.pattern} | {p.signal_date} | **{p.success:.0%}** | "
                   f"{p.baseline:.0%} | {own} | {recent} | {p.pooled_win_rate:.0%} | {p.avg_return:+.2%} | {news} | {p.score:.3f} |")
+    sized = [p for p in picks if p.plan is not None]
+    if sized:
+        from .sizing import money
+
+        pl = sized[0].plan
+        md += ["", f"## Orders (sized for {money(pl.capital, pl.currency)} capital, {pl.risk_pct:.0%} risk per trade)", ""]
+        for i, p in enumerate(sized, 1):
+            md.append(f"**{i}. {p.ticker}**  ")
+            md += [l.strip() + "  " for l in p.plan.lines()]
+            md.append(f"Max loss at stop {money(p.plan.max_loss_at_stop, p.plan.currency)} · if premium goes to zero "
+                      f"{money(p.plan.max_loss_total, p.plan.currency)} · premium {p.plan.premium_source} · "
+                      f"lot size from {p.plan.lot_source}")
+            md.append("")
     md += ["", "Notes:", ""]
     for p in picks:
         extra = "; ".join(p.notes) if p.notes else "none"
@@ -213,3 +240,31 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
            "with the trade. Run `python -m stock_agent trade <TICKER>` for the strike, expiry and breakeven check.",
            "", "_Statistical screen, not investment advice. A 60% setup still loses 4 times in 10._", ""]
     return "\n".join(md)
+
+
+def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, universe: str = "") -> str:
+    """Short plain-text version for a phone notification or email."""
+    as_of = max((p.signal_date for p in picks), default="today")
+    head = f"Top {top} {universe} setups · signals to {as_of} · {horizon}-day hold".replace("  ", " ")
+    if not picks:
+        return head + "\nNo stock has an active setup with a historical edge today. Sit out."
+    lines = [head]
+    for i, p in enumerate(picks, 1):
+        recent = f", 3y {p.recent_win_rate:.0%}" if p.recent_n else ""
+        news = f" · news {p.news_mean:+.2f}" if p.news_count else ""
+        lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {p.side} @ {p.last_close:.2f} · {p.pattern} · "
+                     f"{p.success:.0%} success (base {p.baseline:.0%}{recent}){news}")
+        if p.plan is not None:
+            lines += p.plan.lines()
+        for n in p.notes:
+            lines.append(f"   ! {n}")
+    plans = [p.plan for p in picks if p.plan is not None]
+    if plans:
+        pl = plans[0]
+        est = any("estimated" in x.premium_source for x in plans)
+        from .sizing import money
+
+        lines.append(f"Sized for {money(pl.capital, pl.currency)} capital, {pl.risk_pct:.0%} risk per trade."
+                     + (" Premiums are model estimates: check live quotes." if est else ""))
+    lines.append(f"Scanned {stats['loaded']} stocks, {stats['candidates']} with an edge. Not investment advice.")
+    return "\n".join(lines)

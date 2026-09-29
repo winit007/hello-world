@@ -219,8 +219,12 @@ def recommend(outlook, df: pd.DataFrame, chain: dict, min_confidence: float = 0.
     if contract_size:
         trade.contract_size = contract_size
     elif outlook.ticker.upper().endswith(INDIA_SUFFIXES):
-        trade.contract_size = 1
-        trade.warnings.append("NSE lot size not known; P&L shown per share, pass --lot-size to get it per lot")
+        from .lots import lot_size
+
+        lot, _ = lot_size(outlook.ticker)
+        trade.contract_size = lot or 1
+        if not lot:
+            trade.warnings.append("stock is not in NSE F&O; P&L shown per share")
 
     if outlook.bias == "neutral" or outlook.confidence < min_confidence:
         trade.reason = (f"bias {outlook.bias} with {outlook.confidence:.0%} confidence is below the "

@@ -12,9 +12,15 @@ narrative step uses a local model through [Ollama](https://ollama.com); nothing 
 
 ## Install
 
+As an app with its own `stock-agent` command (needs Python 3.10+):
+
 ```bash
-pip install -r requirements.txt
+pip install "git+https://github.com/winit007/hello-world.git@ccr-d382c6bc-vzy6y0"
+stock-agent screen --brief
 ```
+
+Or from a clone: `pip install -r requirements.txt` and use `python -m stock_agent ...`.
+Every `python -m stock_agent` example below also works as `stock-agent`.
 
 ## Use
 
@@ -78,6 +84,7 @@ python -m stock_agent screen --universe us            # US mega caps
 python -m stock_agent screen --horizon 10 --top 10    # longer hold, more picks
 python -m stock_agent screen INFY.NS TCS.NS WIPRO.NS HCLTECH.NS TECHM.NS   # your own list
 python -m stock_agent screen --universe-file mylist.txt --out reports/screen.md
+python -m stock_agent screen --brief                  # 5 short lines, for a phone notification
 ```
 
 For every stock in the universe the screener:
@@ -97,6 +104,37 @@ For every stock in the universe the screener:
    [docs/sample_screen_nifty50.md](../docs/sample_screen_nifty50.md).
 
 If fewer than N stocks qualify, fewer are shown. On quiet days the honest answer can be zero picks.
+
+### Exact orders: lots, stop-loss, targets
+
+Each pick is turned into an order sized to your account (`--capital`, default ₹5,00,000 for NSE or
+$25,000 for US, and `--risk`, default 2% per trade):
+
+```
+1. HINDALCO BUY CALL @ 955.20 · Doji after downtrend · 70% success (base 55%, 3y 81%) · news +0.22
+   BUY 1 lot HINDALCO 27-Oct-2026 960 CE · lot 700 · premium ~₹28.05 · cost ₹19,635
+   STOP: sell if HINDALCO closes below 939.42 (premium ~₹20.05)
+   TARGET: book half at 978.87 (~₹41.15), rest at 994.66 (~₹52.00) · time exit 06-Oct
+```
+
+- **Lot size** comes from NSE's `fo_mktlots.csv` for the contract month (refreshed daily, with a bundled
+  September 2026 snapshot as fallback). US contracts are 100 shares.
+- **Contract**: at-the-money strike, first monthly expiry that outlives the holding period (NSE: last
+  Tuesday of the month). The live option chain is used when reachable.
+- **Stop-loss** on the stock: just beyond the pattern's low (CALL) or high (PUT), padded by a quarter
+  of the 14-day ATR, kept between 0.75 and 2.5 ATR from entry. The matching option premium is shown
+  so you can place the exit on the option itself.
+- **Targets**: 1.5× and 2.5× the stop distance; book half at the first. **Time exit** after the
+  holding period if neither level is hit.
+- **Lots** = risk budget ÷ loss per lot at the stop, capped so premium stays under 25% of capital.
+  "0 lots" means a single lot already risks more than your budget.
+- Without a live chain the premium is a Black-Scholes estimate from recent volatility. Check the live
+  quote before ordering; the stop and target levels on the stock stay valid either way.
+
+```bash
+stock-agent screen --capital 300000 --risk 1.5 --brief
+stock-agent trade HINDALCO.NS --capital 300000
+```
 
 ## The call / put verdict
 
@@ -154,6 +192,8 @@ stock_agent/
   options.py    call/put verdict: expiry & strike selection, breakeven odds, Black-Scholes IV
   screener.py   top-N picks across a universe: shrunk success rate + news tilt + recency check
   universes.py  built-in Nifty 50 and US mega-cap lists
+  sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
+  lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   llm.py        optional local Ollama narrative
   __main__.py   CLI (screen / research / trade / rules / news)
 tests/          unit tests: python -m unittest discover -s tests
