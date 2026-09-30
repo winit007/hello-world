@@ -1,0 +1,267 @@
+# ---------------------------------------------------------------------------
+# Space Planner default configuration.
+# Every rule and default the engine uses lives here. Override any key with a
+# project-level YAML/JSON file or from the web wizard. Lengths may be written
+# as decimal feet (12.5), feet-inches strings ("12'6\"") or metres ("3.8m").
+# Values marked verify: true are regulatory defaults that MUST be confirmed
+# with the local authority before use.
+# ---------------------------------------------------------------------------
+
+units:
+  primary: ft-in
+  kattha_sqft: 1361.25          # Patna region. Editable: varies by district.
+  dhur_per_kattha: 20
+  super_builtup_factor: 1.33    # super built-up = built-up x factor
+  metric_alongside: true
+
+regulatory:
+  source: "Bihar Building Bye-laws 2014 (with amendments) - defaults transcribed for planning use"
+  verify: true
+  authority: "Nagar Nigam"
+  # FAR and ground coverage by abutting road width (metres). Verify with authority.
+  far_by_road_width:
+    - { max_road_m: 6.0,  far: 1.5, coverage_pct: 70, max_height_m: 10 }
+    - { max_road_m: 9.0,  far: 2.0, coverage_pct: 65, max_height_m: 15 }
+    - { max_road_m: 12.0, far: 2.5, coverage_pct: 60, max_height_m: 24 }
+    - { max_road_m: 18.0, far: 3.0, coverage_pct: 50, max_height_m: 36 }
+    - { max_road_m: 999,  far: 3.5, coverage_pct: 50, max_height_m: 60 }
+  purchasable_far: 0.5
+  # Setbacks by plot area (sq m) for buildings up to 10 m high. Metres. Verify.
+  setbacks_by_plot_area_m:
+    - { max_area_sqm: 100,  front: 1.5, rear: 1.0, side1: 0.0, side2: 0.0 }
+    - { max_area_sqm: 200,  front: 1.5, rear: 1.5, side1: 1.0, side2: 0.0 }
+    - { max_area_sqm: 300,  front: 3.0, rear: 1.5, side1: 1.5, side2: 1.5 }
+    - { max_area_sqm: 500,  front: 3.0, rear: 2.0, side1: 1.5, side2: 1.5 }
+    - { max_area_sqm: 1000, front: 4.5, rear: 3.0, side1: 2.5, side2: 2.5 }
+    - { max_area_sqm: 2000, front: 4.5, rear: 3.0, side1: 3.0, side2: 3.0 }
+    - { max_area_sqm: 99999, front: 6.0, rear: 4.5, side1: 4.5, side2: 4.5 }
+  # Minimum setbacks (all sides, metres) driven by building height. Verify.
+  setbacks_by_height_m:
+    - { max_height_m: 10, min_all: 0.0 }
+    - { max_height_m: 15, min_all: 3.0 }
+    - { max_height_m: 18, min_all: 5.0 }
+    - { max_height_m: 21, min_all: 6.0 }
+    - { max_height_m: 24, min_all: 7.0 }
+    - { max_height_m: 27, min_all: 8.0 }
+    - { max_height_m: 30, min_all: 9.0 }
+    - { max_height_m: 35, min_all: 10.0 }
+    - { max_height_m: 40, min_all: 11.0 }
+    - { max_height_m: 999, min_all: 12.0 }
+  corner_plot_second_front: true          # second road side treated as front
+  corner_splay_ft: 5.0                    # visibility splay at road corner (each leg)
+  far_exempt:
+    stilt_parking: true
+    basement_parking: true
+    lift_stair_mumty: true
+    balcony_max_depth_ft: 4.0             # balconies up to this depth exempt
+    shafts: true
+    services_rooms: true
+  parking:
+    ecs_per_1bhk: 0.5
+    ecs_per_2bhk: 1.0
+    ecs_per_3bhk: 1.0
+    ecs_per_4bhk: 2.0
+    ecs_per_duplex: 2.0
+    ecs_per_house: 1.0
+    ecs_per_100sqm_commercial: 2.0
+    car_bay_m: [2.5, 5.0]
+    two_wheeler_bay_m: [1.0, 2.0]
+    ecs_area_sqm: { open: 23, stilt: 28, basement: 32 }
+    driveway_width_m: 3.5
+    ramp_slope_max: 0.125                 # 1 in 8
+    turning_radius_m: 5.5
+  fire:
+    high_rise_trigger_m: 15.0             # above this: second stair, refuge, fire lift, tanks
+    max_travel_distance_m: 30
+    fire_tank_litres_per_flat: 1000
+    refuge_area_every_floors: 7
+  lift:
+    mandatory_above_floors: 4             # G+3 needs no lift; G+4 and above needs one
+    car_sizes_mm:
+      6:  [1100, 1400]
+      8:  [1300, 1500]
+      13: [1600, 2000]
+    shaft_clearance_mm: 200
+    machine_room_less: true
+  stair:
+    min_width_ft: 3.5                     # houses
+    min_width_apartment_ft: 4.0
+    max_riser_in: 7.5
+    min_tread_in: 10
+    floor_to_floor_default_ft: 10
+  circulation:
+    min_corridor_ft: 4.0
+    apartment_corridor_ft: 5.0            # double-loaded corridor between unit rows
+    min_lobby_ft: 6.0
+    lift_lobby_depth_ft: 8.0
+  light_ventilation:
+    habitable_window_area_ratio: 0.10     # window area >= 1/10 floor area
+    toilet_ventilator_min_sqft: 3.0
+    kitchen_window_min_sqft: 9.0
+    min_open_space_light_ft: 3.0          # min clear distance in front of a window
+
+building:
+  floors_default: 1
+  floor_to_floor_ft: 10.0
+  plinth_height_ft: 2.0
+  parapet_height_ft: 3.5
+  stilt_height_ft: 8.5
+  mumty_height_ft: 9.0
+
+construction:
+  wall_material: brick                    # brick | aac
+  external_wall_in: { brick: 9.0, aac: 8.0 }
+  internal_wall_in: { brick: 4.5, aac: 6.0 }
+  shaft_wall_in: 4.5
+  column_size_in:
+    house: [9, 15]
+    apartment: [12, 18]
+    commercial: [12, 18]
+  max_beam_span_ft: 16.0
+  min_column_spacing_ft: 8.0
+  lintel_level_ft: 7.0
+  sill_height_window_ft: 3.0
+  sill_height_ventilator_ft: 6.0
+
+doors:
+  main_entry:  { w: "3'6\"", h: "7'0\"", tag: D1 }
+  bedroom:     { w: "3'0\"", h: "7'0\"", tag: D2 }
+  kitchen:     { w: "3'0\"", h: "7'0\"", tag: D3 }
+  toilet:      { w: "2'6\"", h: "7'0\"", tag: D4 }
+  balcony:     { w: "5'0\"", h: "7'0\"", tag: D5, sliding: true }
+  internal:    { w: "3'0\"", h: "7'0\"", tag: D6 }
+
+windows:
+  bedroom:   { w: "4'0\"", h: "4'0\"", tag: W1 }
+  living:    { w: "6'0\"", h: "4'0\"", tag: W2 }
+  dining:    { w: "4'0\"", h: "4'0\"", tag: W3 }
+  kitchen:   { w: "3'0\"", h: "3'0\"", tag: W4, exhaust: true }
+  study:     { w: "4'0\"", h: "4'0\"", tag: W1 }
+  toilet:    { w: "2'0\"", h: "1'6\"", tag: V1, ventilator: true }
+  default:   { w: "3'0\"", h: "4'0\"", tag: W5 }
+
+# Room programme per unit type. Sizes are minimum clear W x D in feet; target
+# is the preferred area in sq ft used to proportion the layout.
+rooms:
+  defaults:
+    master:   { label: "Master Bedroom", min: [15, 10], target: 165, habitable: true, external_wall: required, attached_toilet: true }
+    bedroom:  { label: "Bedroom",        min: [12, 11], preferred: [13, 11], target: 143, habitable: true, external_wall: required }
+    living:   { label: "Living",         min: [14, 11], target: 200, habitable: true, external_wall: required }
+    dining:   { label: "Dining",         min: [10, 9],  target: 110, habitable: true, external_wall: preferred }
+    kitchen:  { label: "Kitchen",        min: [10, 7],  target: 90,  habitable: true, external_wall: required }
+    utility:  { label: "Utility",        min: [5, 4],   target: 25,  habitable: false, external_wall: preferred }
+    toilet:   { label: "Toilet",         min: [7, 4.5], target: 36,  habitable: false, external_wall: preferred, wet: true }
+    pooja:    { label: "Pooja",          min: [4, 4],   target: 20,  habitable: false }
+    study:    { label: "Study",          min: [9, 8],   target: 80,  habitable: true, external_wall: required }
+    guest:    { label: "Guest Bedroom",  min: [12, 10], target: 130, habitable: true, external_wall: required }
+    servant:  { label: "Servant Room",   min: [8, 7],   target: 60,  habitable: true, external_wall: required }
+    store:    { label: "Store",          min: [5, 4],   target: 25,  habitable: false }
+    passage:  { label: "Passage",        min: [4, 4],   target: 40,  habitable: false, circulation: true }
+    foyer:    { label: "Foyer",          min: [5, 4],   target: 30,  habitable: false, circulation: true }
+    balcony:  { label: "Balcony",        min: [6, 4],   target: 32,  habitable: false, external_wall: required, balcony: true }
+    dress:    { label: "Dress",          min: [5, 4],   target: 24,  habitable: false }
+    stair:    { label: "Staircase",      min: [8, 10],  target: 90,  habitable: false }
+    shop:     { label: "Shop",           min: [10, 15], target: 200, habitable: true, external_wall: required }
+    office:   { label: "Office",         min: [12, 12], target: 200, habitable: true, external_wall: required }
+  unit_programmes:
+    1bhk:   { rooms: [living, kitchen, bedroom, toilet, balcony], carpet: [380, 480] }
+    2bhk:   { rooms: [living, dining, kitchen, master, toilet, bedroom, toilet, balcony], carpet: [650, 850] }
+    3bhk:   { rooms: [living, dining, kitchen, utility, master, toilet, bedroom, toilet, bedroom, pooja, balcony], carpet: [950, 1250] }
+    4bhk:   { rooms: [living, dining, kitchen, utility, master, toilet, bedroom, toilet, bedroom, toilet, bedroom, pooja, study, balcony], carpet: [1400, 1800] }
+    duplex: { rooms: [living, dining, kitchen, utility, master, toilet, bedroom, toilet, bedroom, pooja, study, balcony], carpet: [1600, 2200] }
+    house:  { rooms: [foyer, living, dining, kitchen, utility, master, toilet, bedroom, toilet, pooja, store, stair], carpet: [900, 1600] }
+    house_upper: { rooms: [living, master, toilet, bedroom, toilet, study, balcony, stair], carpet: [800, 1400] }
+    shop:   { rooms: [shop], carpet: [150, 400] }
+    office: { rooms: [office, toilet, toilet], carpet: [600, 3000] }
+  # Hard adjacency rules: violating one rejects the candidate.
+  hard_rules:
+    kitchen_toilet_no_shared_wall: true
+    toilet_door_not_into_kitchen_or_dining: true
+    habitable_touches_external_wall: true
+    kitchen_external_wall: true
+    every_room_reachable_from_circulation: true
+  # Soft adjacency preferences with weights used in scoring.
+  soft_adjacency:
+    - { a: kitchen, b: dining,  weight: 3 }
+    - { a: dining,  b: living,  weight: 3 }
+    - { a: utility, b: kitchen, weight: 2 }
+    - { a: master,  b: balcony, weight: 2 }
+    - { a: foyer,   b: living,  weight: 3 }
+    - { a: living,  b: balcony, weight: 1 }
+    - { a: pooja,   b: living,  weight: 1 }
+  aspect_ratio_preferred_max: 1.5
+  aspect_ratio_hard_max: 2.2              # bedrooms, kitchen, toilets, study
+  aspect_ratio_hard_max_living: 3.0       # living / dining (often combined) and shops
+
+services:
+  lift_lobby_min_ft: [6, 8]
+  stair_apartment_ft: [9, 16]             # dog-leg stair well, clear
+  plumbing_shaft_ft: [2, 4]
+  meter_room_sqft: 60
+  dg_room_sqft_per_kva: 0.6
+  dg_room_min_sqft: 80
+  transformer_yard_ft: [12, 12]
+  transformer_clearance_ft: 10
+  fire_pump_room_sqft: 150
+  ug_tank_litres_per_person: 135
+  ug_tank_days: 2
+  persons_per_flat: 4.5
+  oht_fraction_of_daily: 0.5
+  septic_tank_sqft_per_10_users: 40
+  stp_sqft_per_flat: 6
+  rwh_pit_ft: [6, 6]
+  guard_room_ft: [8, 8]
+  garbage_room_ft: [6, 8]
+  society_office_sqft: 120
+  driver_toilet_ft: [4, 6]
+
+vastu:
+  strictness_default: preferred           # strict | preferred | ignore
+  # zone codes: N NE E SE S SW W NW C. Each rule can be overridden per project.
+  rules:
+    main_entry:      { good: [N, E, NE], bad: [SW], weight: 10 }
+    kitchen:         { good: [SE], alt: [NW], bad: [NE, SW, C], weight: 9 }
+    master:          { good: [SW], alt: [S, W], bad: [NE, C], weight: 8 }
+    bedroom:         { good: [W, NW, S], alt: [SW], bad: [NE, C], weight: 5 }
+    pooja:           { good: [NE], alt: [E, N], bad: [S, SW, SE], weight: 7 }
+    living:          { good: [N, E, NE], alt: [NW, C], bad: [SW], weight: 5 }
+    toilet:          { good: [W, NW], alt: [S, SE], bad: [NE, C], weight: 8 }
+    stair:           { good: [S, W, SW], alt: [SE, NW], bad: [NE, C], weight: 6 }
+    brahmasthan_open:{ weight: 7 }        # centre free of toilet, column, stair
+    ug_tank:         { good: [NE], alt: [N, E], bad: [SW, SE], weight: 4 }
+    oht:             { good: [SW], alt: [W, S], bad: [NE], weight: 3 }
+    dg_electrical:   { good: [SE], alt: [S, E], bad: [NE, SW], weight: 4 }
+    septic_stp:      { good: [NW], alt: [W], bad: [NE, SE, SW], weight: 4 }
+    mass_south_west: { weight: 3 }        # heavier mass S/W, more open N/E
+  cook_facing: E
+
+scoring:
+  goals:
+    max_carpet: { carpet_efficiency: 40, vastu: 5,  room_quality: 15, light: 15, circulation: 15, structure: 10 }
+    vastu:      { carpet_efficiency: 10, vastu: 45, room_quality: 15, light: 10, circulation: 10, structure: 10 }
+    balanced:   { carpet_efficiency: 20, vastu: 20, room_quality: 20, light: 15, circulation: 15, structure: 10 }
+    max_units:  { carpet_efficiency: 35, vastu: 5,  room_quality: 10, light: 15, circulation: 20, structure: 15 }
+    premium:    { carpet_efficiency: 10, vastu: 15, room_quality: 30, light: 25, circulation: 10, structure: 10 }
+  efficiency_target: 0.75
+  candidates_per_option: 150              # feasible layouts collected per unit before ranking
+  max_tree_attempts: 6000                 # random trees tried per relaxation step
+  options_returned: 4
+  random_seed: 7
+
+export:
+  dxf_units: inches                        # inches | feet | mm
+  layers:
+    WALLS:   { color: 7 }
+    DOORS:   { color: 3 }
+    WINDOWS: { color: 4 }
+    TEXT:    { color: 2 }
+    DIMS:    { color: 1 }
+    GRID:    { color: 8 }
+    COLUMNS: { color: 6 }
+    SETBACK: { color: 5, linetype: DASHED }
+    PLOT:    { color: 7 }
+    SERVICES: { color: 30 }
+    PARKING: { color: 9 }
+    SHAFT:   { color: 4 }
+  text_height_in: 6
+  dim_text_height_in: 4

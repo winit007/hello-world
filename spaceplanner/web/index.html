@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Planner</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div><h1>Space Planner</h1><span class="sub">Bihar residential · commercial · mixed-use · ft-in with metric</span></div>
+  <nav id="steps"></nav>
+</header>
+
+<main>
+  <section id="wizard" class="card">
+    <form id="brief-form" onsubmit="return false;">
+      <div class="step" data-step="A">
+        <h2>A. Project</h2>
+        <div class="grid">
+          <label>Type<select name="project.type"><option value="house">Independent house</option><option value="apartment">Apartment</option><option value="commercial">Commercial</option><option value="mixed">Mixed-use (shops + flats)</option></select></label>
+          <label>Optimisation goal<select name="project.goal"><option value="balanced">Balanced</option><option value="max_carpet">Max carpet</option><option value="vastu">Vastu first</option><option value="max_units">Max units</option><option value="premium">Premium</option></select></label>
+          <label>Vastu strictness<select name="project.vastu"><option value="preferred">Preferred</option><option value="strict">Strict</option><option value="ignore">Ignore</option></select></label>
+          <label>Options to generate<input name="n_options" type="number" min="1" max="6" value="4"></label>
+        </div>
+        <details><summary>Custom goal weights (sum to 100) and per-rule Vastu overrides</summary>
+          <div class="grid">
+            <label>Carpet efficiency<input name="w.carpet_efficiency" type="number" placeholder="e.g. 30"></label>
+            <label>Vastu<input name="w.vastu" type="number"></label>
+            <label>Room quality<input name="w.room_quality" type="number"></label>
+            <label>Light<input name="w.light" type="number"></label>
+            <label>Circulation<input name="w.circulation" type="number"></label>
+            <label>Structure<input name="w.structure" type="number"></label>
+          </div>
+          <div class="grid" id="vastu-overrides"></div>
+        </details>
+      </div>
+
+      <div class="step" data-step="B">
+        <h2>B. Site</h2>
+        <div class="grid">
+          <label>Boundary<select name="site.mode" id="site-mode"><option value="rect">Rectangle (L x B)</option><option value="area">Area only (kattha / sq ft)</option><option value="poly">Polygon vertices</option></select></label>
+          <label class="rect-only">Frontage / length (ft)<input name="site.length" value="40"></label>
+          <label class="rect-only">Depth / breadth (ft)<input name="site.breadth" value="60"></label>
+          <label class="area-only">Kattha<input name="site.kattha" type="number" step="0.01"></label>
+          <label class="area-only">Dhur<input name="site.dhur" type="number" step="0.01"></label>
+          <label class="area-only">Area (sq ft)<input name="site.area_sqft" type="number"></label>
+          <label class="area-only">Depth : frontage ratio<input name="site.aspect" type="number" step="0.1" value="1.5"></label>
+          <label class="poly-only wide">Vertices (x,y ft per line, counter-clockwise)<textarea name="site.vertices" rows="4" placeholder="0,0&#10;40,0&#10;42,60&#10;0,58"></textarea></label>
+          <label>True north: degrees clockwise from the plan's up<input name="site.north_deg" type="number" value="0" step="1"></label>
+          <label>1 kattha (sq ft, editable)<input name="config.units.kattha_sqft" type="number" value="1361.25" step="0.01"></label>
+          <label>Corner plot<select name="site.corner"><option value="false">No</option><option value="true">Yes</option></select></label>
+        </div>
+        <h3>Roads (side of the drawn plot)</h3>
+        <div class="grid">
+          <label>Road 1 side<select name="site.road1.side"><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label>Road 1 width (m)<input name="site.road1.width_m" type="number" value="9" step="0.5"></label>
+          <label>Road 2 side<select name="site.road2.side"><option value="">None</option><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label>Road 2 width (m)<input name="site.road2.width_m" type="number" value="6" step="0.5"></label>
+          <label>Main entry side<select name="site.entry_side"><option value="">Auto (main road)</option><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label>Vehicle entry side<select name="site.vehicle_entry_side"><option value="">Auto</option><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label>Ground above road (ft)<input name="site.ground_vs_road" value="1"></label>
+        </div>
+        <h3>Adjoining (non-road sides)</h3>
+        <div class="grid">
+          <label>Top<select name="site.adj.top"><option>open plot</option><option>building</option><option>drain</option></select></label>
+          <label>Left<select name="site.adj.left"><option>open plot</option><option>building</option><option>drain</option></select></label>
+          <label>Right<select name="site.adj.right"><option>open plot</option><option>building</option><option>drain</option></select></label>
+          <label>Bottom<select name="site.adj.bottom"><option>open plot</option><option>building</option><option>drain</option></select></label>
+          <label class="wide">Obstacles to avoid (name,x,y,radius ft per line)<textarea name="site.obstacles" rows="2" placeholder="tree,5,30,4"></textarea></label>
+        </div>
+      </div>
+
+      <div class="step" data-step="C">
+        <h2>C. Regulatory <span class="tag warn">defaults from Bihar Building Bye-laws · verify with authority</span></h2>
+        <div class="grid">
+          <label>Authority<input name="regulatory.authority" value="Nagar Nigam"></label>
+          <label>Permissible FAR (blank = table)<input name="regulatory.far" type="number" step="0.1"></label>
+          <label>Max ground coverage % (blank = table)<input name="regulatory.coverage_pct" type="number"></label>
+          <label>Max floors<input name="regulatory.max_floors" type="number"></label>
+          <label>Setback override front (ft)<input name="regulatory.setbacks.front"></label>
+          <label>Setback override rear (ft)<input name="regulatory.setbacks.rear"></label>
+          <label>Setback override side1 (ft)<input name="regulatory.setbacks.side1"></label>
+          <label>Setback override side2 (ft)<input name="regulatory.setbacks.side2"></label>
+          <label>Window area / floor area<input name="config.regulatory.light_ventilation.habitable_window_area_ratio" type="number" step="0.01" value="0.10"></label>
+          <label>Max beam span (ft)<input name="config.construction.max_beam_span_ft" type="number" value="16"></label>
+          <label>Lift mandatory above floors<input name="config.regulatory.lift.mandatory_above_floors" type="number" value="4"></label>
+          <label>Fire high-rise trigger (m)<input name="config.regulatory.fire.high_rise_trigger_m" type="number" value="15"></label>
+        </div>
+      </div>
+
+      <div class="step" data-step="D">
+        <h2>D. Building programme</h2>
+        <div class="grid">
+          <label>Floors (excluding stilt)<input name="programme.floors" type="number" value="2" min="1"></label>
+          <label>Stilt parking<select name="programme.stilt"><option value="false">No</option><option value="true">Yes</option></select></label>
+          <label>Floor-to-floor<input name="programme.floor_to_floor" value="10'0&quot;"></label>
+          <label>Flats per floor limit<input name="programme.flats_per_floor" type="number" placeholder="auto"></label>
+          <label>Lifts per core<input name="programme.lifts_per_core" type="number" value="1"></label>
+          <label>Force lift<select name="programme.lift"><option value="false">By rule</option><option value="true">Yes</option></select></label>
+        </div>
+        <h3>Unit mix per floor (apartments / mixed)</h3>
+        <div class="grid" id="unit-mix"></div>
+        <h3>Commercial</h3>
+        <div class="grid">
+          <label>Shop count (blank = by frontage)<input name="commercial.shop_count" type="number"></label>
+          <label>Shop frontage (ft)<input name="commercial.shop_frontage" value="12"></label>
+          <label>Shop depth (ft)<input name="commercial.shop_depth" value="30"></label>
+        </div>
+        <h3>House</h3>
+        <div class="grid">
+          <label>Household size<input name="programme.household_size" type="number" value="4"></label>
+          <label>Elderly (ground-floor bedroom)<select name="programme.elderly"><option value="false">No</option><option value="true">Yes</option></select></label>
+          <label>Home office / study<select name="rooms.options.study"><option value="">Default</option><option value="true">Yes</option><option value="false">No</option></select></label>
+        </div>
+      </div>
+
+      <div class="step" data-step="E">
+        <h2>E. Room requirements</h2>
+        <div class="grid">
+          <label>Pooja<select name="rooms.options.pooja"><option value="">Default</option><option value="true">Yes</option><option value="false">No</option></select></label>
+          <label>Store<select name="rooms.options.store"><option value="">Default</option><option value="true">Yes</option><option value="false">No</option></select></label>
+          <label>Guest bedroom<select name="rooms.options.guest"><option value="">Default</option><option value="true">Yes</option></select></label>
+          <label>Servant room<select name="rooms.options.servant"><option value="">Default</option><option value="true">Yes</option></select></label>
+          <label>Dress / wardrobe<select name="rooms.options.dress"><option value="">Default</option><option value="true">Yes</option></select></label>
+        </div>
+        <h3>Minimum room sizes (W x D ft, editable)</h3>
+        <div class="grid" id="room-mins"></div>
+        <p class="hint">Hard rules always applied: kitchen and toilet never share a wall; toilet doors never open into kitchen or dining; every habitable room and the kitchen touch an external wall.</p>
+      </div>
+
+      <div class="step" data-step="F">
+        <h2>F. Construction</h2>
+        <div class="grid">
+          <label>Wall material<select name="config.construction.wall_material"><option value="brick">Brick 9" / 4.5"</option><option value="aac">AAC block 8" / 6"</option></select></label>
+          <label>Column (house) in<input name="config.construction.column_size_in.house" value="9x15"></label>
+          <label>Column (apartment) in<input name="config.construction.column_size_in.apartment" value="12x18"></label>
+          <label>Main door<input name="config.doors.main_entry.w" value="3'6&quot;"></label>
+          <label>Bedroom door<input name="config.doors.bedroom.w" value="3'0&quot;"></label>
+          <label>Toilet door<input name="config.doors.toilet.w" value="2'6&quot;"></label>
+          <label>Bedroom window W x H<input name="win.bedroom" value="4'0&quot; x 4'0&quot;"></label>
+          <label>Living window W x H<input name="win.living" value="6'0&quot; x 4'0&quot;"></label>
+          <label>Kitchen window W x H<input name="win.kitchen" value="3'0&quot; x 3'0&quot;"></label>
+          <label>Toilet ventilator W x H<input name="win.toilet" value="2'0&quot; x 1'6&quot;"></label>
+          <label>Window sill (ft)<input name="config.construction.sill_height_window_ft" value="3"></label>
+          <label>Lintel (ft)<input name="config.construction.lintel_level_ft" value="7"></label>
+        </div>
+      </div>
+
+      <div class="step" data-step="G">
+        <h2>G. Services and common areas</h2>
+        <div class="grid" id="services"></div>
+        <div class="grid">
+          <label>DG set kVA<input name="services_brief.dg_kva" type="number" placeholder="auto"></label>
+          <label>Super built-up factor<input name="config.units.super_builtup_factor" type="number" step="0.01" value="1.33"></label>
+        </div>
+      </div>
+    </form>
+    <div class="actions">
+      <button type="button" id="prev">Back</button>
+      <button type="button" id="next">Next</button>
+      <button type="button" id="generate" class="primary">Generate options</button>
+      <button type="button" id="load-house">Sample: 40x60 east-facing house</button>
+      <button type="button" id="load-apt">Sample: 10 kattha corner apartments</button>
+    </div>
+    <div id="status" class="status"></div>
+  </section>
+
+  <section id="compare" class="card hidden">
+    <h2>Options <button type="button" id="back-to-wizard" class="link">edit brief</button></h2>
+    <div id="global-warnings" class="warnings"></div>
+    <div id="option-cards" class="cards"></div>
+  </section>
+
+  <section id="detail" class="card hidden">
+    <div class="detail-head">
+      <h2 id="detail-title">Option</h2>
+      <div class="tabs" id="floor-tabs"></div>
+      <div class="exports" id="exports"></div>
+    </div>
+    <div class="detail-body">
+      <div class="plan-wrap">
+        <div class="toolbar">
+          <label class="check"><input type="checkbox" id="show-grid" checked> column grid</label>
+          <label class="check"><input type="checkbox" id="show-zones" checked> Vastu zones</label>
+          <label class="check"><input type="checkbox" id="show-openings" checked> doors & windows</label>
+          <span class="hint">Drag an internal wall to resize rooms · click two rooms to swap them · scores update live.</span>
+          <span id="edit-status"></span>
+        </div>
+        <div id="plan"></div>
+      </div>
+      <aside class="side">
+        <div id="side-scores"></div>
+        <details open><summary>Area statement</summary><div id="side-areas"></div></details>
+        <details><summary>Rooms</summary><div id="side-rooms"></div></details>
+        <details><summary>Vastu report</summary><div id="side-vastu"></div></details>
+        <details><summary>Door / window schedule</summary><div id="side-schedule"></div></details>
+        <details open><summary>Warnings & verify</summary><div id="side-warnings"></div></details>
+      </aside>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

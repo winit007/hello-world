@@ -1,0 +1,16 @@
+{
+  "project": {"type": "house", "goal": "vastu", "vastu": "preferred"},
+  "site": {
+    "length": 40, "breadth": 60,
+    "north_deg": 90,
+    "roads": [{"side": "bottom", "width_m": 9}],
+    "corner": false,
+    "entry_side": "bottom", "vehicle_entry_side": "bottom",
+    "adjoining": [{"side": "top", "type": "building"}, {"side": "left", "type": "open plot"}, {"side": "right", "type": "building"}],
+    "ground_vs_road": "1'6\""
+  },
+  "regulatory": {"authority": "Patna Nagar Nigam"},
+  "programme": {"floors": 2, "floor_to_floor": "10'0\"", "household_size": 5, "elderly": true},
+  "rooms": {"options": {"pooja": true, "store": true}},
+  "_comment": "40 ft x 60 ft plot facing east (road on the east). north_deg=90 means true north is to the plan's left when the road is drawn at the bottom."
+}

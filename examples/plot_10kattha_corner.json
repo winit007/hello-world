@@ -1,0 +1,19 @@
+{
+  "project": {"type": "apartment", "goal": "balanced", "vastu": "preferred"},
+  "site": {
+    "kattha": 10, "aspect": 1.4,
+    "north_deg": 0,
+    "corner": true,
+    "roads": [{"side": "bottom", "width_m": 12}, {"side": "right", "width_m": 9}],
+    "entry_side": "bottom", "vehicle_entry_side": "right",
+    "adjoining": [{"side": "top", "type": "open plot"}, {"side": "left", "type": "building"}]
+  },
+  "regulatory": {"authority": "Patna Nagar Nigam"},
+  "programme": {
+    "floors": 5, "stilt": true, "floor_to_floor": "10'0\"",
+    "unit_mix": {"2bhk": 2, "3bhk": 2},
+    "flats_per_floor": 4, "lifts_per_core": 1
+  },
+  "services": ["ug_tank", "oht", "dg_set", "meter_room", "guard_room", "garbage_room", "septic_tank", "rwh_pit", "society_office"],
+  "_comment": "10 kattha (13,612 sq ft) corner plot, roads on the south (12 m) and east (9 m), stilt + 5 residential floors."
+}

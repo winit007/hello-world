@@ -147,3 +147,52 @@ The `planner/` folder holds a browser-based apartment floor-plan maker with a bu
 - Add rooms from the palette, drag them into place, resize from the corner handle, and click a wall to add a window.
 - Circular gauges show Vaastu, ventilation, layout and overall compliance as percentages, with every rule listed as pass, warn or fail.
 - Plans save in the browser automatically and can be exported or imported as JSON.
+
+## Space Planner (Python) - site, house, apartment and commercial layouts
+
+`spaceplanner/` is an architectural space planner for Indian (Bihar-first) plots. It takes a plot and a brief, generates
+ranked layout options, scores them and exports drawings and area statements. Units are feet-inches with metric alongside;
+plot area is also reported in kattha/dhur (1 kattha = 1361.25 sq ft by default, editable).
+
+### Install and run
+
+```bash
+pip install -r requirements.txt
+python -m spaceplanner serve --port 8000        # web wizard at http://127.0.0.1:8000/
+python -m spaceplanner generate examples/plot_40x60_east.json -o out/house -n 4
+python -m spaceplanner generate examples/plot_10kattha_corner.json -o out/apt -n 4
+python -m pytest -q tests
+```
+
+Each option folder gets `plan.dxf` (layers WALLS, DOORS, WINDOWS, TEXT, DIMS, GRID, COLUMNS, SETBACK, PLOT, SERVICES, PARKING,
+SHAFT; inches, AutoCAD 2010), one SVG per floor, `site.svg`, `report.md` / `report.html` (area statement with RERA carpet,
+built-up, super built-up, FAR and coverage, parking ECS, door and window schedule, Vastu report, warnings), `columns.csv`
+(grid coordinates for STAAD) and `option.json`.
+
+### How it works
+
+1. **Site and regulation** (`site.py`): plot from L x B, area/kattha or polygon vertices; north angle; roads per edge; corner
+   splay; setbacks looked up by plot area and building height with per-edge overrides; FAR, coverage and height by road width.
+   Every regulatory default is flagged "verify with authority".
+2. **Unit layout** (`layout.py`): rooms are packed into bands parallel to the entry side with a passage strip when rooms lie
+   beyond the living/dining band; bedrooms keep their attached toilets, two bedrooms may share a toilet column, kitchens keep
+   their utility. Hard rules reject a candidate (kitchen never shares a wall with a toilet, toilet doors never open into
+   kitchen or dining, habitable rooms and the kitchen touch an external wall, every room is reachable, minimum sizes).
+   Survivors are scored on carpet efficiency, Vastu, room proportion, light, circulation and structural regularity with
+   goal-specific weights (max carpet, Vastu, balanced, max units, premium, or custom).
+3. **Building** (`apartment.py`): lift + stair + lobby core, double-loaded corridor, unit division by the unit mix, mirrored
+   flats, plumbing shafts, stilt parking, shops and office floors for commercial and mixed-use; house ground and upper
+   floors with a stacked staircase.
+4. **Vastu** (`vastu.py`): 3 x 3 zones from the true-north angle at building and unit level; each rule is Strict, Preferred
+   or Ignore with a weight. Hard constraints always win; conflicts are reported.
+5. **Structure, openings, site plan, exports** (`structure.py`, `openings.py`, `siteplan.py`, `exporters/`): one column grid
+   for the whole building snapped to walls, doors kept clear of columns, windows sized by the 1/10 floor-area rule, parking
+   bays, driveway, gate and services placed by Vastu zone in the setbacks.
+
+All rules and defaults live in `spaceplanner/config/defaults.yaml` (room minimums, unit programmes, bye-law tables, parking,
+fire and lift triggers, wall and column sizes, door/window schedule, Vastu rules, scoring weights, DXF layers). Override any
+key per project through the `config` block of a brief.
+
+In the web UI: fill the wizard (A Project, B Site, C Regulatory, D Programme, E Rooms, F Construction, G Services), generate,
+compare the options side by side, open one, then drag internal walls or click two rooms to swap them; scores, areas and
+checks update live before export.
