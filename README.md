@@ -138,3 +138,12 @@ Want to add even more code and fun styles to your GitHub Pages website? [Follow 
 ## Everything you need to know about GitHub
 
 Getting started is the hardest part. If there’s anything you’d like to know as you get started with GitHub, try searching [GitHub Help](https://help.github.com). Our documentation has tutorials on everything from changing your repository settings to configuring GitHub from your command line.
+
+## Apartment Plan Maker
+
+The `planner/` folder holds a browser-based apartment floor-plan maker with a built-in compliance checker. Open `planner/index.html` (or `/planner/` on the published GitHub Pages site).
+
+- Set the plot size, which side faces North, and which sides are open to outside air.
+- Add rooms from the palette, drag them into place, resize from the corner handle, and click a wall to add a window.
+- Circular gauges show Vaastu, ventilation, layout and overall compliance as percentages, with every rule listed as pass, warn or fail.
+- Plans save in the browser automatically and can be exported or imported as JSON.

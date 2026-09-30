@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apartment Plan Maker</title>
+  <meta name="description" content="Draw an apartment floor plan and check it for Vaastu, ventilation and layout compliance.">
+  <link rel="stylesheet" href="planner.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Apartment Plan Maker</h1>
+      <p class="tagline">Lay out a flat and get live Vaastu, ventilation and layout compliance scores.</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="btn-sample" type="button">Load sample 3BHK</button>
+      <button id="btn-clear" type="button">New empty plan</button>
+      <button id="btn-export" type="button">Export JSON</button>
+      <label class="btn file-btn">Import JSON<input type="file" id="file-import" accept="application/json,.json" hidden></label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel panel-left">
+      <section>
+        <h2>Plot</h2>
+        <div class="field-row">
+          <label>Width (ft)<input id="plot-w" type="number" min="8" max="200" step="0.5"></label>
+          <label>Depth (ft)<input id="plot-h" type="number" min="8" max="200" step="0.5"></label>
+        </div>
+        <label>North is at the
+          <select id="plot-north">
+            <option value="top">top of the plan</option>
+            <option value="right">right of the plan</option>
+            <option value="bottom">bottom of the plan</option>
+            <option value="left">left of the plan</option>
+          </select>
+        </label>
+        <fieldset>
+          <legend>Sides open to outside air</legend>
+          <div class="open-grid">
+            <label class="check"><input type="checkbox" id="open-top"> Top</label>
+            <label class="check"><input type="checkbox" id="open-right"> Right</label>
+            <label class="check"><input type="checkbox" id="open-bottom"> Bottom</label>
+            <label class="check"><input type="checkbox" id="open-left"> Left</label>
+          </div>
+          <p class="hint">Unticked sides are shared with a neighbour or corridor. Windows on those walls do not ventilate.</p>
+        </fieldset>
+        <div class="field-row">
+          <label>Min window area (% of floor)<input id="vent-ratio" type="number" min="1" max="50" step="1"></label>
+          <label>Window height (ft)<input id="win-h" type="number" min="1" max="10" step="0.5"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="show-zones" checked> Show Vaastu zones</label>
+        <label class="check"><input type="checkbox" id="show-grid" checked> Show 1 ft grid</label>
+      </section>
+
+      <section>
+        <h2>Add a room</h2>
+        <div id="room-palette" class="palette"></div>
+        <p class="hint">Drag a room to move it. Drag the corner handle to resize. Click a wall of the selected room to toggle a window. Press Delete to remove it.</p>
+      </section>
+
+      <section>
+        <h2>Rules used</h2>
+        <details>
+          <summary>Vaastu placement</summary>
+          <ul id="rules-vaastu" class="rules"></ul>
+        </details>
+        <details>
+          <summary>Ventilation</summary>
+          <ul class="rules">
+            <li>Every habitable room and the kitchen needs a window on a wall that is open to outside air.</li>
+            <li>Window area must be at least the configured share of the floor area (default 10%).</li>
+            <li>Windows on two different exterior walls earn credit for cross ventilation.</li>
+            <li>Toilets need an exterior window, or a mechanical exhaust as a fallback.</li>
+            <li>The flat should have at least two open sides.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>Layout</summary>
+          <ul class="rules">
+            <li>Rooms must stay inside the plot and must not overlap.</li>
+            <li>Minimum areas: living 120, master bedroom 120, bedroom 100, study 60, kitchen 50, toilet 18 sq ft.</li>
+            <li>A plan needs a living room, a kitchen, a bedroom, a toilet and a main entrance.</li>
+            <li>At least 5% of the plot should remain for circulation (passages count).</li>
+          </ul>
+        </details>
+      </section>
+    </aside>
+
+    <section class="canvas-wrap">
+      <canvas id="plan" aria-label="Floor plan editor"></canvas>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside class="panel panel-right">
+      <section>
+        <h2>Compliance</h2>
+        <div class="gauges" id="gauges"></div>
+      </section>
+      <section>
+        <h2>Selected room</h2>
+        <div id="props-body"><p class="hint">Select a room on the plan to edit it.</p></div>
+      </section>
+      <section>
+        <h2>Checks</h2>
+        <div class="filters" id="filters">
+          <button type="button" data-filter="all" class="active">All</button>
+          <button type="button" data-filter="vaastu">Vaastu</button>
+          <button type="button" data-filter="ventilation">Ventilation</button>
+          <button type="button" data-filter="layout">Layout</button>
+          <label class="check small"><input type="checkbox" id="hide-pass"> Hide passes</label>
+        </div>
+        <ul id="issues" class="issues"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
