@@ -156,6 +156,10 @@ plot area is also reported in kattha/dhur (1 kattha = 1361.25 sq ft by default, 
 
 ### Install and run
 
+On Windows, download the repository (or just `install.bat` and `run.bat`), double-click `install.bat` once, then `run.bat`
+to open the web app. The installer checks Python 3.10+, clones or updates the code, creates a `.venv` and installs the
+dependencies. Otherwise:
+
 ```bash
 pip install -r requirements.txt
 python -m spaceplanner serve --port 8000        # web wizard at http://127.0.0.1:8000/
