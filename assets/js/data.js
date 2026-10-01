@@ -154,3 +154,6 @@ window.TIPS = [
   { icon: 'fa-snowflake', title: "Don't ignore sensitivity", text: 'Sensitivity can be an early sign of decay, worn enamel or gum recession. A desensitising toothpaste helps, but get it examined.' },
   { icon: 'fa-baby', title: 'First visit by the first birthday', text: "Take your child to the dentist when the first tooth appears. Avoid bedtime milk bottles, and brush your child's teeth for them until about age 8." }
 ];
+
+/* Each treatment's photo lives at images/treatments/<id>.jpg; replace a file to change its picture. */
+window.SERVICES.forEach(function (s) { s.img = 'images/treatments/' + s.id + '.jpg'; });

@@ -153,7 +153,7 @@
       var val = s.value === 'years' ? years : s.value;
       return '<div class="stat"><span class="stat-ic"><i class="fa-solid ' + esc(s.icon || 'fa-tooth') + '"></i></span><div>' +
         '<div class="stat-num" data-count="' + esc(val) + '" data-plain="' + (s.plain ? 1 : 0) + '" data-prefix="' + esc(s.prefix || '') + '" data-suffix="' + esc(s.suffix || '') + '">' +
-        esc((s.prefix || '') + (s.plain ? val : Number(val).toLocaleString('en-IN')) + (s.suffix || '')) + '</div>' +
+        esc((s.prefix || '') + fmtNum(val, s.plain) + (s.suffix || '')) + '</div>' +
         '<div class="stat-label">' + esc(s.label) + '</div></div></div>';
     }).join('');
     var nums = $$('.stat-num', grid);
@@ -167,15 +167,22 @@
     }, { threshold: .5 });
     nums.forEach(function (n) { io.observe(n); });
   }
+  function decimals(n) { return (String(n).split('.')[1] || '').length; }
+  function fmtNum(n, plain) {
+    if (plain) return String(n);
+    var d = decimals(n);
+    return Number(n).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
   function animateCount(el) {
-    var target = +el.getAttribute('data-count'), plain = el.getAttribute('data-plain') === '1';
+    var raw = el.getAttribute('data-count'), target = +raw, plain = el.getAttribute('data-plain') === '1', dec = decimals(raw);
     var pre = el.getAttribute('data-prefix'), suf = el.getAttribute('data-suffix');
     var from = plain ? Math.max(0, target - 40) : 0, start = null, dur = 1600;
     function step(ts) {
       if (!start) start = ts;
       var p = Math.min(1, (ts - start) / dur), eased = 1 - Math.pow(1 - p, 3);
-      var v = Math.round(from + (target - from) * eased);
-      el.textContent = pre + (plain ? v : v.toLocaleString('en-IN')) + suf;
+      var v = from + (target - from) * eased;
+      v = dec ? +v.toFixed(dec) : Math.round(v);
+      el.textContent = pre + (plain ? v : fmtNum(dec ? v.toFixed(dec) : v)) + suf;
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -185,7 +192,9 @@
   function renderServices() {
     var grid = $('#servicesGrid');
     if (grid) grid.innerHTML = SERVICES.map(function (s) {
-      return '<article class="svc-card reveal"><div class="svc-media"><span class="svc-ic">' + svgIcon(s.id) + '</span></div>' +
+      return '<article class="svc-card reveal"><div class="svc-media">' +
+        (s.img ? '<img src="' + esc(s.img) + '" alt="' + esc(s.name) + '" loading="lazy">' : '') +
+        '<span class="svc-ic">' + svgIcon(s.id) + '</span></div>' +
         '<div class="svc-body"><h3>' + esc(s.name) + '</h3><p>' + esc(s.short) + '</p>' +
         '<div class="svc-actions"><button type="button" class="svc-more" data-service="' + s.id + '">Read More</button>' +
         '<a href="#appointment" class="svc-book" data-book="' + s.id + '">Book <i class="fa-solid fa-arrow-right"></i></a></div></div></article>';
@@ -216,6 +225,7 @@
     var s = serviceById(id); if (!s || !modal) return;
     var list = function (arr) { return '<ul>' + (arr || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'; };
     $('#modalBody').innerHTML =
+      (s.img ? '<img class="m-photo" src="' + esc(s.img) + '" alt="' + esc(s.name) + '">' : '') +
       '<div class="m-head"><span class="svc-ic">' + svgIcon(s.id) + '</span><h2 id="modalTitle">' + esc(s.name) + '</h2></div>' +
       '<div class="m-content"><p>' + esc(s.about) + '</p>' +
       '<span class="m-duration"><i class="fa-regular fa-clock"></i> ' + esc(s.duration) + '</span>' +
@@ -360,6 +370,7 @@
         return '<figure><img src="' + esc(p.src) + '" alt="' + esc(p.caption || 'DENTZEN clinic') + '" loading="lazy">' + (p.caption ? '<figcaption>' + esc(p.caption) + '</figcaption>' : '') + '</figure>';
       }).join('');
       pg.hidden = false;
+      var wrap = $('#clinicPhotos'); if (wrap) wrap.hidden = false;
     }
   }
 

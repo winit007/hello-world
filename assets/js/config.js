@@ -18,25 +18,23 @@ window.CLINIC = {
     college: 'Buddha Dental College',
     graduationYear: 2019,              // "years of experience" is calculated from this
     registration: 'Reg. No. 8555/A, Bihar State Dental Council',
-    photo: ''                          // e.g. 'images/dr-wagisha.jpg' — leave '' to show the placeholder
+    photo: 'images/dr-wagisha.jpg'     // replace this file with a newer photo any time
   },
 
-  /* >>> TODO: add your real numbers. Include the country code. <<<
-     Until a 10-digit number is entered, call/WhatsApp buttons scroll
-     to the booking form instead of dialling. */
-  phone: '+91 XXXXX XXXXX',
+  /* Phone & WhatsApp — include the country code. */
+  phone: '+91 87895 29485',
   whatsapp: '',                        // leave '' to use the phone number above
-  email: '',                           // e.g. 'dentzendental@gmail.com' — hidden when empty
+  email: 'dentzendentalcare@gmail.com',
 
   address: {
     line1: 'Bhootnath Road',
     area: 'Kankarbagh',
     city: 'Patna',
     state: 'Bihar',
-    pin: '',                           // TODO: add PIN code
+    pin: '800026',
     landmark: "Ground floor, right of Domino's, opposite Bhootnath Mandir"
   },
-  mapQuery: 'Dentzen Dental Care, Bhootnath Road, Kankarbagh, Patna, Bihar',
+  mapQuery: 'Dentzen Dental Hospital, Bhootnath Road, Kankarbagh, Patna, Bihar',
 
   consultationFee: 250,                // ₹ — set to 0 to hide
 
@@ -55,31 +53,31 @@ window.CLINIC = {
 
   social: {
     instagram: 'https://www.instagram.com/dentzen_dental_care/',
-    facebook: '',
+    facebook: 'https://www.facebook.com/dentzendentalcare/',
     youtube: '',
     practo: 'https://www.practo.com/patna/doctor/w-wagisha-dentist',
-    googleReview: ''                   // your Google "write a review" link, if you have one
+    googleReview: 'https://share.google/0Wwl9Gnd1h5eXWbHB'   // your Google Business profile
   },
 
   /* Optional: an online form service (e.g. https://formspree.io/f/xxxx).
      When empty, appointment requests are sent to the clinic WhatsApp. */
   formEndpoint: '',
 
-  /* Numbers shown in the green counter band.
+  /* Numbers shown in the green counter band (3 per row on desktop).
      'years' is calculated automatically from doctor.graduationYear.
-     Add your real patient / treatment numbers when you have them, e.g.
-       { icon: 'fa-face-smile', value: 5000, suffix: '+', label: 'Happy Patients' },
-       { icon: 'fa-tooth',      value: 1200, suffix: '+', label: 'Root Canals' }, */
+     Add more of your real numbers in the same format, e.g.
+       { icon: 'fa-face-smile',  value: 15000, suffix: '+', label: 'Happy Patients' },
+       { icon: 'fa-screwdriver', value: 300,   suffix: '+', label: 'Dental Implants' }, */
   stats: [
+    { icon: 'fa-tooth',              value: 8000,    suffix: '+',     label: 'Root Canal Treatments' },
     { icon: 'fa-user-doctor',        value: 'years', suffix: '+',     label: 'Years of Experience' },
-    { icon: 'fa-tooth',              value: 25,      suffix: '+',     label: 'Dental Treatments' },
+    { icon: 'fa-star',               value: 4.9,     suffix: '★',     label: 'Justdial Rating (76 reviews)' },
+    { icon: 'fa-teeth-open',         value: 25,      suffix: '+',     label: 'Dental Treatments' },
     { icon: 'fa-calendar-check',     value: 7,       suffix: ' Days', label: 'Open Every Week' },
-    { icon: 'fa-indian-rupee-sign',  value: 250,     prefix: '₹',     label: 'Consultation Fee' },
-    { icon: 'fa-graduation-cap',     value: 2019,    plain: true,     label: 'Practising Since' }
+    { icon: 'fa-indian-rupee-sign',  value: 250,     prefix: '₹',     label: 'Consultation Fee' }
   ],
 
-  /* Real patient reviews (copy them from Google / Practo with permission).
-     The reviews carousel appears automatically once you add some:
+  /* Real patient reviews, copied from Google (the carousel appears once you add some):
        { name: 'Patient name', text: 'Review text…', rating: 5, source: 'Google' }, */
   reviews: [],
 
@@ -87,9 +85,12 @@ window.CLINIC = {
        { title: 'Teeth whitening', before: 'images/case1-before.jpg', after: 'images/case1-after.jpg' }, */
   beforeAfter: [],
 
-  /* Clinic photos for the gallery (section appears once you add some):
-       { src: 'images/reception.jpg', caption: 'Reception' }, */
-  gallery: [],
+  /* Clinic photos shown under "Our Clinic" in the Smile Gallery section. */
+  gallery: [
+    { src: 'images/clinic/entrance.jpg', caption: 'Clinic entrance' },
+    { src: 'images/clinic/reception.jpg', caption: 'Reception & waiting area' },
+    { src: 'images/clinic/treatment-room.jpg', caption: 'Treatment room' }
+  ],
 
   siteUrl: ''                          // e.g. 'https://www.dentzendental.com' once you have a domain
 };

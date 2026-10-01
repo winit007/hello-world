@@ -26,12 +26,14 @@ Phone, WhatsApp, email, address, timings, consultation fee, social links, counte
 
 The whole colour scheme is defined at the top of `assets/css/style.css` (the `:root` block). Change a value there and it updates everywhere on the site.
 
-## Before going live — checklist
+## Photos
 
-1. **Phone / WhatsApp number**: currently `+91 XXXXX XXXXX`. Until a real number is added, call and WhatsApp buttons scroll to the booking form.
-2. **Email** and **PIN code** (hidden while empty).
-3. **Check the address and landmark.** They were taken from the Practo listing.
-4. **Doctor photo**: add e.g. `images/dr-wagisha.jpg` and set `doctor.photo`.
-5. **Real patient reviews** (from Google/Practo), **before/after photos** and **clinic photos**. Their sections appear automatically once added.
-6. **Remove anything you don't offer** (e.g. a technology card or treatment) so every claim on the site is accurate.
-7. Optional: a Google review link (`social.googleReview`) and Facebook/YouTube links.
+- `images/dr-wagisha.jpg` and `images/clinic/*.jpg`: the clinic's own photos (from its Practo listing). Replace them with higher-quality originals for a sharper look.
+- `images/treatments/<treatment>.jpg`, `images/hero/*.jpg` and `images/tech/*.jpg`: free photos from [Unsplash](https://unsplash.com/license), which may be used commercially without credit. To change a picture, replace the file and keep its name.
+
+## Still to do
+
+1. **Google reviews:** Google blocks automated copying, so paste your reviews into `reviews` in `assets/js/config.js` (format shown there). The reviews carousel appears automatically.
+2. **More counters** (total patients, implants, extractions, braces…): add them to `stats` in `assets/js/config.js`.
+3. **Confirm:** the email (`dentzendentalcare@gmail.com`), the PIN code (800026) and the landmark.
+4. **Before/after photos** of real patients (with their consent), for the Smile Gallery.
