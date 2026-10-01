@@ -18,22 +18,38 @@ It is a static site (HTML, CSS and JavaScript only), so it can be hosted free on
 - Mobile quick-action bar (Call · WhatsApp · Book · Directions), floating WhatsApp button and back-to-top button
 - Google-friendly structured data (Dentist + FAQ) for better search listings
 
-## Editing clinic details — `assets/js/config.js`
+## Website editor (admin.html): upload photos and add reviews
 
-Phone, WhatsApp, email, address, timings, consultation fee, social links, counters, reviews, before/after photos and the clinic gallery are all set in **one file**: `assets/js/config.js`. Every button and section on the site updates from it.
+Open **`/admin.html`** on your website (for example `https://<your-site>/admin.html`). From there you can:
 
-## Changing colours — `assets/css/style.css`
+- upload the About photo, Dr. Wagisha's photo, clinic gallery photos and treatment pictures
+- add before/after cases (each with a "before" and an "after" photo)
+- add Google, Justdial and Practo reviews
+- update ratings and the counter numbers
 
-The whole colour scheme is defined at the top of `assets/css/style.css` (the `:root` block). Change a value there and it updates everywhere on the site.
+Press **Publish changes** and the edits are saved to this GitHub repository. GitHub Pages then updates the live site in about 1–2 minutes.
+
+**One-time setup:** the editor needs a GitHub *fine-grained access token* for this repository, with **Contents: Read and write** permission. The steps are shown on the editor page under "How do I get an access token?". The token is stored only in your own browser.
+
+Everything the editor changes lives in `assets/js/content.js`. Uploaded photos go into `images/uploads/`.
+
+## Editing clinic details: `assets/js/config.js`
+
+Phone, WhatsApp, email, address, timings, consultation fee and social links are in `assets/js/config.js`.
+
+## Changing colours: `assets/css/style.css`
+
+The whole colour scheme is defined at the top of `assets/css/style.css` (the `:root` block).
 
 ## Photos
 
-- `images/dr-wagisha.jpg` and `images/clinic/*.jpg`: the clinic's own photos (from its Practo listing). Replace them with higher-quality originals for a sharper look.
-- `images/treatments/<treatment>.jpg`, `images/hero/*.jpg` and `images/tech/*.jpg`: free photos from [Unsplash](https://unsplash.com/license), which may be used commercially without credit. To change a picture, replace the file and keep its name.
+- `images/dr-wagisha.jpg` and `images/clinic/*.jpg`: the clinic's own photos (from its Practo listing).
+- `images/treatments/kids.svg` and `images/treatments/cleaning.svg`: drawn graphics.
+- Other pictures in `images/treatments/`, `images/hero/` and `images/tech/`: free photos from [Unsplash](https://unsplash.com/license), which may be used commercially without credit.
 
 ## Still to do
 
-1. **Google reviews:** Google blocks automated copying, so paste your reviews into `reviews` in `assets/js/config.js` (format shown there). The reviews carousel appears automatically.
-2. **More counters** (total patients, implants, extractions, braces…): add them to `stats` in `assets/js/config.js`.
-3. **Confirm:** the email (`dentzendentalcare@gmail.com`), the PIN code (800026) and the landmark.
-4. **Before/after photos** of real patients (with their consent), for the Smile Gallery.
+1. **Total OPD** counter: add the number in the editor (Ratings & Counters). It stays hidden until then.
+2. **About photo** and **before/after photos**: upload them in the editor.
+3. **Reviews**: paste your Google and Justdial reviews in the editor.
+4. **Confirm** the email (`dentzendentalcare@gmail.com`), the PIN code (800026) and the landmark.

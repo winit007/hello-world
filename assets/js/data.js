@@ -155,5 +155,112 @@ window.TIPS = [
   { icon: 'fa-baby', title: 'First visit by the first birthday', text: "Take your child to the dentist when the first tooth appears. Avoid bedtime milk bottles, and brush your child's teeth for them until about age 8." }
 ];
 
-/* Each treatment's photo lives at images/treatments/<id>.jpg; replace a file to change its picture. */
-window.SERVICES.forEach(function (s) { s.img = 'images/treatments/' + s.id + '.jpg'; });
+/* Each treatment's picture lives in images/treatments/. Kids dentistry and scaling use
+   drawn graphics (.svg); the rest are photos (.jpg). Photos uploaded from the admin
+   page (assets/js/content.js → treatmentPhotos) replace these automatically. */
+window.SERVICES.forEach(function (s) {
+  s.img = 'images/treatments/' + s.id + (s.id === 'kids' || s.id === 'cleaning' ? '.svg' : '.jpg');
+});
+
+/* Blog articles — each card opens the full article in a pop-up. */
+window.BLOG = [
+  {
+    id: 'toothache', tag: 'Pain', icon: 'fa-face-frown', tone: 'rose', minutes: 3, service: 'rct',
+    title: 'Toothache: What It Means and When to See a Dentist',
+    excerpt: 'Throbbing, sharp or comes and goes? The type of pain tells a lot about what is happening inside the tooth.',
+    sections: [
+      { h: 'Common causes', list: ['Tooth decay (cavity) reaching the inner layers', 'Infection of the nerve (pulp) — often needs root canal treatment', 'A cracked or broken tooth', 'Gum infection or a trapped food particle', 'An erupting or impacted wisdom tooth'] },
+      { h: 'What the pain is telling you', list: ['Short, sharp pain with cold or sweets: early decay or sensitivity', 'Lingering pain after hot or cold: the nerve may be inflamed', 'Throbbing pain that wakes you at night: likely nerve infection', 'Pain on biting: a crack, deep filling or infection at the root tip'] },
+      { h: 'What you can do today', list: ['Rinse with warm salt water', 'Take a pain reliever you normally use safely (follow the label)', 'Avoid very hot, cold or sweet food on that side', 'Never place aspirin or tobacco on the gum — it burns the tissue'] },
+      { h: 'See a dentist promptly if', list: ['Pain lasts more than a day or two', 'There is swelling of the face or gum, or pus', 'You have fever along with tooth pain'] },
+      { p: 'Most toothaches can be fixed with a filling or root canal treatment when treated early — waiting usually makes treatment bigger and costlier.' }
+    ]
+  },
+  {
+    id: 'bleeding-gums', tag: 'Gums', icon: 'fa-droplet', tone: 'red', minutes: 3, service: 'cleaning',
+    title: 'Bleeding Gums and Bad Breath: Early Signs of Gum Disease',
+    excerpt: 'Gums that bleed while brushing are not normal. Here is why it happens and how a simple cleaning helps.',
+    sections: [
+      { h: 'Why gums bleed', p: 'Plaque left along the gum line hardens into tartar. The bacteria in it irritate the gums, making them red, swollen and quick to bleed. This early stage is called gingivitis.' },
+      { h: 'Warning signs', list: ['Bleeding while brushing or flossing', 'Bad breath that keeps coming back', 'Red, puffy or receding gums', 'Teeth that look longer or feel loose'] },
+      { h: 'Treatment', list: ['Professional scaling and polishing removes tartar', 'Deep cleaning (root planing) for advanced gum disease', 'A brushing and flossing routine that suits you'] },
+      { h: 'Prevention', list: ['Brush twice daily along the gum line with a soft brush', 'Clean between teeth once a day', 'Get a scaling every 6 months', 'Stop smoking and gutka — they worsen gum disease'] }
+    ]
+  },
+  {
+    id: 'sensitivity', tag: 'Sensitivity', icon: 'fa-snowflake', tone: 'blue', minutes: 2, service: 'fillings',
+    title: 'Sensitive Teeth: Causes and Simple Fixes',
+    excerpt: 'A sharp twinge with ice cream or cold water? Sensitivity usually has a clear cause that can be treated.',
+    sections: [
+      { h: 'Common causes', list: ['Worn enamel from hard brushing or acidic drinks', 'Receding gums exposing the root surface', 'Cavities or a cracked filling', 'Grinding or clenching teeth', 'Temporary sensitivity after whitening or scaling'] },
+      { h: 'Treatment options', list: ['Desensitising toothpaste used regularly', 'Fluoride varnish applied at the clinic', 'Tooth-coloured fillings or bonding on worn areas', 'Root canal treatment if the nerve is affected'] },
+      { h: 'Daily tips', list: ['Use a soft brush with gentle strokes', 'Avoid brushing right after acidic food or drinks', 'Use a night guard if you grind your teeth'] }
+    ]
+  },
+  {
+    id: 'rct-myths', tag: 'Root Canal', icon: 'fa-tooth', tone: 'teal', minutes: 4, service: 'rct',
+    title: 'Root Canal Treatment: Myths vs Facts',
+    excerpt: 'Root canals have a scary reputation. Modern RCT is comfortable and the best way to save your natural tooth.',
+    sections: [
+      { h: 'Myth: RCT is very painful', p: 'Fact: RCT is done under local anaesthesia and feels much like getting a filling. It removes the infection that was causing the pain.' },
+      { h: 'Myth: Extraction is better', p: 'Fact: Keeping your natural tooth is almost always better for chewing, appearance and the health of nearby teeth. A removed tooth needs an implant or bridge to replace it.' },
+      { h: 'Myth: RCT needs many visits', p: 'Fact: With rotary instruments, many root canals are completed in one or two visits.' },
+      { h: 'Why a crown is advised after RCT', p: 'A root-canal-treated back tooth becomes more brittle. A crown protects it from cracking and helps it last for many years.' },
+      { h: 'Signs you may need RCT', list: ['Severe or lingering toothache', 'Pain on biting', 'Swelling or a pimple on the gum', 'A darkened tooth'] }
+    ]
+  },
+  {
+    id: 'missing-teeth', tag: 'Missing Teeth', icon: 'fa-circle-minus', tone: 'navy', minutes: 4, service: 'implants',
+    title: 'Missing Teeth? Implant vs Bridge vs Denture',
+    excerpt: 'Gaps affect chewing, speech and the alignment of other teeth. Compare your replacement options.',
+    sections: [
+      { h: 'Why replace a missing tooth', list: ['Neighbouring teeth drift and tilt into the gap', 'The opposite tooth can over-erupt', 'Chewing becomes uneven', 'The jawbone slowly shrinks where the tooth is missing'] },
+      { h: 'Dental implant', p: 'A titanium post replaces the root and a crown is fixed on top. It feels most like a natural tooth and does not involve cutting the neighbouring teeth.' },
+      { h: 'Bridge', p: 'A fixed bridge uses the teeth on either side as support. It is quicker than an implant but the supporting teeth must be shaped for crowns.' },
+      { h: 'Denture', p: 'A removable option for several or all missing teeth. Modern dentures are lighter and more natural looking; implant-supported dentures add stability.' },
+      { p: 'The right choice depends on your bone, gums, general health and budget. We explain each option with a clear cost estimate after examination.' }
+    ]
+  },
+  {
+    id: 'wisdom-tooth', tag: 'Wisdom Tooth', icon: 'fa-teeth-open', tone: 'amber', minutes: 3, service: 'extraction',
+    title: 'Wisdom Tooth Pain and Impaction',
+    excerpt: 'Wisdom teeth often lack space to come out properly. Learn when removal is the right choice.',
+    sections: [
+      { h: 'What is an impacted wisdom tooth?', p: 'A wisdom tooth that is blocked by bone, gum or the tooth in front, so it cannot come out fully. It may grow at an angle or stay hidden under the gum.' },
+      { h: 'Symptoms', list: ['Pain and swelling at the back of the jaw', 'Gum flap that keeps getting infected', 'Difficulty opening the mouth', 'Food getting stuck behind the last tooth'] },
+      { h: 'Treatment', list: ['An X-ray to check the position and roots', 'Cleaning and medicines for a mild infection', 'Gentle surgical removal for problem teeth'] },
+      { h: 'After removal', list: ['Bite on gauze for 30–45 minutes', 'No spitting, straws or smoking for 24 hours', 'Soft, cool food on the first day', 'Take medicines exactly as advised'] }
+    ]
+  },
+  {
+    id: 'braces-aligners', tag: 'Braces', icon: 'fa-face-smile-beam', tone: 'violet', minutes: 3, service: 'braces',
+    title: 'Braces or Clear Aligners: Which Is Right for You?',
+    excerpt: 'Both straighten teeth. The best choice depends on your teeth, lifestyle and budget.',
+    sections: [
+      { h: 'Metal braces', p: 'Strong and reliable for all kinds of cases, including complex crowding. The most affordable option.' },
+      { h: 'Ceramic braces', p: 'Work like metal braces but use tooth-coloured brackets that are much less noticeable.' },
+      { h: 'Clear aligners', p: 'A series of removable, nearly invisible trays. Comfortable and easy to clean around, but they must be worn 20–22 hours a day.' },
+      { h: 'Good to know', list: ['Treatment usually takes 12–24 months', 'Adults can straighten their teeth too', 'Retainers keep teeth in place after treatment'] }
+    ]
+  },
+  {
+    id: 'kids-teeth', tag: 'Kids', icon: 'fa-child-reaching', tone: 'pink', minutes: 3, service: 'kids',
+    title: "Your Child's Teeth: First Visit and Daily Care",
+    excerpt: 'Baby teeth matter. Simple habits from the first tooth prevent pain and cavities later.',
+    sections: [
+      { h: 'When to visit the dentist', p: 'Bring your child for the first check-up when the first tooth appears, or by the first birthday. Early visits make children comfortable with the dentist.' },
+      { h: 'Daily care', list: ['Clean gums with a soft cloth before teeth come in', 'Use a rice-grain smear of fluoride toothpaste until age 3, then a pea-sized amount', 'Brush your child\'s teeth for them until about age 8', 'No milk bottle at bedtime'] },
+      { h: 'Preventive treatments', list: ['Fluoride varnish to strengthen enamel', 'Pit-and-fissure sealants on back teeth', 'Early check of bite and thumb-sucking habits'] }
+    ]
+  },
+  {
+    id: 'oral-cancer', tag: 'Oral Cancer', icon: 'fa-ban-smoking', tone: 'slate', minutes: 3, service: 'checkup',
+    title: 'Tobacco, Gutka and Oral Cancer: Warning Signs',
+    excerpt: 'Oral cancer is common where tobacco and gutka are used. Early detection saves lives.',
+    sections: [
+      { h: 'Warning signs', list: ['An ulcer that does not heal in 2 weeks', 'White or red patches inside the mouth', 'Difficulty opening the mouth (stiff, burning cheeks)', 'A lump in the cheek or neck', 'Unexplained bleeding or numbness'] },
+      { h: 'Who is at risk', list: ['Tobacco chewers and smokers', 'Gutka and paan masala users', 'Heavy alcohol use'] },
+      { h: 'What to do', p: 'Get a quick oral screening at your next check-up — it takes a few minutes. If you use tobacco, quitting at any age lowers your risk.' }
+    ]
+  }
+];

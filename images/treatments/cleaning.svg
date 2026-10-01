@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E3FAF7"/><stop offset="1" stop-color="#B9EEE9"/></linearGradient>
+    <linearGradient id="tooth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6F3F7"/></linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EEF2F7"/><stop offset=".5" stop-color="#9AA9BC"/><stop offset="1" stop-color="#DDE4EC"/></linearGradient>
+    <clipPath id="leftTooth"><rect x="0" y="0" width="360" height="480"/></clipPath>
+    <clipPath id="toothClip"><path transform="translate(192 52) scale(7)" d="M24 7c-3-2-7-3-10-2-5 1-8 6-7 12 1 5 3 8 4 13 1 5 2 11 5 11 3 0 3-6 4-9 1-3 2-4 4-4s3 1 4 4c1 3 1 9 4 9 3 0 4-6 5-11 1-5 3-8 4-13 1-6-2-11-7-12-3-1-7 0-10 2z"/></clipPath>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#030541" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="720" height="480" fill="url(#bg)"/>
+  <circle cx="630" cy="80" r="70" fill="#fff" opacity=".5"/>
+  <circle cx="80" cy="410" r="70" fill="#fff" opacity=".35"/>
+  <g filter="url(#sh)"><path transform="translate(192 52) scale(7)" d="M24 7c-3-2-7-3-10-2-5 1-8 6-7 12 1 5 3 8 4 13 1 5 2 11 5 11 3 0 3-6 4-9 1-3 2-4 4-4s3 1 4 4c1 3 1 9 4 9 3 0 4-6 5-11 1-5 3-8 4-13 1-6-2-11-7-12-3-1-7 0-10 2z" fill="url(#tooth)"/></g>
+  <g clip-path="url(#toothClip)"><g clip-path="url(#leftTooth)">
+    <path d="M200 238c22 12 34-4 52 6s30 16 48-2 34-6 60 4v80H200z" fill="#D9B44A"/>
+    <path d="M200 262c18 8 34-2 50 6s26 10 46 4 30 2 64 4v54H200z" fill="#B88A2A" opacity=".55"/>
+    <circle cx="262" cy="222" r="7" fill="#D9B44A"/><circle cx="318" cy="226" r="5" fill="#D9B44A"/><circle cx="236" cy="214" r="4" fill="#D9B44A"/>
+  </g></g>
+  <path transform="translate(192 52) scale(7)" d="M24 7c-3-2-7-3-10-2-5 1-8 6-7 12 1 5 3 8 4 13 1 5 2 11 5 11 3 0 3-6 4-9 1-3 2-4 4-4s3 1 4 4c1 3 1 9 4 9 3 0 4-6 5-11 1-5 3-8 4-13 1-6-2-11-7-12-3-1-7 0-10 2z" fill="none" stroke="#9FDCE0" stroke-width=".6"/>
+  <path d="M360 70v222" stroke="#13B5AB" stroke-width="3" stroke-dasharray="8 8"/>
+  <path d="M0 300c90-20 170-24 240-8s160 20 240 4 160-18 240 2v182H0z" fill="#F49AAE"/>
+  <path d="M0 300c90-20 170-24 240-8s160 20 240 4 160-18 240 2" fill="none" stroke="#E77F91" stroke-width="4"/>
+  <path transform="translate(450 120)" d="M0-22 5-5 22 0 5 5 0 22-5 5-22 0-5-5z" fill="#fff"/>
+  <path transform="translate(492 186)" d="M0-14 3.5-3.5 14 0 3.5 3.5 0 14-3.5 3.5-14 0-3.5-3.5z" fill="#13B5AB"/>
+  <path transform="translate(430 232)" d="M0-10 2.5-2.5 10 0 2.5 2.5 0 10-2.5 2.5-10 0-2.5-2.5z" fill="#fff"/>
+  <path d="M60 62l120 120" stroke="url(#metal)" stroke-width="26" stroke-linecap="round"/>
+  <path d="M84 86l12 12M102 104l12 12M120 122l12 12" stroke="#7D8DA2" stroke-width="5" stroke-linecap="round"/>
+  <path d="M180 182c26 18 44 30 62 46" fill="none" stroke="#8293A8" stroke-width="7" stroke-linecap="round"/>
+  <g fill="#4FC3F7"><path d="M222 246c5 9 5 13 0 15s-7-6 0-15z"/><path d="M206 232c3 6 3 9 0 10s-4-4 0-10z"/><path d="M238 262c3 6 3 9 0 10s-4-4 0-10z"/></g>
+  <g font-family="Arial, sans-serif" font-weight="700" font-size="20">
+    <rect x="232" y="390" width="92" height="34" rx="17" fill="#030541" opacity=".85"/><text x="278" y="413" fill="#fff" text-anchor="middle">Tartar</text>
+    <rect x="396" y="390" width="92" height="34" rx="17" fill="#13B5AB"/><text x="442" y="413" fill="#fff" text-anchor="middle">Clean</text>
+  </g>
+</svg>

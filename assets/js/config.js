@@ -17,8 +17,8 @@ window.CLINIC = {
     title: 'Aesthetic, Cosmetic & Dental Surgeon',
     college: 'Buddha Dental College',
     graduationYear: 2019,              // "years of experience" is calculated from this
-    registration: 'Reg. No. 8555/A, Bihar State Dental Council',
-    photo: 'images/dr-wagisha.jpg'     // replace this file with a newer photo any time
+    registration: 'Reg. No. 8555/A, Bihar State Dental Council'
+    // the doctor's photo is set from the admin page (assets/js/content.js)
   },
 
   /* Phone & WhatsApp — include the country code. */
@@ -56,6 +56,7 @@ window.CLINIC = {
     facebook: 'https://www.facebook.com/dentzendentalcare/',
     youtube: '',
     practo: 'https://www.practo.com/patna/doctor/w-wagisha-dentist',
+    justdial: 'https://www.justdial.com/Patna/Dentzen-Dental-Care-Opposite-Bihar-Rajya-Awas-Board-Bhootnath-Mandirnear-Domi-Bhootnath-Road-Kankarbagh/0612PX612-X612-220309183103-R6P5_BZDET',
     googleReview: 'https://share.google/0Wwl9Gnd1h5eXWbHB'   // your Google Business profile
   },
 
@@ -63,34 +64,8 @@ window.CLINIC = {
      When empty, appointment requests are sent to the clinic WhatsApp. */
   formEndpoint: '',
 
-  /* Numbers shown in the green counter band (3 per row on desktop).
-     'years' is calculated automatically from doctor.graduationYear.
-     Add more of your real numbers in the same format, e.g.
-       { icon: 'fa-face-smile',  value: 15000, suffix: '+', label: 'Happy Patients' },
-       { icon: 'fa-screwdriver', value: 300,   suffix: '+', label: 'Dental Implants' }, */
-  stats: [
-    { icon: 'fa-tooth',              value: 8000,    suffix: '+',     label: 'Root Canal Treatments' },
-    { icon: 'fa-user-doctor',        value: 'years', suffix: '+',     label: 'Years of Experience' },
-    { icon: 'fa-star',               value: 4.9,     suffix: '★',     label: 'Justdial Rating (76 reviews)' },
-    { icon: 'fa-teeth-open',         value: 25,      suffix: '+',     label: 'Dental Treatments' },
-    { icon: 'fa-calendar-check',     value: 7,       suffix: ' Days', label: 'Open Every Week' },
-    { icon: 'fa-indian-rupee-sign',  value: 250,     prefix: '₹',     label: 'Consultation Fee' }
-  ],
-
-  /* Real patient reviews, copied from Google (the carousel appears once you add some):
-       { name: 'Patient name', text: 'Review text…', rating: 5, source: 'Google' }, */
-  reviews: [],
-
-  /* Real before/after photos. Put the files in the images folder, e.g.
-       { title: 'Teeth whitening', before: 'images/case1-before.jpg', after: 'images/case1-after.jpg' }, */
-  beforeAfter: [],
-
-  /* Clinic photos shown under "Our Clinic" in the Smile Gallery section. */
-  gallery: [
-    { src: 'images/clinic/entrance.jpg', caption: 'Clinic entrance' },
-    { src: 'images/clinic/reception.jpg', caption: 'Reception & waiting area' },
-    { src: 'images/clinic/treatment-room.jpg', caption: 'Treatment room' }
-  ],
+  /* Photos, reviews, ratings and the counter numbers are in assets/js/content.js
+     and can be edited from the admin page (admin.html). */
 
   siteUrl: ''                          // e.g. 'https://www.dentzendental.com' once you have a domain
 };

@@ -19,6 +19,7 @@
   <script>document.documentElement.classList.add('js');</script>
   <script src="assets/js/config.js" defer></script>
   <script src="assets/js/data.js" defer></script>
+  <script src="assets/js/content.js" defer></script>
   <script src="assets/js/main.js" defer></script>
 </head>
 <body>
@@ -61,9 +62,8 @@
           <a href="#services" class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Services <i class="fa-solid fa-caret-down"></i></a>
           <ul class="dropdown" id="servicesDropdown"></ul>
         </li>
-        <li><a href="#doctor">Our Doctor</a></li>
         <li><a href="#gallery">Smile Gallery</a></li>
-        <li><a href="#tips">Dental Tips</a></li>
+        <li><a href="#blog">Blog</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
       <a href="#appointment" class="btn btn-accent nav-cta-mobile">Book Appointment</a>
@@ -151,19 +151,17 @@
 <section class="section about" id="about">
   <div class="container about-grid">
     <div class="about-visual reveal">
-      <img class="about-photo" src="images/clinic/treatment-room.jpg" alt="Treatment room at DENTZEN Dental Hospital, Kankarbagh" loading="lazy">
+      <div class="about-photo-slot" id="aboutPhoto">
+        <div class="photo-vacant"><i class="fa-regular fa-image"></i><span>Photo coming soon</span></div>
+      </div>
       <div class="exp-badge"><strong data-bind="years">7</strong><span>+ Years of<br>Experience</span></div>
     </div>
     <div class="about-text reveal">
-      <h2 class="section-title left">Healthy Smiles, Delivered with a Calm &amp; Gentle Touch</h2>
-      <p>At <strong>DENTZEN Dental Hospital</strong>, we believe a visit to the dentist should feel calm — not stressful. Led by <strong>Dr. W. Wagisha, BDS</strong>, an aesthetic, cosmetic and dental surgeon, our clinic on Bhootnath Road, Kankarbagh offers complete dental care for the whole family under one roof.</p>
-      <p>Every treatment begins with a careful examination and an honest conversation. We explain your options in simple language, share a clear cost estimate before we begin, and use gentle techniques so that even nervous patients feel at ease.</p>
-      <ul class="check-list">
-        <li><i class="fa-solid fa-check"></i> Check-ups, fillings, root canals &amp; extractions</li>
-        <li><i class="fa-solid fa-check"></i> Implants, crowns, bridges &amp; dentures</li>
-        <li><i class="fa-solid fa-check"></i> Braces, aligners, whitening &amp; smile design</li>
-        <li><i class="fa-solid fa-check"></i> Friendly dental care for children</li>
-      </ul>
+      <h2 class="section-title left">Dr. W. Wagisha – Trusted &amp; Best Dentist in Patna for RCT, Implants &amp; Braces</h2>
+      <p>At DENTZEN Dental Hospital, we bring together clinical expertise and modern technology to give you comfortable, pain-free and long-lasting dental care. Whether you need a root canal, a dental implant, braces or a complete smile makeover, Dr. W. Wagisha and her team are ready to help at our clinic on Bhootnath Road, Kankarbagh, Patna.</p>
+      <p>Our team is as passionate as it is skilled. We keep learning through regular training so that you benefit from the latest advances in dentistry, and every treatment plan is designed around your needs, your goals and your budget.</p>
+      <p>We have built our clinic to feel calm and welcoming. Modern equipment keeps every visit smooth and efficient, and our friendly staff will put you at ease from the moment you walk in. Our aim is simple: every patient should leave with a healthy, confident smile.</p>
+      <p>Families across Patna trust us for honest advice and careful treatment, and we work hard to keep that trust. Whether you need preventive care, restorative treatment or a cosmetic upgrade, our team is always ready to answer your questions and give you the very best care.</p>
       <div class="btn-row">
         <a href="#appointment" class="btn btn-navy">Book Appointment</a>
         <a href="#doctor" class="btn btn-link">Meet the doctor <i class="fa-solid fa-arrow-right"></i></a>
@@ -234,14 +232,17 @@
 <section class="section tech" id="technology">
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="section-title">Modern Dentistry, Gentle Touch</h2>
-      <p class="section-sub">Up-to-date techniques and materials make diagnosis more accurate, treatment more comfortable and results longer-lasting.</p>
+      <h2 class="section-title">Advanced Dental Technology at Our Hospital</h2>
+      <p class="section-sub">We invest in modern equipment so that diagnosis is more accurate, treatment is faster and your visit is more comfortable.</p>
     </div>
     <div class="tech-grid">
-      <div class="tech-card reveal"><img src="images/tech/xray.jpg" alt="Digital dental X-ray on a clinic monitor" loading="lazy"><h3>Digital X-Rays</h3><p>Quick, high-clarity images with far lower radiation than traditional film, for accurate diagnosis.</p></div>
-      <div class="tech-card reveal"><img src="images/tech/rotary.jpg" alt="Dentist performing a root canal with rotary instruments" loading="lazy"><h3>Rotary Root Canal</h3><p>Precise rotary instruments make root canal treatment faster and more comfortable, often in fewer visits.</p></div>
-      <div class="tech-card reveal"><img src="images/tech/sterilisation.jpg" alt="Sterilised dental instruments" loading="lazy"><h3>Autoclave Sterilisation</h3><p>Instruments are cleaned, pouched and sterilised in an autoclave before every patient.</p></div>
-      <div class="tech-card reveal"><img src="images/tech/materials.jpg" alt="Tooth-coloured dental restorations on models" loading="lazy"><h3>Tooth-Coloured Materials</h3><p>Composite, ceramic and zirconia restorations that look natural and blend with your smile.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/digital-radiography.jpg" alt="Dentist examining digital dental X-rays" loading="lazy"><h3>Digital Radiography – 90% Less Radiation</h3><p>Instant, high-resolution digital X-rays that use a fraction of the radiation of traditional film. Images appear in seconds, for faster and more accurate diagnosis.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/rvg.jpg" alt="RVG digital X-ray displayed on a clinic monitor" loading="lazy"><h3>RVG Digital X-Ray – Tooth Scan</h3><p>A small digital sensor captures a detailed image of one or a few teeth in seconds, right at the chair: ideal for checking decay, infection and root canals.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/intraoral-camera.jpg" alt="Dentist showing a patient a scan of their teeth" loading="lazy"><h3>Intraoral Camera – See What We See</h3><p>A high-definition camera shows you live images of your teeth on screen, so you understand your diagnosis and can plan treatment together with Dr. Wagisha.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/rotary.jpg" alt="Dentist performing a root canal with a rotary system" loading="lazy"><h3>Rotary RCT System – Faster, Painless Root Canals</h3><p>An advanced rotary endodontic system completes most root canals in a single visit, with less discomfort, shorter appointments and greater precision.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/endo-activator.jpg" alt="Dental instrument in a modern clinic" loading="lazy"><h3>Endo Activator – Deeper Canal Cleaning</h3><p>Gentle sonic vibrations help disinfecting solutions reach every corner of the root canal, for cleaner canals and better long-term results.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/obturation.jpg" alt="Dental X-ray showing sealed teeth" loading="lazy"><h3>3D Obturation Unit – Complete Canal Sealing</h3><p>Warm, three-dimensional filling seals the entire root canal system, helping prevent re-infection and protecting the tooth for years.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/sterilisation.jpg" alt="Sterilised dental instruments" loading="lazy"><h3>Sterilization Unit – Safe Every Time</h3><p>Every instrument is cleaned, pouched and sterilised in our dedicated sterilization unit before each patient.</p></div>
     </div>
   </div>
 </section>
@@ -299,87 +300,15 @@
 <section class="section gallery" id="gallery">
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="section-title">See the Difference a Healthy Smile Makes</h2>
-      <p class="section-sub">Drag the slider to compare before and after.</p>
+      <h2 class="section-title">Smile Gallery – Before &amp; After</h2>
+      <p class="section-sub">Real results from our patients. Drag the slider on each photo to compare before and after.</p>
     </div>
-    <div class="ba-list" id="baList">
-      <figure class="ba reveal" data-ba>
-        <div class="ba-stage">
-          <div class="ba-layer ba-after">
-            <svg viewBox="0 0 600 340" aria-hidden="true">
-              <rect width="600" height="340" fill="#E7FAF8"/>
-              <path d="M70 165Q300 132 530 165Q300 300 70 165Z" fill="#5A1726"/>
-              <g clip-path="url(#mouthClip)">
-                <g fill="#F4F8FA" stroke="#D5E2E9" stroke-width="2">
-                  <rect x="200" y="212" width="32" height="60" rx="10"/><rect x="232" y="216" width="34" height="60" rx="10"/>
-                  <rect x="266" y="216" width="34" height="60" rx="10"/><rect x="300" y="216" width="34" height="60" rx="10"/>
-                  <rect x="334" y="216" width="34" height="60" rx="10"/><rect x="368" y="212" width="32" height="60" rx="10"/>
-                </g>
-                <g fill="url(#gWhite)" stroke="#D5E2E9" stroke-width="2">
-                  <rect x="108" y="110" width="30" height="82" rx="12"/><rect x="138" y="110" width="34" height="88" rx="13"/>
-                  <rect x="172" y="110" width="38" height="96" rx="15"/><rect x="210" y="110" width="40" height="94" rx="15"/>
-                  <rect x="250" y="110" width="50" height="102" rx="16"/><rect x="300" y="110" width="50" height="102" rx="16"/>
-                  <rect x="350" y="110" width="40" height="94" rx="15"/><rect x="390" y="110" width="38" height="96" rx="15"/>
-                  <rect x="428" y="110" width="34" height="88" rx="13"/><rect x="462" y="110" width="30" height="82" rx="12"/>
-                </g>
-                <path d="M262 160v34M312 160v34" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>
-              </g>
-              <path d="M70 165C130 105 230 92 300 118C370 92 470 105 530 165Q300 132 70 165Z" fill="#C95C70"/>
-              <path d="M70 165Q300 300 530 165C450 330 150 330 70 165Z" fill="#DA7487"/>
-              <path d="M222 292c50 10 106 10 156 0" stroke="#fff" stroke-opacity=".35" stroke-width="8" stroke-linecap="round" fill="none"/>
-              <path d="M190 120c30-10 60-10 85 0" stroke="#fff" stroke-opacity=".3" stroke-width="6" stroke-linecap="round" fill="none"/>
-            </svg>
-          </div>
-          <div class="ba-layer ba-before">
-            <svg viewBox="0 0 600 340" aria-hidden="true">
-              <rect width="600" height="340" fill="#F6F0E6"/>
-              <path d="M70 165Q300 132 530 165Q300 300 70 165Z" fill="#4E1421"/>
-              <g clip-path="url(#mouthClip)">
-                <g fill="#D8C48E" stroke="#A88B4E" stroke-width="2">
-                  <rect x="200" y="214" width="32" height="60" rx="10" transform="rotate(-8 216 240)"/><rect x="232" y="220" width="34" height="60" rx="10" transform="rotate(10 249 245)"/>
-                  <rect x="264" y="214" width="34" height="60" rx="10"/><rect x="300" y="220" width="34" height="60" rx="10" transform="rotate(-9 317 245)"/>
-                  <rect x="334" y="216" width="34" height="60" rx="10" transform="rotate(6 351 245)"/><rect x="368" y="214" width="32" height="60" rx="10"/>
-                </g>
-                <g fill="url(#gStained)" stroke="#A88B4E" stroke-width="2">
-                  <rect x="108" y="110" width="30" height="80" rx="12"/><rect x="138" y="110" width="34" height="84" rx="13" transform="rotate(4 155 150)"/>
-                  <rect x="172" y="114" width="38" height="98" rx="15" transform="rotate(-5 191 160)"/><rect x="212" y="110" width="38" height="88" rx="15" transform="rotate(9 231 155)"/>
-                  <rect x="246" y="110" width="50" height="104" rx="16" transform="rotate(-3 271 160)"/><rect x="306" y="110" width="48" height="98" rx="16" transform="rotate(6 330 160)"/>
-                  <rect x="354" y="112" width="38" height="90" rx="15" transform="rotate(-10 373 157)"/><rect x="390" y="114" width="38" height="100" rx="15" transform="rotate(5 409 162)"/>
-                  <rect x="428" y="110" width="34" height="84" rx="13" transform="rotate(-4 445 150)"/><rect x="462" y="110" width="30" height="80" rx="12"/>
-                </g>
-                <g fill="#8E6A2E" opacity=".55">
-                  <ellipse cx="272" cy="168" rx="16" ry="6"/><ellipse cx="330" cy="166" rx="14" ry="5"/><ellipse cx="231" cy="164" rx="10" ry="5"/>
-                  <ellipse cx="373" cy="165" rx="10" ry="5"/><circle cx="266" cy="200" r="5"/><circle cx="338" cy="196" r="4"/><circle cx="190" cy="190" r="4"/>
-                  <ellipse cx="300" cy="226" rx="20" ry="4"/>
-                </g>
-              </g>
-              <path d="M70 165C130 105 230 92 300 118C370 92 470 105 530 165Q300 132 70 165Z" fill="#C95C70"/>
-              <path d="M70 165Q300 300 530 165C450 330 150 330 70 165Z" fill="#DA7487"/>
-              <path d="M222 292c50 10 106 10 156 0" stroke="#fff" stroke-opacity=".35" stroke-width="8" stroke-linecap="round" fill="none"/>
-              <path d="M190 120c30-10 60-10 85 0" stroke="#fff" stroke-opacity=".3" stroke-width="6" stroke-linecap="round" fill="none"/>
-            </svg>
-          </div>
-          <span class="ba-label ba-l-before">Before</span>
-          <span class="ba-label ba-l-after">After</span>
-          <div class="ba-handle" aria-hidden="true"><span><i class="fa-solid fa-left-right"></i></span></div>
-          <input type="range" min="0" max="100" value="50" class="ba-range" aria-label="Compare before and after">
-        </div>
-        <figcaption><strong>Cleaning, whitening &amp; alignment</strong> <span class="muted">— illustration</span></figcaption>
-      </figure>
-      <div class="ba-side reveal">
-        <h3>Cosmetic treatments we offer</h3>
-        <ul class="check-list">
-          <li><i class="fa-solid fa-check"></i> Professional scaling &amp; polishing</li>
-          <li><i class="fa-solid fa-check"></i> In-clinic teeth whitening</li>
-          <li><i class="fa-solid fa-check"></i> Veneers, bonding &amp; tooth reshaping</li>
-          <li><i class="fa-solid fa-check"></i> Braces &amp; clear aligners</li>
-          <li><i class="fa-solid fa-check"></i> Ceramic &amp; zirconia crowns</li>
-        </ul>
-        <p>Every smile is different. Visit us for a personalised smile assessment and see real patient results on our Instagram.</p>
-        <div class="btn-row">
-          <a href="#appointment" class="btn btn-gradient" data-book="cosmetic">Book Smile Assessment</a>
-          <a href="#" class="btn btn-insta" data-social-link="instagram" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> Instagram</a>
-        </div>
+    <div class="ba-grid" id="baGrid"></div>
+    <div class="gallery-cta reveal">
+      <p>Want results like these? Visit us for a personalised smile assessment.</p>
+      <div class="btn-row center">
+        <a href="#appointment" class="btn btn-accent" data-book="cosmetic">Book Smile Assessment</a>
+        <a href="#" class="btn btn-insta" data-social-link="instagram" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> More on Instagram</a>
       </div>
     </div>
     <div class="clinic-photos" id="clinicPhotos" hidden>
@@ -393,8 +322,10 @@
 <section class="section reviews" id="reviews">
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="section-title">What Our Patients Say</h2>
+      <h2 class="section-title">Patients Love Us on Google &amp; Justdial</h2>
+      <p class="section-sub">Ratings and reviews from patients who visited DENTZEN Dental Hospital.</p>
     </div>
+    <div class="rating-cards reveal" id="ratingCards"></div>
     <div class="reviews-slider" id="reviewsSlider" hidden>
       <div class="reviews-track" id="reviewsTrack"></div>
       <div class="reviews-nav">
@@ -406,11 +337,11 @@
       <i class="fa-solid fa-quote-left"></i>
       <div>
         <h3>Visited DENTZEN? We'd love to hear from you.</h3>
-        <p>Your feedback helps other families in Patna find the right dental care — and helps us keep improving.</p>
+        <p>Your review helps other families in Patna find the right dental care.</p>
       </div>
       <div class="btn-row">
-        <a href="#" class="btn btn-white-outline" data-social-link="googleReview" target="_blank" rel="noopener"><i class="fa-brands fa-google"></i> Read &amp; write Google reviews</a>
-        <a href="#" class="btn btn-white-outline" data-social-link="practo" target="_blank" rel="noopener"><i class="fa-solid fa-star"></i> Review on Practo</a>
+        <a href="#" class="btn btn-white-outline" data-social-link="googleReview" target="_blank" rel="noopener"><i class="fa-brands fa-google"></i> Review on Google</a>
+        <a href="#" class="btn btn-white-outline" data-social-link="justdial" target="_blank" rel="noopener"><i class="fa-solid fa-star"></i> Review on Justdial</a>
       </div>
     </div>
   </div>
@@ -487,14 +418,14 @@
   </div>
 </section>
 
-<!-- ============ DENTAL TIPS (new feature) ============ -->
-<section class="section tips" id="tips">
+<!-- ============ BLOG ============ -->
+<section class="section blog" id="blog">
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="section-title">Simple Habits for a Healthier Smile</h2>
-      <p class="section-sub">Good oral health starts at home. These everyday habits make a big difference between visits.</p>
+      <h2 class="section-title">Dental Health Blog</h2>
+      <p class="section-sub">Simple guides to common dental problems: causes, treatment and when to see a dentist. Tap any article to read it.</p>
     </div>
-    <div class="tips-grid" id="tipsGrid"></div>
+    <div class="blog-grid" id="blogGrid"></div>
   </div>
 </section>
 
@@ -585,11 +516,11 @@
         <li><a href="#home">Home</a></li>
         <li><a href="#about">About Us</a></li>
         <li><a href="#doctor">Our Doctor</a></li>
-        <li><a href="#finder">Treatment Finder</a></li>
+        <li><a href="#services">Services</a></li>
         <li><a href="#gallery">Smile Gallery</a></li>
-        <li><a href="#tips">Dental Tips</a></li>
+        <li><a href="#blog">Blog</a></li>
         <li><a href="#faq">FAQ</a></li>
-        <li><a href="#appointment">Book Appointment</a></li>
+        <li><a href="#contact">Contact</a></li>
       </ul>
     </div>
     <div class="f-col">

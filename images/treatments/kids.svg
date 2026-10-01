@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D9FBF8"/><stop offset="1" stop-color="#FFE3EE"/></linearGradient>
+    <linearGradient id="tooth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4F4F8"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#030541" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="720" height="480" fill="url(#bg)"/>
+  <circle cx="110" cy="90" r="60" fill="#fff" opacity=".55"/>
+  <circle cx="640" cy="400" r="90" fill="#fff" opacity=".45"/>
+  <circle cx="610" cy="90" r="22" fill="none" stroke="#fff" stroke-width="5"/>
+  <circle cx="90" cy="390" r="16" fill="none" stroke="#fff" stroke-width="5"/>
+  <circle cx="150" cy="300" r="10" fill="none" stroke="#28DFD3" stroke-width="4"/>
+  <path transform="translate(560 170)" d="M0-24 6-6 24 0 6 6 0 24-6 6-24 0-6-6z" fill="#FFC531"/>
+  <path transform="translate(160 170)" d="M0-16 4-4 16 0 4 4 0 16-4 4-16 0-4-4z" fill="#FF8FB1"/>
+  <path transform="translate(640 280)" d="M0-12 3-3 12 0 3 3 0 12-3 3-12 0-3-3z" fill="#28DFD3"/>
+  <g filter="url(#sh)"><path transform="translate(192 72) scale(7)" d="M24 7c-3-2-7-3-10-2-5 1-8 6-7 12 1 5 3 8 4 13 1 5 2 11 5 11 3 0 3-6 4-9 1-3 2-4 4-4s3 1 4 4c1 3 1 9 4 9 3 0 4-6 5-11 1-5 3-8 4-13 1-6-2-11-7-12-3-1-7 0-10 2z" fill="url(#tooth)" stroke="#9FDCE0" stroke-width=".6"/></g>
+  <ellipse cx="322" cy="206" rx="11" ry="15" fill="#1E2A4A"/><ellipse cx="398" cy="206" rx="11" ry="15" fill="#1E2A4A"/>
+  <circle cx="326" cy="200" r="4" fill="#fff"/><circle cx="402" cy="200" r="4" fill="#fff"/>
+  <circle cx="296" cy="244" r="16" fill="#FF8FB1" opacity=".55"/><circle cx="424" cy="244" r="16" fill="#FF8FB1" opacity=".55"/>
+  <path d="M328 246q32 40 64 0" fill="#E85A7A" stroke="#1E2A4A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M244 130c6-24 26-40 52-44" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <g transform="translate(470 330) rotate(-38)">
+    <rect x="0" y="-11" width="170" height="22" rx="11" fill="#FF7A59"/>
+    <rect x="22" y="-5" width="60" height="10" rx="5" fill="#fff" opacity=".45"/>
+    <rect x="166" y="-15" width="58" height="30" rx="9" fill="#fff" stroke="#CFE7EA" stroke-width="2"/>
+    <g fill="#4FC3F7"><rect x="172" y="-38" width="8" height="24" rx="3"/><rect x="184" y="-40" width="8" height="26" rx="3"/><rect x="196" y="-40" width="8" height="26" rx="3"/><rect x="208" y="-38" width="8" height="24" rx="3"/></g>
+  </g>
+  <g fill="#fff" stroke="#9FDCE0" stroke-width="3"><circle cx="590" cy="215" r="12"/><circle cx="615" cy="190" r="8"/><circle cx="572" cy="185" r="6"/></g>
+</svg>

@@ -6,7 +6,10 @@
   'use strict';
 
   var C = window.CLINIC || {};
+  var SC = window.SITE_CONTENT || {};          // photos, reviews, ratings & counters (edited from admin.html)
   var SERVICES = window.SERVICES || [];
+  var TP = SC.treatmentPhotos || {};
+  SERVICES.forEach(function (s) { if (TP[s.id]) s.img = TP[s.id]; });
   var ICONS = window.ICONS || {};
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -98,13 +101,17 @@
       if (!url) a.hidden = true; else a.setAttribute('href', url);
     });
 
-    if (d.photo) {
+    if (SC.doctorPhoto) {
       var box = $('#doctorPhoto .doc-placeholder');
       if (box) {
         var img = document.createElement('img');
-        img.src = d.photo; img.alt = d.name + ', ' + d.degree; img.loading = 'lazy';
+        img.src = SC.doctorPhoto; img.alt = d.name + ', ' + d.degree; img.loading = 'lazy';
         box.replaceWith(img);
       }
+    }
+    if (SC.aboutPhoto) {
+      var slot = $('#aboutPhoto');
+      if (slot) slot.innerHTML = '<img class="about-photo" src="' + esc(SC.aboutPhoto) + '" alt="DENTZEN Dental Hospital, Kankarbagh, Patna" loading="lazy">';
     }
 
     var map = $('#mapFrame');
@@ -149,9 +156,14 @@
   /* ---------- 3. Stats counters ---------- */
   function renderStats() {
     var grid = $('#statsGrid'); if (!grid) return;
-    grid.innerHTML = (C.stats || []).map(function (s) {
+    grid.innerHTML = (SC.stats || []).filter(function (s) {
+      return s.value !== null && s.value !== undefined && s.value !== '';   // a counter without a number stays hidden
+    }).map(function (s) {
       var val = s.value === 'years' ? years : s.value;
-      return '<div class="stat"><span class="stat-ic"><i class="fa-solid ' + esc(s.icon || 'fa-tooth') + '"></i></span><div>' +
+      var ic = s.badge ? '<b class="stat-badge' + (s.badge.length > 3 ? ' sm' : '') + '">' + esc(s.badge) + '</b>'
+        : s.svg ? svgIcon(s.svg)
+        : '<i class="' + (/\bfa-(solid|brands|regular)\b/.test(s.icon || '') ? '' : 'fa-solid ') + esc(s.icon || 'fa-tooth') + '"></i>';
+      return '<div class="stat"><span class="stat-ic' + (s.svg ? ' is-svg' : '') + '">' + ic + '</span><div>' +
         '<div class="stat-num" data-count="' + esc(val) + '" data-plain="' + (s.plain ? 1 : 0) + '" data-prefix="' + esc(s.prefix || '') + '" data-suffix="' + esc(s.suffix || '') + '">' +
         esc((s.prefix || '') + fmtNum(val, s.plain) + (s.suffix || '')) + '</div>' +
         '<div class="stat-label">' + esc(s.label) + '</div></div></div>';
@@ -294,12 +306,38 @@
     out.innerHTML = html;
   }
 
-  /* ---------- 7. Dental tips ---------- */
-  function renderTips() {
-    var grid = $('#tipsGrid'); if (!grid) return;
-    grid.innerHTML = (window.TIPS || []).map(function (t, i) {
-      return '<article class="tip reveal" data-no="' + pad(i + 1) + '"><i class="fa-solid ' + esc(t.icon) + '"></i><h3>' + esc(t.title) + '</h3><p>' + esc(t.text) + '</p></article>';
+  /* ---------- 7. Blog (articles open in a pop-up) ---------- */
+  var BLOG = window.BLOG || [];
+  function renderBlog() {
+    var grid = $('#blogGrid'); if (!grid) return;
+    grid.innerHTML = BLOG.map(function (b) {
+      return '<article class="post reveal"><button type="button" class="post-link" data-article="' + b.id + '">' +
+        '<span class="post-art tone-' + esc(b.tone) + '"><i class="fa-solid ' + esc(b.icon) + '"></i></span>' +
+        '<span class="post-body"><span class="post-meta"><span class="post-tag">' + esc(b.tag) + '</span> · ' + b.minutes + ' min read</span>' +
+        '<span class="post-title">' + esc(b.title) + '</span><span class="post-excerpt">' + esc(b.excerpt) + '</span>' +
+        '<span class="post-more">Read article <i class="fa-solid fa-arrow-right"></i></span></span></button></article>';
     }).join('');
+  }
+  function openArticle(id) {
+    var b = null; BLOG.forEach(function (x) { if (x.id === id) b = x; });
+    if (!b || !modal) return;
+    var svc = serviceById(b.service);
+    $('#modalBody').innerHTML =
+      '<div class="m-head article-head tone-' + esc(b.tone) + '"><span class="post-icon"><i class="fa-solid ' + esc(b.icon) + '"></i></span>' +
+      '<div><span class="post-meta">' + esc(b.tag) + ' · ' + b.minutes + ' min read</span><h2 id="modalTitle">' + esc(b.title) + '</h2></div></div>' +
+      '<div class="m-content article">' + (b.sections || []).map(function (sec) {
+        return (sec.h ? '<h3>' + esc(sec.h) + '</h3>' : '') + (sec.p ? '<p>' + esc(sec.p) + '</p>' : '') +
+          (sec.list ? '<ul>' + sec.list.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '');
+      }).join('') +
+      '<div class="m-foot"><a href="#appointment" class="btn btn-accent" data-close' + (svc ? ' data-book="' + svc.id + '"' : '') + '><i class="fa-regular fa-calendar-check"></i> Book a consultation</a>' +
+      '<a class="btn btn-outline-wa" ' + (hasWa ? 'target="_blank" rel="noopener" ' : 'data-close ') + 'href="' + esc(waHref('Hello ' + C.name + ', I have a question about: ' + b.title)) + '"><i class="fa-brands fa-whatsapp"></i> Ask on WhatsApp</a>' +
+      (svc ? '<button type="button" class="btn btn-ghost" data-service="' + svc.id + '">About ' + esc(svc.name) + '</button>' : '') + '</div>' +
+      '<p class="m-disclaimer">General information only — please see a dentist for advice about your own teeth.</p></div>';
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+    $('.modal-dialog', modal).scrollTop = 0;
+    $('.modal-close', modal).focus();
   }
 
   /* ---------- 8. Hero slider ---------- */
@@ -341,12 +379,16 @@
 
   /* ---------- 9. Before / after comparison ---------- */
   function initBeforeAfter() {
-    var cases = C.beforeAfter || [];
-    if (cases.length) {
-      var first = $('[data-ba]');
-      var wrap = document.createElement('div');
-      wrap.className = 'ba-cases';
-      wrap.innerHTML = cases.map(function (c) {
+    var cases = SC.beforeAfter || [], grid = $('#baGrid');
+    if (grid) {
+      grid.innerHTML = cases.map(function (c) {
+        if (!c.before || !c.after) {
+          var one = c.after || c.before;
+          return '<figure class="ba ba-empty">' + (one
+            ? '<div class="ba-stage"><img class="ba-single" src="' + esc(one) + '" alt="' + esc(c.title) + '" loading="lazy"><span class="ba-label ' + (c.after ? 'ba-l-after' : 'ba-l-before') + '">' + (c.after ? 'After' : 'Before') + '</span></div>'
+            : '<div class="ba-stage ba-vacant"><i class="fa-regular fa-images"></i><span>Before &amp; after photos coming soon</span></div>') +
+            '<figcaption><strong>' + esc(c.title) + '</strong></figcaption></figure>';
+        }
         return '<figure class="ba" data-ba><div class="ba-stage">' +
           '<div class="ba-layer ba-after"><img src="' + esc(c.after) + '" alt="' + esc(c.title) + ' — after" loading="lazy"></div>' +
           '<div class="ba-layer ba-before"><img src="' + esc(c.before) + '" alt="' + esc(c.title) + ' — before" loading="lazy"></div>' +
@@ -355,8 +397,6 @@
           '<input type="range" min="0" max="100" value="50" class="ba-range" aria-label="Compare before and after: ' + esc(c.title) + '"></div>' +
           '<figcaption><strong>' + esc(c.title) + '</strong></figcaption></figure>';
       }).join('');
-      wrap.style.display = 'grid'; wrap.style.gap = '32px';
-      if (first) first.replaceWith(wrap);
     }
     $$('[data-ba]').forEach(function (fig) {
       var stage = $('.ba-stage', fig), range = $('.ba-range', fig);
@@ -364,7 +404,7 @@
       range.addEventListener('input', set); set();
     });
 
-    var photos = C.gallery || [], pg = $('#photoGallery');
+    var photos = SC.gallery || [], pg = $('#photoGallery');
     if (photos.length && pg) {
       pg.innerHTML = photos.map(function (p) {
         return '<figure><img src="' + esc(p.src) + '" alt="' + esc(p.caption || 'DENTZEN clinic') + '" loading="lazy">' + (p.caption ? '<figcaption>' + esc(p.caption) + '</figcaption>' : '') + '</figure>';
@@ -375,14 +415,41 @@
   }
 
   /* ---------- 10. Reviews ---------- */
+  var SOURCES = {
+    Google: { cls: 'src-google', icon: '<i class="fa-brands fa-google"></i>', link: 'googleReview' },
+    Justdial: { cls: 'src-jd', icon: '<b>JD</b>', link: 'justdial' },
+    Practo: { cls: 'src-practo', icon: '<b>p</b>', link: 'practo' }
+  };
+  function starsHtml(n) {
+    var full = Math.round(n || 0), out = '';
+    for (var i = 1; i <= 5; i++) out += '<i class="fa-' + (i <= full ? 'solid' : 'regular') + ' fa-star"></i>';
+    return out;
+  }
+  function renderRatingCards() {
+    var box = $('#ratingCards'); if (!box) return;
+    var r = SC.ratings || {}, social = C.social || {}, cards = [];
+    if (r.google) cards.push({ src: 'Google', score: r.google, sub: r.googleCount ? r.googleCount + ' Google reviews' : 'Google rating', btn: 'Read Google reviews' });
+    if (r.justdial) cards.push({ src: 'Justdial', score: r.justdial, sub: r.justdialCount ? r.justdialCount + ' Justdial ratings' : 'Justdial rating', btn: 'Read Justdial reviews' });
+    if (r.practo) cards.push({ src: 'Practo', pct: r.practo, sub: 'Patients recommend us on Practo', btn: 'View on Practo' });
+    box.innerHTML = cards.map(function (c) {
+      var m = SOURCES[c.src], url = social[m.link] || '#';
+      return '<a class="rating-card ' + m.cls + '" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+        '<span class="rc-logo">' + m.icon + '</span><span class="rc-name">' + c.src + '</span>' +
+        '<span class="rc-score">' + (c.pct ? c.pct + '%' : Number(c.score).toFixed(1)) + '</span>' +
+        (c.pct ? '<span class="rc-stars rc-pct"><span style="width:' + Math.min(100, c.pct) + '%"></span></span>' : '<span class="rc-stars">' + starsHtml(c.score) + '</span>') +
+        '<span class="rc-sub">' + esc(c.sub) + '</span><span class="rc-btn">' + c.btn + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></span></a>';
+    }).join('');
+  }
   function initReviews() {
-    var reviews = C.reviews || [], slider = $('#reviewsSlider'), track = $('#reviewsTrack');
+    renderRatingCards();
+    var reviews = SC.reviews || [], slider = $('#reviewsSlider'), track = $('#reviewsTrack');
     if (!reviews.length || !slider) return;
     track.innerHTML = reviews.map(function (r) {
-      var stars = Math.max(1, Math.min(5, r.rating || 5));
-      return '<article class="review"><div class="stars" aria-label="' + stars + ' out of 5 stars">' + new Array(stars + 1).join('★') + '</div>' +
-        '<p>“' + esc(r.text) + '”</p><div class="who"><span class="avatar">' + esc((r.name || '?').charAt(0)) + '</span>' +
-        '<div><strong>' + esc(r.name) + '</strong><span>' + esc(r.source ? 'via ' + r.source : 'Patient') + '</span></div></div></article>';
+      var stars = Math.max(1, Math.min(5, r.rating || 5)), m = SOURCES[r.source] || null;
+      return '<article class="review"><div class="review-top"><span class="stars" aria-label="' + stars + ' out of 5 stars">' + starsHtml(stars) + '</span>' +
+        (m ? '<span class="rv-src ' + m.cls + '" title="' + esc(r.source) + ' review">' + m.icon + '</span>' : '') + '</div>' +
+        '<p>“' + esc(r.text) + '”</p><div class="who"><span class="avatar">' + esc((r.name || '?').charAt(0).toUpperCase()) + '</span>' +
+        '<div><strong>' + esc(r.name) + '</strong><span>' + esc((r.source ? r.source + ' review' : 'Patient') + (r.date ? ' · ' + r.date : '')) + '</span></div></div></article>';
     }).join('');
     slider.hidden = false;
     $$('[data-rev]', slider).forEach(function (b) {
@@ -536,6 +603,8 @@
 
     /* Delegated clicks: open treatment details, pre-select treatment when booking */
     document.addEventListener('click', function (e) {
+      var art = e.target.closest('[data-article]');
+      if (art) { e.preventDefault(); openArticle(art.getAttribute('data-article')); return; }
       var svc = e.target.closest('[data-service]');
       if (svc) { e.preventDefault(); openService(svc.getAttribute('data-service')); return; }
       var book = e.target.closest('[data-book]');
@@ -602,7 +671,7 @@
   renderStats();
   renderServices();
   renderFinder();
-  renderTips();
+  renderBlog();
   initSlider();
   initBeforeAfter();
   initReviews();

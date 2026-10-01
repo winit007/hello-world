@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>DENTZEN Website Editor</title>
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body class="admin">
+
+<header class="adm-top">
+  <div class="adm-wrap adm-top-in">
+    <a href="index.html" class="adm-brand"><i class="fa-solid fa-tooth"></i> DENTZEN <span>Website Editor</span></a>
+    <a href="index.html" class="btn btn-white" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> View website</a>
+  </div>
+</header>
+
+<main class="adm-wrap adm-main">
+
+  <section class="adm-card">
+    <h1>Edit your website</h1>
+    <p>Upload photos, add Google and Justdial reviews, and update your ratings and counters. When you press <strong>Publish changes</strong>, everything is saved to your website and the live site updates in about 1–2 minutes.</p>
+    <p class="adm-status" id="connStatus"><i class="fa-solid fa-plug-circle-xmark"></i> Not connected. You can make changes, but connect to GitHub to publish them.</p>
+
+    <details class="adm-connect" id="connectBox" open>
+      <summary>GitHub connection</summary>
+      <div class="adm-fields">
+        <div class="field"><label for="ghOwner">GitHub account</label><input id="ghOwner" value="winit007" autocomplete="off"></div>
+        <div class="field"><label for="ghRepo">Repository</label><input id="ghRepo" value="hello-world" autocomplete="off"></div>
+        <div class="field"><label for="ghBranch">Branch (the one your website is published from)</label><input id="ghBranch" value="master" autocomplete="off"></div>
+        <div class="field"><label for="ghToken">Access token</label><input id="ghToken" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+      </div>
+      <label class="consent"><input type="checkbox" id="ghRemember" checked> Remember on this device (only use this on your own computer or phone)</label>
+      <div class="btn-row">
+        <button type="button" class="btn btn-navy" id="connectBtn"><i class="fa-brands fa-github"></i> Connect</button>
+        <button type="button" class="btn btn-link" id="forgetBtn" hidden>Disconnect &amp; forget token</button>
+      </div>
+      <details class="adm-help">
+        <summary>How do I get an access token? (one-time setup)</summary>
+        <ol>
+          <li>Sign in to <a href="https://github.com" target="_blank" rel="noopener">github.com</a> and open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Settings → Developer settings → Fine-grained tokens → Generate new token</a>.</li>
+          <li>Name it “DENTZEN website”, and choose an expiry date (for example 1 year).</li>
+          <li>Under <strong>Repository access</strong>, choose <strong>Only select repositories</strong> and pick your website repository.</li>
+          <li>Under <strong>Permissions → Repository permissions</strong>, set <strong>Contents</strong> to <strong>Read and write</strong>.</li>
+          <li>Press <strong>Generate token</strong>, copy it, and paste it in the “Access token” box above.</li>
+        </ol>
+        <p>Keep the token private. It only gives access to your website repository, and you can delete it on GitHub at any time.</p>
+      </details>
+    </details>
+  </section>
+
+  <nav class="adm-tabs" role="tablist" aria-label="Sections">
+    <button role="tab" aria-selected="true" data-tab="photos"><i class="fa-regular fa-image"></i> Photos</button>
+    <button role="tab" aria-selected="false" data-tab="ba"><i class="fa-solid fa-left-right"></i> Before &amp; After</button>
+    <button role="tab" aria-selected="false" data-tab="reviews"><i class="fa-solid fa-star"></i> Reviews</button>
+    <button role="tab" aria-selected="false" data-tab="numbers"><i class="fa-solid fa-chart-simple"></i> Ratings &amp; Counters</button>
+  </nav>
+
+  <section class="adm-panel" id="tab-photos" role="tabpanel"></section>
+  <section class="adm-panel" id="tab-ba" role="tabpanel" hidden></section>
+  <section class="adm-panel" id="tab-reviews" role="tabpanel" hidden></section>
+  <section class="adm-panel" id="tab-numbers" role="tabpanel" hidden></section>
+</main>
+
+<div class="adm-savebar" id="saveBar" hidden>
+  <div class="adm-wrap adm-savebar-in">
+    <span id="saveMsg"><i class="fa-solid fa-circle-exclamation"></i> You have unsaved changes</span>
+    <button type="button" class="btn btn-accent" id="publishBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Publish changes</button>
+  </div>
+</div>
+<div class="adm-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/content.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>
