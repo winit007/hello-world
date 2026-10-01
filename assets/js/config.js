@@ -41,14 +41,15 @@ window.CLINIC = {
   /* Opening hours, 24-hour format. 0 = Sunday, 1 = Monday … 6 = Saturday.
      Each day can have several sessions, e.g. a lunch break. */
   hours: {
-    0: [['10:00', '13:00']],
-    1: [['10:00', '13:00'], ['15:00', '20:00']],
-    2: [['10:00', '13:00'], ['15:00', '20:00']],
-    3: [['10:00', '13:00'], ['15:00', '20:00']],
-    4: [['10:00', '13:00'], ['15:00', '20:00']],
-    5: [['10:00', '13:00'], ['15:00', '20:00']],
-    6: [['10:00', '13:00'], ['15:00', '20:00']]
+    0: [['10:00', '20:00']],
+    1: [['10:00', '20:00']],
+    2: [['10:00', '20:00']],
+    3: [['10:00', '20:00']],
+    4: [['10:00', '20:00']],
+    5: [['10:00', '20:00']],
+    6: [['10:00', '20:00']]
   },
+  appointmentOnly: [4],                // days seen by prior appointment only (4 = Thursday)
   slotMinutes: 30,                     // length of each appointment slot in the booking form
 
   social: {
@@ -66,6 +67,19 @@ window.CLINIC = {
 
   /* Photos, reviews, ratings and the counter numbers are in assets/js/content.js
      and can be edited from the admin page (admin.html). */
+
+  /* Patient Safety & Infection Control section.
+     It stays HIDDEN on the website until you set verified: true, after checking
+     that every step on the page matches what the clinic actually does. */
+  infectionControl: {
+    verified: false,
+    chemical: {                        // fill in to show the product on the page; leave '' to hide
+      product: '',                     // e.g. 'Cidex OPA (ortho-phthalaldehyde)'
+      concentration: '',               // e.g. '0.55%'
+      contactTime: '',                 // e.g. '12 minutes'
+      usedFor: ''                      // e.g. 'heat-sensitive items only'
+    }
+  },
 
   siteUrl: ''                          // e.g. 'https://www.dentzendental.com' once you have a domain
 };

@@ -47,6 +47,16 @@ The whole colour scheme is defined at the top of `assets/css/style.css` (the `:r
 - `images/treatments/kids.svg` and `images/treatments/cleaning.svg`: drawn graphics.
 - Other pictures in `images/treatments/`, `images/hero/` and `images/tech/`: free photos from [Unsplash](https://unsplash.com/license), which may be used commercially without credit.
 
+## Patient Safety & Infection Control section
+
+The section is written but **hidden until verified**. In `assets/js/config.js`, set `infectionControl.verified: true` only after confirming every step matches the clinic's actual practice (see the checklist in the chat / below). If the clinic uses a chemical disinfectant, fill in `product`, `concentration`, `contactTime` and `usedFor` from the product label; they then appear on the page.
+
+Checklist before setting `verified: true`:
+1. Heat sterilization (autoclave) is actually used for instruments that enter tissue or touch bone.
+2. Chemical processing is used only to support cleaning or for heat-sensitive items, at the label's concentration and contact time, on compatible instruments.
+3. Cycles are monitored (indicators) and packs are stored sealed and dry.
+4. Viral-marker testing is offered only where clinically indicated, with informed consent; standard precautions apply to everyone regardless.
+
 ## Still to do
 
 1. **Total OPD** counter: add the number in the editor (Ratings & Counters). It stays hidden until then.

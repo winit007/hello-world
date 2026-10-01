@@ -62,7 +62,14 @@
           <a href="#services" class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Services <i class="fa-solid fa-caret-down"></i></a>
           <ul class="dropdown" id="servicesDropdown"></ul>
         </li>
-        <li><a href="#gallery">Smile Gallery</a></li>
+        <li class="has-dropdown">
+          <a href="#gallery" class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Smile Gallery <i class="fa-solid fa-caret-down"></i></a>
+          <ul class="dropdown dropdown-sm">
+            <li><a href="#gallery"><i class="fa-solid fa-left-right"></i> Before &amp; After</a></li>
+            <li><a href="#clinicPhotos"><i class="fa-regular fa-images"></i> Our Clinic</a></li>
+            <li><a href="#safety" data-safety-link hidden><i class="fa-solid fa-shield-heart"></i> Patient Safety</a></li>
+          </ul>
+        </li>
         <li><a href="#blog">Blog</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
@@ -98,7 +105,7 @@
           <ul class="hero-points">
             <li><span class="open-status" data-open-status><span class="dot"></span><span class="txt">Checking hours…</span></span></li>
             <li><i class="fa-solid fa-circle-check"></i> Gentle &amp; painless</li>
-            <li><i class="fa-solid fa-circle-check"></i> Open 7 days</li>
+            <li><i class="fa-solid fa-circle-check"></i> Open 10 AM – 8 PM</li>
             <li data-fee-show><i class="fa-solid fa-circle-check"></i> ₹<span data-bind="fee">250</span> consultation</li>
           </ul>
         </div>
@@ -206,8 +213,8 @@
       <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-user-doctor"></i></span><h3>Qualified &amp; Registered</h3><p>Treatment by Dr. W. Wagisha, BDS, registered with the Bihar State Dental Council and practising since 2019.</p></div>
       <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-syringe"></i></span><h3>Painless Approach</h3><p>Effective local anaesthesia, gentle hands and a step-by-step explanation, so you always know what is happening.</p></div>
       <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-receipt"></i></span><h3>Transparent Costs</h3><p>No surprises. You get a clear treatment plan and cost estimate before any treatment begins.</p></div>
-      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-shield-virus"></i></span><h3>Sterilisation First</h3><p>Instruments are sterilised for every patient and disposables are single-use — your safety is non-negotiable.</p></div>
-      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-calendar-days"></i></span><h3>Open 7 Days</h3><p>Morning and evening sessions Monday to Saturday, plus Sunday mornings — easy to fit around work and school.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-shield-virus"></i></span><h3>Infection Control First</h3><p>Standard precautions for every patient: cleaned and processed instruments, single-use disposables, fresh gloves and masks.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-calendar-days"></i></span><h3>Open 10 AM – 8 PM</h3><p>Six days a week from 10 AM to 8 PM, with Thursday by prior appointment — easy to fit around work and school.</p></div>
       <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-location-dot"></i></span><h3>Easy to Reach</h3><p>On Bhootnath Road, Kankarbagh, opposite Bhootnath Mandir — convenient from across Patna.</p></div>
     </div>
   </div>
@@ -242,8 +249,78 @@
       <div class="tech-card reveal"><img src="images/tech/rotary.jpg" alt="Dentist performing a root canal with a rotary system" loading="lazy"><h3>Rotary RCT System – Faster, Painless Root Canals</h3><p>An advanced rotary endodontic system completes most root canals in a single visit, with less discomfort, shorter appointments and greater precision.</p></div>
       <div class="tech-card reveal"><img src="images/tech/endo-activator.jpg" alt="Dental instrument in a modern clinic" loading="lazy"><h3>Endo Activator – Deeper Canal Cleaning</h3><p>Gentle sonic vibrations help disinfecting solutions reach every corner of the root canal, for cleaner canals and better long-term results.</p></div>
       <div class="tech-card reveal"><img src="images/tech/obturation.jpg" alt="Dental X-ray showing sealed teeth" loading="lazy"><h3>3D Obturation Unit – Complete Canal Sealing</h3><p>Warm, three-dimensional filling seals the entire root canal system, helping prevent re-infection and protecting the tooth for years.</p></div>
-      <div class="tech-card reveal"><img src="images/tech/sterilisation.jpg" alt="Sterilised dental instruments" loading="lazy"><h3>Sterilization Unit – Safe Every Time</h3><p>Every instrument is cleaned, pouched and sterilised in our dedicated sterilization unit before each patient.</p></div>
+      <div class="tech-card reveal"><img src="images/tech/sterilisation.jpg" alt="Sterilised dental instruments" loading="lazy"><h3>Sterilization Unit – Clean Instruments, Every Patient</h3><p>Used instruments are cleaned, inspected, packaged and processed in our sterilization unit before they are used again. <a href="#safety" data-safety-link hidden>See how we do it →</a></p></div>
     </div>
+  </div>
+</section>
+
+<!-- ============ PATIENT SAFETY & INFECTION CONTROL (shown once verified in config.js) ============ -->
+<section class="section safety" id="safety" hidden>
+  <div class="container">
+    <div class="section-head reveal">
+      <h2 class="section-title">Patient Safety &amp; Infection Control</h2>
+      <p class="section-sub">Every instrument that touches your mouth goes through the same five steps before it is used again. The same standard precautions apply to every patient, every time.</p>
+      <p class="section-sub hi" lang="hi">आपके मुँह को छूने वाला हर उपकरण दोबारा इस्तेमाल से पहले इन्हीं पाँच चरणों से गुज़रता है। हर मरीज़ के लिए, हर बार, एक जैसी सावधानियाँ।</p>
+    </div>
+    <ol class="safe-steps">
+      <li class="safe-step reveal">
+        <span class="safe-no">1</span>
+        <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+        <h3>Safe collection &amp; transport</h3>
+        <p>Used instruments go straight into a closed, puncture-proof container and are carried to the processing area — never left on the chair-side tray.</p>
+        <p class="hi" lang="hi">इस्तेमाल किए गए उपकरण तुरंत एक बंद, मज़बूत कंटेनर में रखे जाते हैं और प्रोसेसिंग क्षेत्र में ले जाए जाते हैं।</p>
+      </li>
+      <li class="safe-step reveal">
+        <span class="safe-no">2</span>
+        <i class="fa-solid fa-soap" aria-hidden="true"></i>
+        <h3>Thorough cleaning</h3>
+        <p>Every instrument is cleaned to remove blood, saliva and debris, because residue can shield germs from the next step.</p>
+        <p class="hi" lang="hi">हर उपकरण से खून, लार और गंदगी को अच्छी तरह साफ़ किया जाता है, क्योंकि बची हुई गंदगी कीटाणुओं को ढक सकती है।</p>
+      </li>
+      <li class="safe-step reveal">
+        <span class="safe-no">3</span>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <h3>Drying, inspection &amp; packaging</h3>
+        <p>Instruments are dried, checked for damage or wear, and sealed in pouches so they stay protected until use.</p>
+        <p class="hi" lang="hi">उपकरणों को सुखाकर, टूट-फूट के लिए जाँचकर, पाउच में सील किया जाता है ताकि वे उपयोग तक सुरक्षित रहें।</p>
+      </li>
+      <li class="safe-step reveal">
+        <span class="safe-no">4</span>
+        <i class="fa-solid fa-temperature-arrow-up" aria-hidden="true"></i>
+        <h3>Sterilization suited to the instrument</h3>
+        <p>Instruments that enter tissue or touch bone are sterilized by heat. Chemical disinfectants support cleaning and are used for items that cannot take heat — they are not a substitute for sterilization.</p>
+        <p class="hi" lang="hi">जो उपकरण ऊतक या हड्डी को छूते हैं, उन्हें गर्मी (हीट) से स्टरलाइज़ किया जाता है। केमिकल डिसइन्फेक्टेंट सफ़ाई में मदद करते हैं और केवल उन चीज़ों के लिए हैं जो गर्मी सह नहीं सकतीं — यह स्टरलाइज़ेशन का विकल्प नहीं है।</p>
+      </li>
+      <li class="safe-step reveal">
+        <span class="safe-no">5</span>
+        <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
+        <h3>Monitoring, storage &amp; checks before reuse</h3>
+        <p>Each cycle is monitored, packs are stored clean and dry, and every pouch is checked for an intact seal and indicator before it is opened for you.</p>
+        <p class="hi" lang="hi">हर साइकिल की निगरानी होती है, पैक साफ़ और सूखी जगह रखे जाते हैं, और आपके सामने खोलने से पहले हर पाउच की सील और इंडिकेटर जाँचे जाते हैं।</p>
+      </li>
+    </ol>
+    <div class="safe-grid">
+      <div class="safe-box reveal">
+        <span class="safe-ic"><i class="fa-solid fa-flask"></i></span>
+        <h3>Where chemical disinfection fits</h3>
+        <p>Chemical disinfectants are used to support cleaning and for items that cannot tolerate heat. They disinfect — they do not sterilize. Soaking never replaces heat sterilization for instruments that need it.</p>
+        <p class="hi" lang="hi">केमिकल डिसइन्फेक्टेंट सफ़ाई में सहायक हैं और उन चीज़ों के लिए हैं जो गर्मी सह नहीं सकतीं। ये कीटाणुरहित करते हैं, स्टरलाइज़ नहीं। भिगोना कभी भी हीट स्टरलाइज़ेशन की जगह नहीं लेता।</p>
+        <p class="safe-detail" id="chemDetails" hidden></p>
+      </div>
+      <div class="safe-box reveal">
+        <span class="safe-ic"><i class="fa-solid fa-vial-circle-check"></i></span>
+        <h3>Viral-marker testing</h3>
+        <p>Where clinically indicated, viral-marker testing may help identify infections and support appropriate medical assessment and treatment planning. Testing is explained to patients and performed with informed consent and confidentiality.</p>
+        <p>Test results never change how carefully we work: standard infection-control precautions apply to every patient, regardless of results.</p>
+        <p class="hi" lang="hi">जहाँ चिकित्सकीय रूप से ज़रूरी हो, वायरल-मार्कर जाँच संक्रमण की पहचान और सही उपचार योजना में मदद कर सकती है। जाँच मरीज़ को समझाकर, सहमति और गोपनीयता के साथ की जाती है। जाँच का नतीजा चाहे जो हो, हर मरीज़ के लिए संक्रमण-नियंत्रण की सावधानियाँ समान रहती हैं।</p>
+      </div>
+    </div>
+    <ul class="safe-basics reveal">
+      <li><i class="fa-solid fa-hand-sparkles"></i> Fresh gloves and mask for every patient</li>
+      <li><i class="fa-solid fa-syringe"></i> Single-use needles, syringes and suction tips</li>
+      <li><i class="fa-solid fa-spray-can-sparkles"></i> Chair and surfaces wiped down between patients</li>
+      <li><i class="fa-solid fa-eye"></i> Sealed pouches opened in front of you</li>
+    </ul>
   </div>
 </section>
 
@@ -354,7 +431,7 @@
       <h2>Book Your Visit with Our Expert Team</h2>
       <p>Pick a convenient day and time — slots follow our real clinic hours. Your request goes straight to the clinic on WhatsApp, and we will confirm your appointment shortly.</p>
       <ul class="appt-points">
-        <li><i class="fa-solid fa-clock"></i><span><strong>Clinic hours</strong><span data-bind="hoursShort">Mon–Sat 10 AM–1 PM, 3–8 PM · Sun 10 AM–1 PM</span></span></li>
+        <li><i class="fa-solid fa-clock"></i><span><strong>Clinic hours</strong><span data-bind="hoursShort">Sun–Wed, Fri–Sat 10 AM–8 PM · Thu by appointment</span></span></li>
         <li data-fee-show><i class="fa-solid fa-indian-rupee-sign"></i><span><strong>Consultation</strong>₹<span data-bind="fee">250</span></span></li>
         <li><i class="fa-solid fa-phone"></i><span><strong>Prefer to call?</strong><a href="#appointment" data-tel><span data-bind="phone">+91 XXXXX XXXXX</span></a></span></li>
       </ul>
@@ -438,7 +515,7 @@
     </div>
     <div class="faq-list" id="faqList">
       <details class="faq-item"><summary>Where is DENTZEN Dental Hospital located?</summary><div class="faq-body"><p>We are on <span data-bind="addressShort">Bhootnath Road, Kankarbagh, Patna</span> (<span data-bind="landmark">ground floor, right of Domino's, opposite Bhootnath Mandir</span>). See the map in the Contact section below for directions.</p></div></details>
-      <details class="faq-item"><summary>What are the clinic timings?</summary><div class="faq-body"><p>Monday to Saturday: 10:00 AM – 1:00 PM and 3:00 PM – 8:00 PM. Sunday: 10:00 AM – 1:00 PM. For emergencies, please call or WhatsApp us.</p></div></details>
+      <details class="faq-item"><summary>What are the clinic timings?</summary><div class="faq-body"><p>We are open 10:00 AM – 8:00 PM six days a week (Sunday to Wednesday, Friday and Saturday). On Thursday we see patients by prior appointment only. For emergencies, please call or WhatsApp us.</p></div></details>
       <details class="faq-item"><summary>What is the consultation fee?</summary><div class="faq-body"><p>The consultation fee is ₹<span data-bind="fee">250</span>. After examining you, we explain your treatment options and give you a clear cost estimate before any treatment begins.</p></div></details>
       <details class="faq-item"><summary>Is root canal treatment painful?</summary><div class="faq-body"><p>Modern root canal treatment is done under local anaesthesia and feels much like getting a filling. Most patients feel relief because the treatment removes the infection that was causing the pain. Mild soreness for a day or two afterwards is normal.</p></div></details>
       <details class="faq-item"><summary>How much does a root canal or dental implant cost?</summary><div class="faq-body"><p>The cost depends on the tooth, its condition, the number of visits and the type of crown or implant chosen. After the examination (and X-ray if needed) we give you a clear, written estimate so you can decide with no surprises.</p></div></details>
@@ -533,7 +610,7 @@
         <li><i class="fa-solid fa-location-dot"></i><span data-bind="addressFull">Bhootnath Road, Kankarbagh, Patna, Bihar</span></li>
         <li><i class="fa-solid fa-phone"></i><a href="#appointment" data-tel><span data-bind="phone">+91 XXXXX XXXXX</span></a></li>
         <li data-needs="email"><i class="fa-solid fa-envelope"></i><a href="#" data-mail><span data-bind="email"></span></a></li>
-        <li><i class="fa-regular fa-clock"></i><span data-bind="hoursShort">Mon–Sat 10 AM–1 PM, 3–8 PM · Sun 10 AM–1 PM</span></li>
+        <li><i class="fa-regular fa-clock"></i><span data-bind="hoursShort">Sun–Wed, Fri–Sat 10 AM–8 PM · Thu by appointment</span></li>
       </ul>
       <a href="#appointment" class="btn btn-accent">Book Appointment</a>
     </div>

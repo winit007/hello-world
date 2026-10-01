@@ -38,7 +38,8 @@
     return fmtTime(sa, !sameMer) + '–' + fmtTime(sb);
   }
   function sessionsFor(day) { return (C.hours && C.hours[day]) || []; }
-  function daySummary(day) { var s = sessionsFor(day); return s.length ? s.map(function (r) { return fmtRange(r[0], r[1]); }).join(', ') : 'Closed'; }
+  function byAppt(day) { return (C.appointmentOnly || []).indexOf(day) !== -1; }
+  function daySummary(day) { var s = sessionsFor(day); return s.length ? s.map(function (r) { return fmtRange(r[0], r[1]); }).join(', ') + (byAppt(day) ? ' (by appointment)' : '') : 'Closed'; }
 
   /* ---------- contact links ---------- */
   function digits(s) { return String(s || '').replace(/\D/g, ''); }
@@ -56,15 +57,18 @@
   var addressFull = [addr.line1, addr.area, addr.city, [addr.state, addr.pin].filter(Boolean).join(' – ')].filter(Boolean).join(', ');
 
   function hoursShort() {
-    var groups = [];
+    var groups = [], appt = [];
     WEEK_ORDER.forEach(function (d) {
-      var s = daySummary(d), last = groups[groups.length - 1];
-      if (last && last.text === s) last.days.push(d); else groups.push({ text: s, days: [d] });
+      var s = sessionsFor(d), text = s.length ? s.map(function (r) { return fmtRange(r[0], r[1]); }).join(', ') : 'Closed';
+      if (byAppt(d) && s.length) appt.push(DAY_SHORT[d]);
+      var last = groups[groups.length - 1];
+      if (last && last.text === text) last.days.push(d); else groups.push({ text: text, days: [d] });
     });
-    return groups.map(function (g) {
+    var out = groups.map(function (g) {
       var label = DAY_SHORT[g.days[0]] + (g.days.length > 1 ? '–' + DAY_SHORT[g.days[g.days.length - 1]] : '');
       return label + ' ' + g.text;
     }).join(' · ');
+    return appt.length ? out + ' · ' + appt.join(', ') + ' by appointment only' : out;
   }
 
   /* ---------- 1. Bind config values into the page ---------- */
@@ -120,6 +124,19 @@
     if (dir) dir.href = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(C.mapQuery || addressFull);
 
     var y = $('#year'); if (y) y.textContent = now.getFullYear();
+
+    /* Patient Safety section: shown only once the clinic has verified every step */
+    var ic = C.infectionControl || {}, safety = $('#safety');
+    if (safety) {
+      safety.hidden = !ic.verified;
+      $$('[data-safety-link]').forEach(function (a) { a.hidden = !ic.verified; });
+      var ch = ic.chemical || {}, box = $('#chemDetails');
+      if (box && ch.product) {
+        box.hidden = false;
+        box.innerHTML = '<strong>What we use:</strong> ' + esc(ch.product) + (ch.concentration ? ' at ' + esc(ch.concentration) : '') +
+          (ch.contactTime ? ', contact time ' + esc(ch.contactTime) : '') + (ch.usedFor ? ' — ' + esc(ch.usedFor) : '') + '.';
+      }
+    }
   }
 
   /* ---------- 2. Live open / closed status + hours table ---------- */
@@ -128,7 +145,7 @@
     var today = sessionsFor(day);
     for (var i = 0; i < today.length; i++) {
       var a = toMin(today[i][0]), b = toMin(today[i][1]);
-      if (mins >= a && mins < b) return { open: true, text: 'Open now · until ' + fmtTime(b) };
+      if (mins >= a && mins < b) return byAppt(day) ? { open: true, text: 'By appointment today · until ' + fmtTime(b) } : { open: true, text: 'Open now · until ' + fmtTime(b) };
       if (mins < a) return { open: false, text: 'Closed · opens ' + fmtTime(a) };
     }
     for (var k = 1; k <= 7; k++) {
@@ -473,6 +490,7 @@
       if (!iso) { slotsBox.innerHTML = '<p class="slots-hint">Select a date to see available times.</p>'; return; }
       var sessions = sessionsFor(weekdayOf(iso)), step = C.slotMinutes || 30;
       if (!sessions.length) { slotsBox.innerHTML = '<p class="slots-hint">The clinic is closed on this day. Please choose another date.</p>'; return; }
+      var apptNote = byAppt(weekdayOf(iso)) ? '<p class="slots-hint slots-note"><i class="fa-solid fa-circle-info"></i> Thursday is by appointment only — we will confirm your slot by phone or WhatsApp.</p>' : '';
       var t = istNow(), isToday = iso === isoDate(t), nowMin = t.getHours() * 60 + t.getMinutes() + 30;
       var html = '', any = false;
       sessions.forEach(function (r) {
@@ -484,7 +502,7 @@
           html += '<label class="slot"><input type="radio" name="slot" value="' + fmtTime(m) + '"' + (dis ? ' disabled' : '') + '><span>' + fmtTime(m) + '</span></label>';
         }
       });
-      slotsBox.innerHTML = any ? html : '<p class="slots-hint">No more slots today. Please choose another date.</p>';
+      slotsBox.innerHTML = any ? apptNote + html : '<p class="slots-hint">No more slots today. Please choose another date.</p>';
     }
     dateIn.addEventListener('change', function () { renderSlots(); clearErr(dateIn); $('#slotErr').textContent = ''; });
     slotsBox.addEventListener('change', function () { $('#slotErr').textContent = ''; });
