@@ -185,10 +185,10 @@
   function renderServices() {
     var grid = $('#servicesGrid');
     if (grid) grid.innerHTML = SERVICES.map(function (s) {
-      return '<article class="svc-card reveal"><span class="svc-ic">' + svgIcon(s.id) + '</span>' +
-        '<h3>' + esc(s.name) + '</h3><p>' + esc(s.short) + '</p>' +
+      return '<article class="svc-card reveal"><div class="svc-media"><span class="svc-ic">' + svgIcon(s.id) + '</span></div>' +
+        '<div class="svc-body"><h3>' + esc(s.name) + '</h3><p>' + esc(s.short) + '</p>' +
         '<div class="svc-actions"><button type="button" class="svc-more" data-service="' + s.id + '">Read More</button>' +
-        '<a href="#appointment" class="svc-book" data-book="' + s.id + '">Book <i class="fa-solid fa-arrow-right"></i></a></div></article>';
+        '<a href="#appointment" class="svc-book" data-book="' + s.id + '">Book <i class="fa-solid fa-arrow-right"></i></a></div></div></article>';
     }).join('');
 
     var dd = $('#servicesDropdown');
