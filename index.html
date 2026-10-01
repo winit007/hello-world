@@ -1,18 +1,730 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <title>my-first-website</title>
-  <LINK href="styles.css" rel="stylesheet" type="text/css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DENTZEN Dental Hospital | Dr. W. Wagisha, BDS – Dentist in Kankarbagh, Patna</title>
+  <meta name="description" content="DENTZEN Dental Hospital, Bhootnath Road, Kankarbagh, Patna. Gentle, complete dental care by Dr. W. Wagisha, BDS — check-ups, root canal treatment, implants, braces, aligners, teeth whitening, kids dentistry and more. Open 7 days.">
+  <meta name="keywords" content="dentist in Kankarbagh, dental clinic Patna, Dentzen Dental Hospital, Dr Wagisha, root canal Patna, dental implants Patna, braces Patna, teeth whitening Patna">
+  <meta name="theme-color" content="#1F7A64">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DENTZEN Dental Hospital – Dr. W. Wagisha, BDS">
+  <meta property="og:description" content="Calm, caring dentistry for the whole family in Kankarbagh, Patna. Book your appointment online.">
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script>document.documentElement.classList.add('js');</script>
+  <script src="assets/js/config.js" defer></script>
+  <script src="assets/js/data.js" defer></script>
+  <script src="assets/js/main.js" defer></script>
 </head>
-
 <body>
 
-<img src="https://octodex.github.com/images/daftpunktocat-thomas.gif" id="octocat" alt="octocat-gif" />
+<!-- Shared SVG gradients used by the illustrations -->
+<svg class="svg-defs" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="gAqua" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4DB892"/><stop offset="1" stop-color="#176F5B"/></linearGradient>
+    <linearGradient id="gTooth" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.7" stop-color="#F5FAF7"/><stop offset="1" stop-color="#DCEDE4"/></linearGradient>
+    <linearGradient id="gMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9AA9BC"/><stop offset="0.45" stop-color="#E9EEF4"/><stop offset="1" stop-color="#8293A8"/></linearGradient>
+    <linearGradient id="gStained" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6D29A"/><stop offset="1" stop-color="#C9A962"/></linearGradient>
+    <linearGradient id="gWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EAF3EF"/></linearGradient>
+    <clipPath id="mouthClip"><path d="M70 165Q300 132 530 165Q300 300 70 165Z"/></clipPath>
+    <filter id="fShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#0B3D36" flood-opacity=".22"/></filter>
+    <path id="toothShape" d="M24 7c-3-2-7-3-10-2-5 1-8 6-7 12 1 5 3 8 4 13 1 5 2 11 5 11 3 0 3-6 4-9 1-3 2-4 4-4s3 1 4 4c1 3 1 9 4 9 3 0 4-6 5-11 1-5 3-8 4-13 1-6-2-11-7-12-3-1-7 0-10 2z"/>
+  </defs>
+</svg>
 
-<!-- Change this code here by copy and pasting your template on line 15 -->
-<p>Welcome to your first GitHub Pages website!</p>
+<a class="skip-link" href="#main">Skip to content</a>
 
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <div class="container topbar-inner">
+    <ul class="topbar-info">
+      <li class="hide-sm"><i class="fa-solid fa-location-dot"></i> <span data-bind="addressShort">Bhootnath Road, Kankarbagh, Patna</span></li>
+      <li class="hide-sm"><i class="fa-regular fa-clock"></i> <span data-bind="hoursShort">Mon–Sat 10 AM–1 PM, 3–8 PM · Sun 10 AM–1 PM</span></li>
+    </ul>
+    <ul class="topbar-actions">
+      <li><span class="open-status" data-open-status><span class="dot"></span><span class="txt">Checking hours…</span></span></li>
+      <li><a href="#appointment" data-tel><i class="fa-solid fa-phone"></i> <span data-bind="phone">+91 XXXXX XXXXX</span></a></li>
+      <li class="hide-sm" data-social="instagram"><a href="#" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a></li>
+      <li class="hide-sm" data-social="facebook"><a href="#" target="_blank" rel="noopener" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a></li>
+      <li class="hide-sm" data-social="youtube"><a href="#" target="_blank" rel="noopener" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="site-header" id="siteHeader">
+  <div class="container header-inner">
+    <a href="#home" class="brand" aria-label="DENTZEN Dental Hospital – home">
+      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <use href="#toothShape" fill="#fff" stroke="#0B3D36" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M16 20c2.5 4 13.5 4 16 0" fill="none" stroke="#1F7A64" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M28.5 9.5c3.5-1.5 6.5 0 7.5 3-3.5 1.5-6.5 0-7.5-3z" fill="#E3A82B"/>
+      </svg>
+      <span class="brand-text">
+        <strong>DENTZEN</strong>
+        <small>DENTAL HOSPITAL</small>
+      </span>
+    </a>
+
+    <nav class="main-nav" id="mainNav" aria-label="Main">
+      <ul>
+        <li><a href="#about">About Us</a></li>
+        <li class="has-dropdown">
+          <a href="#services" class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Services <i class="fa-solid fa-caret-down"></i></a>
+          <ul class="dropdown" id="servicesDropdown"></ul>
+        </li>
+        <li><a href="#doctor">Our Doctor</a></li>
+        <li><a href="#gallery">Smile Gallery</a></li>
+        <li><a href="#tips">Dental Tips</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+      <a href="#appointment" class="btn btn-accent nav-cta-mobile">Book Appointment</a>
+    </nav>
+
+    <div class="header-actions">
+      <a href="#appointment" class="btn btn-accent btn-book">Book Appointment</a>
+      <a href="#appointment" class="icon-btn icon-wa" data-wa aria-label="Chat on WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+      <a href="#appointment" class="icon-btn icon-call" data-tel aria-label="Call the clinic"><i class="fa-solid fa-phone"></i></a>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ HERO SLIDER ============ -->
+<section class="hero" id="home" aria-roledescription="carousel" aria-label="Highlights">
+  <div class="hero-waves" aria-hidden="true"></div>
+  <div class="slides">
+
+    <article class="slide is-active" aria-roledescription="slide" aria-label="1 of 3">
+      <div class="container slide-inner">
+        <div class="slide-text">
+          <p class="eyebrow">Welcome to DENTZEN Dental Hospital</p>
+          <h1>Calm, Caring Dentistry in <span class="hl">Kankarbagh, Patna</span></h1>
+          <p class="lead">Complete dental care for your whole family by <strong>Dr. W. Wagisha, BDS</strong> — from check-ups and root canals to implants, braces and smile makeovers.</p>
+          <div class="btn-row">
+            <a href="#appointment" class="btn btn-gradient btn-lg"><i class="fa-regular fa-calendar-check"></i> Make an Appointment</a>
+            <a href="#appointment" class="btn btn-outline-wa btn-lg" data-wa><i class="fa-brands fa-whatsapp"></i> WhatsApp Us</a>
+          </div>
+          <ul class="hero-points">
+            <li><i class="fa-solid fa-circle-check"></i> Gentle &amp; painless</li>
+            <li><i class="fa-solid fa-circle-check"></i> Open 7 days</li>
+            <li data-fee-show><i class="fa-solid fa-circle-check"></i> ₹<span data-bind="fee">250</span> consultation</li>
+          </ul>
+        </div>
+        <div class="slide-art">
+          <svg viewBox="0 0 480 440" aria-hidden="true">
+            <circle cx="240" cy="220" r="205" fill="none" stroke="#2E9C7F" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 11"/>
+            <circle cx="240" cy="220" r="168" fill="url(#gAqua)"/>
+            <circle cx="240" cy="220" r="168" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="10"/>
+            <g filter="url(#fShadow)"><use href="#toothShape" transform="translate(72 50) scale(7)" fill="url(#gTooth)"/></g>
+            <path d="M152 176c-4-36 14-62 44-70" fill="none" stroke="#D3ECDF" stroke-width="9" stroke-linecap="round"/>
+            <path d="M178 196c18 22 66 22 84 0" fill="none" stroke="#2E9C7F" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+            <g transform="translate(330 330) rotate(-35)"><path d="M0 0c22-30 62-30 84 0-22 30-62 30-84 0z" fill="#9CCB8E"/><path d="M6 0h72" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/></g>
+            <g transform="translate(318 336) rotate(-80)"><path d="M0 0c16-22 46-22 62 0-16 22-46 22-62 0z" fill="#E3A82B"/></g>
+            <path transform="translate(372 96)" d="M0-18 4-4 18 0 4 4 0 18-4 4-18 0-4-4z" fill="#E3A82B"/>
+            <path transform="translate(108 108)" d="M0-11 2.5-2.5 11 0 2.5 2.5 0 11-2.5 2.5-11 0-2.5-2.5z" fill="#fff"/>
+            <path transform="translate(404 150)" d="M0-9 2-2 9 0 2 2 0 9-2 2-9 0-2-2z" fill="#fff"/>
+          </svg>
+          <div class="float-card fc-1"><i class="fa-solid fa-hand-holding-heart"></i><div><strong>Gentle Care</strong><span>Anxiety-free visits</span></div></div>
+          <div class="float-card fc-2"><i class="fa-solid fa-shield-heart"></i><div><strong>Sterilised &amp; Safe</strong><span>Strict hygiene protocol</span></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="slide" aria-roledescription="slide" aria-label="2 of 3">
+      <div class="container slide-inner">
+        <div class="slide-text">
+          <p class="eyebrow">Dental Implants · Crowns &amp; Bridges</p>
+          <h2>Missing Teeth? Eat, Speak &amp; <span class="hl">Smile with Confidence</span></h2>
+          <p class="lead">Fixed, natural-looking replacements for missing teeth — dental implants, ceramic and zirconia crowns, bridges and dentures, planned around you.</p>
+          <div class="btn-row">
+            <a href="#appointment" class="btn btn-gradient btn-lg" data-book="implants"><i class="fa-regular fa-calendar-check"></i> Book a Consultation</a>
+            <button type="button" class="btn btn-ghost btn-lg" data-service="implants">Learn about implants</button>
+          </div>
+        </div>
+        <div class="slide-art">
+          <svg viewBox="0 0 480 440" aria-hidden="true">
+            <circle cx="240" cy="220" r="205" fill="none" stroke="#2E9C7F" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 11"/>
+            <circle cx="240" cy="220" r="168" fill="url(#gAqua)"/>
+            <path d="M96 262c60-26 228-26 288 0v60c-40 50-248 50-288 0z" fill="#F7C9D0"/>
+            <path d="M96 262c60-26 228-26 288 0" fill="none" stroke="#fff" stroke-width="4" opacity=".7"/>
+            <g filter="url(#fShadow)">
+              <path d="M214 212h52l-8 112q-18 22-36 0z" fill="url(#gMetal)"/>
+              <path d="M215 232l50-9M216 252l48-9M217 272l46-9M218 292l44-9M220 312l40-8" stroke="#7D8DA2" stroke-width="5" stroke-linecap="round"/>
+              <path d="M205 182h70l-7 30h-56z" fill="#C3CFDC"/>
+              <path d="M170 122c0-36 46-44 70-24 24-20 70-12 70 24 0 30-10 46-18 60H188c-8-14-18-30-18-60z" fill="url(#gTooth)"/>
+            </g>
+            <path d="M186 124c0-14 10-22 24-22" fill="none" stroke="#D3ECDF" stroke-width="8" stroke-linecap="round"/>
+            <path transform="translate(360 112)" d="M0-18 4-4 18 0 4 4 0 18-4 4-18 0-4-4z" fill="#E3A82B"/>
+            <path transform="translate(120 140)" d="M0-11 2.5-2.5 11 0 2.5 2.5 0 11-2.5 2.5-11 0-2.5-2.5z" fill="#fff"/>
+          </svg>
+          <div class="float-card fc-1"><i class="fa-solid fa-tooth"></i><div><strong>Natural Look</strong><span>Matched to your teeth</span></div></div>
+          <div class="float-card fc-2"><i class="fa-solid fa-utensils"></i><div><strong>Chew Comfortably</strong><span>Fixed, not removable</span></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="slide" aria-roledescription="slide" aria-label="3 of 3">
+      <div class="container slide-inner">
+        <div class="slide-text">
+          <p class="eyebrow">Braces · Clear Aligners · Smile Design</p>
+          <h2>Straighter Teeth, <span class="hl">Brighter Smiles</span> — at Any Age</h2>
+          <p class="lead">Metal braces, tooth-coloured ceramic braces and near-invisible clear aligners for children, teens and adults — plus whitening and veneers to finish your new smile.</p>
+          <div class="btn-row">
+            <a href="#appointment" class="btn btn-gradient btn-lg" data-book="braces"><i class="fa-regular fa-calendar-check"></i> Book a Smile Assessment</a>
+            <a href="#gallery" class="btn btn-ghost btn-lg">See Smile Gallery</a>
+          </div>
+        </div>
+        <div class="slide-art">
+          <svg viewBox="0 0 480 440" aria-hidden="true">
+            <circle cx="240" cy="220" r="205" fill="none" stroke="#2E9C7F" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 11"/>
+            <circle cx="240" cy="220" r="168" fill="url(#gAqua)"/>
+            <g filter="url(#fShadow)">
+              <path d="M104 168c40-34 232-34 272 0v26c-40-12-232-12-272 0z" fill="#F59AA8"/>
+              <rect x="122" y="178" width="40" height="86" rx="16" fill="url(#gTooth)"/>
+              <rect x="164" y="172" width="38" height="88" rx="16" fill="url(#gTooth)"/>
+              <rect x="204" y="168" width="35" height="102" rx="15" fill="url(#gTooth)"/>
+              <rect x="241" y="168" width="35" height="102" rx="15" fill="url(#gTooth)"/>
+              <rect x="278" y="172" width="38" height="88" rx="16" fill="url(#gTooth)"/>
+              <rect x="318" y="178" width="40" height="86" rx="16" fill="url(#gTooth)"/>
+              <path d="M104 168c40-28 232-28 272 0v8c-40-20-232-20-272 0z" fill="#E77F91"/>
+            </g>
+            <path d="M132 224c40-6 176-6 216 0" fill="none" stroke="#5B6B82" stroke-width="3.5"/>
+            <g fill="#8FA0B4" stroke="#5B6B82" stroke-width="1.5">
+              <rect x="134" y="215" width="16" height="16" rx="3"/><rect x="175" y="213" width="16" height="16" rx="3"/>
+              <rect x="213" y="212" width="16" height="16" rx="3"/><rect x="251" y="212" width="16" height="16" rx="3"/>
+              <rect x="289" y="213" width="16" height="16" rx="3"/><rect x="330" y="215" width="16" height="16" rx="3"/>
+            </g>
+            <path transform="translate(366 104)" d="M0-18 4-4 18 0 4 4 0 18-4 4-18 0-4-4z" fill="#E3A82B"/>
+            <path transform="translate(112 318)" d="M0-11 2.5-2.5 11 0 2.5 2.5 0 11-2.5 2.5-11 0-2.5-2.5z" fill="#fff"/>
+          </svg>
+          <div class="float-card fc-1"><i class="fa-solid fa-face-smile-beam"></i><div><strong>Kids, Teens &amp; Adults</strong><span>Plans for every age</span></div></div>
+          <div class="float-card fc-2"><i class="fa-solid fa-eye-slash"></i><div><strong>Clear Aligners</strong><span>Nearly invisible option</span></div></div>
+        </div>
+      </div>
+    </article>
+
+  </div>
+  <button class="slider-arrow prev" aria-label="Previous slide"><i class="fa-solid fa-angle-left"></i></button>
+  <button class="slider-arrow next" aria-label="Next slide"><i class="fa-solid fa-angle-right"></i></button>
+  <div class="slider-dots" role="tablist" aria-label="Choose slide"></div>
+</section>
+
+<!-- ============ STATS BAND ============ -->
+<section class="stats" aria-label="Clinic at a glance">
+  <div class="container stats-grid" id="statsGrid"></div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="section about" id="about">
+  <div class="container about-grid">
+    <div class="about-visual reveal">
+      <div class="about-tiles">
+        <div class="a-tile"><i class="fa-solid fa-hand-holding-heart"></i><strong>Gentle Care</strong><span>Comfort-first techniques for anxious patients</span></div>
+        <div class="a-tile"><i class="fa-solid fa-shield-virus"></i><strong>Sterilised</strong><span>Strict hygiene &amp; single-use disposables</span></div>
+        <div class="a-tile"><i class="fa-solid fa-file-invoice"></i><strong>Clear Pricing</strong><span>Written estimate before treatment starts</span></div>
+        <div class="a-tile"><i class="fa-solid fa-people-roof"></i><strong>Family Dentistry</strong><span>Care for kids, adults &amp; seniors</span></div>
+      </div>
+      <div class="exp-badge"><strong data-bind="years">7</strong><span>+ Years of<br>Experience</span></div>
+    </div>
+    <div class="about-text reveal">
+      <p class="eyebrow">About DENTZEN</p>
+      <h2 class="section-title left">Healthy Smiles, Delivered with a Calm &amp; Gentle Touch</h2>
+      <p>At <strong>DENTZEN Dental Hospital</strong>, we believe a visit to the dentist should feel calm — not stressful. Led by <strong>Dr. W. Wagisha, BDS</strong>, an aesthetic, cosmetic and dental surgeon, our clinic on Bhootnath Road, Kankarbagh offers complete dental care for the whole family under one roof.</p>
+      <p>Every treatment begins with a careful examination and an honest conversation. We explain your options in simple language, share a clear cost estimate before we begin, and use gentle techniques so that even nervous patients feel at ease.</p>
+      <ul class="check-list">
+        <li><i class="fa-solid fa-check"></i> Check-ups, fillings, root canals &amp; extractions</li>
+        <li><i class="fa-solid fa-check"></i> Implants, crowns, bridges &amp; dentures</li>
+        <li><i class="fa-solid fa-check"></i> Braces, aligners, whitening &amp; smile design</li>
+        <li><i class="fa-solid fa-check"></i> Friendly dental care for children</li>
+      </ul>
+      <div class="btn-row">
+        <a href="#appointment" class="btn btn-navy">Book Appointment</a>
+        <a href="#doctor" class="btn btn-link">Meet the doctor <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SERVICES ============ -->
+<section class="section services" id="services">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Our Treatments</p>
+      <h2 class="section-title">Complete Dental Care Under One Roof</h2>
+      <p class="section-sub">From routine check-ups to implants and orthodontics — tap any treatment to see how it works, how long it takes and how to care for your teeth afterwards.</p>
+    </div>
+    <div class="services-grid" id="servicesGrid"></div>
+  </div>
+</section>
+
+<!-- ============ TREATMENT FINDER (new feature) ============ -->
+<section class="section finder" id="finder">
+  <div class="container finder-wrap reveal">
+    <div class="finder-head">
+      <p class="eyebrow">Treatment Finder</p>
+      <h2 class="section-title left">Not Sure What You Need?</h2>
+      <p>Select what you are experiencing and we will suggest the treatments that usually help. This is a guide, not a diagnosis — the doctor will confirm after examining you.</p>
+    </div>
+    <div class="finder-chips" id="finderChips" role="group" aria-label="Your symptoms"></div>
+    <div class="finder-result" id="finderResult" aria-live="polite">
+      <p class="finder-empty"><i class="fa-regular fa-hand-pointer"></i> Choose one or more symptoms above.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHY CHOOSE US ============ -->
+<section class="section why" id="why">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Why DENTZEN</p>
+      <h2 class="section-title">Why Families in Patna Choose DENTZEN</h2>
+      <p class="section-sub">We are a neighbourhood dental hospital built on patience, honesty and careful clinical work.</p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-user-doctor"></i></span><h3>Qualified &amp; Registered</h3><p>Treatment by Dr. W. Wagisha, BDS, registered with the Bihar State Dental Council and practising since 2019.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-syringe"></i></span><h3>Painless Approach</h3><p>Effective local anaesthesia, gentle hands and a step-by-step explanation, so you always know what is happening.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-receipt"></i></span><h3>Transparent Costs</h3><p>No surprises. You get a clear treatment plan and cost estimate before any treatment begins.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-shield-virus"></i></span><h3>Sterilisation First</h3><p>Instruments are sterilised for every patient and disposables are single-use — your safety is non-negotiable.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-calendar-days"></i></span><h3>Open 7 Days</h3><p>Morning and evening sessions Monday to Saturday, plus Sunday mornings — easy to fit around work and school.</p></div>
+      <div class="why-card reveal"><span class="why-ic"><i class="fa-solid fa-location-dot"></i></span><h3>Easy to Reach</h3><p>On Bhootnath Road, Kankarbagh, opposite Bhootnath Mandir — convenient from across Patna.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EMERGENCY BAND ============ -->
+<section class="emergency" aria-label="Dental emergency">
+  <div class="container emergency-inner">
+    <span class="em-ic"><i class="fa-solid fa-truck-medical"></i></span>
+    <div>
+      <h2>Dental Emergency?</h2>
+      <p>Severe toothache, swelling, a broken tooth or bleeding after an extraction — don't wait. Call or WhatsApp us for the earliest available slot.</p>
+    </div>
+    <div class="btn-row">
+      <a href="#appointment" class="btn btn-white" data-tel><i class="fa-solid fa-phone"></i> Call Now</a>
+      <a href="#appointment" class="btn btn-wa" data-wa><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TECHNOLOGY / COMFORT ============ -->
+<section class="section tech" id="technology">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Modern Care</p>
+      <h2 class="section-title">Modern Dentistry, Gentle Touch</h2>
+      <p class="section-sub">Up-to-date techniques and materials make diagnosis more accurate, treatment more comfortable and results longer-lasting.</p>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-card reveal"><i class="fa-solid fa-x-ray"></i><h3>Digital X-Rays</h3><p>Quick, high-clarity images with far lower radiation than traditional film, for accurate diagnosis.</p></div>
+      <div class="tech-card reveal"><i class="fa-solid fa-gears"></i><h3>Rotary Root Canal</h3><p>Precise rotary instruments make root canal treatment faster and more comfortable, often in fewer visits.</p></div>
+      <div class="tech-card reveal"><i class="fa-solid fa-pump-medical"></i><h3>Autoclave Sterilisation</h3><p>Instruments are cleaned, pouched and sterilised in an autoclave before every patient.</p></div>
+      <div class="tech-card reveal"><i class="fa-solid fa-gem"></i><h3>Tooth-Coloured Materials</h3><p>Composite, ceramic and zirconia restorations that look natural and blend with your smile.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DOCTOR ============ -->
+<section class="section doctor" id="doctor">
+  <div class="container">
+    <h2 class="section-title light reveal">Meet <span data-bind="doctorName">Dr. W. Wagisha</span>, <span data-bind="doctorDegree">BDS</span></h2>
+    <div class="doctor-grid">
+      <div class="doctor-photo reveal" id="doctorPhoto">
+        <div class="doc-placeholder">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#toothShape" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+          <span class="doc-initials">W</span>
+        </div>
+        <div class="doc-tag"><strong data-bind="doctorName">Dr. W. Wagisha</strong><span data-bind="doctorTitle">Aesthetic, Cosmetic &amp; Dental Surgeon</span></div>
+      </div>
+      <div class="doctor-text reveal">
+        <p class="doc-role">Chief Dental Surgeon, DENTZEN Dental Hospital</p>
+        <p>Dr. W. Wagisha earned a Bachelor of Dental Surgery (BDS) from <span data-bind="doctorCollege">Buddha Dental College</span> in <span data-bind="doctorGradYear">2019</span> and has been caring for patients in Patna ever since. As an aesthetic, cosmetic and dental surgeon, Dr. Wagisha leads DENTZEN with a simple belief: excellent dentistry should come with patience, honesty and a gentle touch.</p>
+        <p>Dr. Wagisha's areas of interest include root canal and re-root canal treatment, full-mouth rehabilitation, cosmetic smile design and children's dentistry — taking time to listen to every patient and explain each option clearly.</p>
+        <ul class="doc-creds">
+          <li><i class="fa-solid fa-graduation-cap"></i> <span>BDS — <span data-bind="doctorCollege">Buddha Dental College</span> (<span data-bind="doctorGradYear">2019</span>)</span></li>
+          <li><i class="fa-solid fa-id-card"></i> <span data-bind="doctorReg">Reg. No. 8555/A, Bihar State Dental Council</span></li>
+          <li><i class="fa-solid fa-briefcase-medical"></i> <span><span data-bind="years">7</span>+ years of clinical experience</span></li>
+          <li><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Aesthetic &amp; cosmetic dentistry</span></li>
+          <li><i class="fa-solid fa-tooth"></i> <span>Root canal, Re-RCT &amp; full-mouth rehabilitation</span></li>
+          <li><i class="fa-solid fa-children"></i> <span>Children's dentistry</span></li>
+        </ul>
+        <div class="btn-row">
+          <a href="#appointment" class="btn btn-white">Book Appointment</a>
+          <a href="#" class="btn btn-outline-light" data-social-link="practo" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on Practo</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ YOUR VISIT (new feature) ============ -->
+<section class="section journey" id="journey">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Your First Visit</p>
+      <h2 class="section-title">Your Visit, Step by Step</h2>
+      <p class="section-sub">Knowing what to expect makes a dental visit easier. Here is how we take care of you.</p>
+    </div>
+    <ol class="steps">
+      <li class="step reveal"><span class="step-no">1</span><i class="fa-regular fa-calendar-check"></i><h3>Book Your Slot</h3><p>Choose a time online, call or WhatsApp us. Emergencies are seen as early as possible.</p></li>
+      <li class="step reveal"><span class="step-no">2</span><i class="fa-solid fa-magnifying-glass"></i><h3>Examination</h3><p>A thorough check-up of your teeth and gums, with X-rays only if they are needed.</p></li>
+      <li class="step reveal"><span class="step-no">3</span><i class="fa-solid fa-clipboard-list"></i><h3>Plan &amp; Estimate</h3><p>We explain your options and give a clear cost estimate. You decide — no pressure.</p></li>
+      <li class="step reveal"><span class="step-no">4</span><i class="fa-regular fa-face-smile"></i><h3>Treatment &amp; Follow-up</h3><p>Gentle treatment, written aftercare instructions and follow-up to keep your smile healthy.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ SMILE GALLERY / BEFORE-AFTER (new feature) ============ -->
+<section class="section gallery" id="gallery">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Smile Gallery</p>
+      <h2 class="section-title">See the Difference a Healthy Smile Makes</h2>
+      <p class="section-sub">Drag the slider to compare before and after.</p>
+    </div>
+    <div class="ba-list" id="baList">
+      <figure class="ba reveal" data-ba>
+        <div class="ba-stage">
+          <div class="ba-layer ba-after">
+            <svg viewBox="0 0 600 340" aria-hidden="true">
+              <rect width="600" height="340" fill="#EAF5EF"/>
+              <path d="M70 165Q300 132 530 165Q300 300 70 165Z" fill="#5A1726"/>
+              <g clip-path="url(#mouthClip)">
+                <g fill="#F4F8FA" stroke="#D5E2E9" stroke-width="2">
+                  <rect x="200" y="212" width="32" height="60" rx="10"/><rect x="232" y="216" width="34" height="60" rx="10"/>
+                  <rect x="266" y="216" width="34" height="60" rx="10"/><rect x="300" y="216" width="34" height="60" rx="10"/>
+                  <rect x="334" y="216" width="34" height="60" rx="10"/><rect x="368" y="212" width="32" height="60" rx="10"/>
+                </g>
+                <g fill="url(#gWhite)" stroke="#D5E2E9" stroke-width="2">
+                  <rect x="108" y="110" width="30" height="82" rx="12"/><rect x="138" y="110" width="34" height="88" rx="13"/>
+                  <rect x="172" y="110" width="38" height="96" rx="15"/><rect x="210" y="110" width="40" height="94" rx="15"/>
+                  <rect x="250" y="110" width="50" height="102" rx="16"/><rect x="300" y="110" width="50" height="102" rx="16"/>
+                  <rect x="350" y="110" width="40" height="94" rx="15"/><rect x="390" y="110" width="38" height="96" rx="15"/>
+                  <rect x="428" y="110" width="34" height="88" rx="13"/><rect x="462" y="110" width="30" height="82" rx="12"/>
+                </g>
+                <path d="M262 160v34M312 160v34" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>
+              </g>
+              <path d="M70 165C130 105 230 92 300 118C370 92 470 105 530 165Q300 132 70 165Z" fill="#C95C70"/>
+              <path d="M70 165Q300 300 530 165C450 330 150 330 70 165Z" fill="#DA7487"/>
+              <path d="M222 292c50 10 106 10 156 0" stroke="#fff" stroke-opacity=".35" stroke-width="8" stroke-linecap="round" fill="none"/>
+              <path d="M190 120c30-10 60-10 85 0" stroke="#fff" stroke-opacity=".3" stroke-width="6" stroke-linecap="round" fill="none"/>
+            </svg>
+          </div>
+          <div class="ba-layer ba-before">
+            <svg viewBox="0 0 600 340" aria-hidden="true">
+              <rect width="600" height="340" fill="#F6F0E6"/>
+              <path d="M70 165Q300 132 530 165Q300 300 70 165Z" fill="#4E1421"/>
+              <g clip-path="url(#mouthClip)">
+                <g fill="#D8C48E" stroke="#A88B4E" stroke-width="2">
+                  <rect x="200" y="214" width="32" height="60" rx="10" transform="rotate(-8 216 240)"/><rect x="232" y="220" width="34" height="60" rx="10" transform="rotate(10 249 245)"/>
+                  <rect x="264" y="214" width="34" height="60" rx="10"/><rect x="300" y="220" width="34" height="60" rx="10" transform="rotate(-9 317 245)"/>
+                  <rect x="334" y="216" width="34" height="60" rx="10" transform="rotate(6 351 245)"/><rect x="368" y="214" width="32" height="60" rx="10"/>
+                </g>
+                <g fill="url(#gStained)" stroke="#A88B4E" stroke-width="2">
+                  <rect x="108" y="110" width="30" height="80" rx="12"/><rect x="138" y="110" width="34" height="84" rx="13" transform="rotate(4 155 150)"/>
+                  <rect x="172" y="114" width="38" height="98" rx="15" transform="rotate(-5 191 160)"/><rect x="212" y="110" width="38" height="88" rx="15" transform="rotate(9 231 155)"/>
+                  <rect x="246" y="110" width="50" height="104" rx="16" transform="rotate(-3 271 160)"/><rect x="306" y="110" width="48" height="98" rx="16" transform="rotate(6 330 160)"/>
+                  <rect x="354" y="112" width="38" height="90" rx="15" transform="rotate(-10 373 157)"/><rect x="390" y="114" width="38" height="100" rx="15" transform="rotate(5 409 162)"/>
+                  <rect x="428" y="110" width="34" height="84" rx="13" transform="rotate(-4 445 150)"/><rect x="462" y="110" width="30" height="80" rx="12"/>
+                </g>
+                <g fill="#8E6A2E" opacity=".55">
+                  <ellipse cx="272" cy="168" rx="16" ry="6"/><ellipse cx="330" cy="166" rx="14" ry="5"/><ellipse cx="231" cy="164" rx="10" ry="5"/>
+                  <ellipse cx="373" cy="165" rx="10" ry="5"/><circle cx="266" cy="200" r="5"/><circle cx="338" cy="196" r="4"/><circle cx="190" cy="190" r="4"/>
+                  <ellipse cx="300" cy="226" rx="20" ry="4"/>
+                </g>
+              </g>
+              <path d="M70 165C130 105 230 92 300 118C370 92 470 105 530 165Q300 132 70 165Z" fill="#C95C70"/>
+              <path d="M70 165Q300 300 530 165C450 330 150 330 70 165Z" fill="#DA7487"/>
+              <path d="M222 292c50 10 106 10 156 0" stroke="#fff" stroke-opacity=".35" stroke-width="8" stroke-linecap="round" fill="none"/>
+              <path d="M190 120c30-10 60-10 85 0" stroke="#fff" stroke-opacity=".3" stroke-width="6" stroke-linecap="round" fill="none"/>
+            </svg>
+          </div>
+          <span class="ba-label ba-l-before">Before</span>
+          <span class="ba-label ba-l-after">After</span>
+          <div class="ba-handle" aria-hidden="true"><span><i class="fa-solid fa-left-right"></i></span></div>
+          <input type="range" min="0" max="100" value="50" class="ba-range" aria-label="Compare before and after">
+        </div>
+        <figcaption><strong>Cleaning, whitening &amp; alignment</strong> <span class="muted">— illustration</span></figcaption>
+      </figure>
+      <div class="ba-side reveal">
+        <h3>Cosmetic treatments we offer</h3>
+        <ul class="check-list">
+          <li><i class="fa-solid fa-check"></i> Professional scaling &amp; polishing</li>
+          <li><i class="fa-solid fa-check"></i> In-clinic teeth whitening</li>
+          <li><i class="fa-solid fa-check"></i> Veneers, bonding &amp; tooth reshaping</li>
+          <li><i class="fa-solid fa-check"></i> Braces &amp; clear aligners</li>
+          <li><i class="fa-solid fa-check"></i> Ceramic &amp; zirconia crowns</li>
+        </ul>
+        <p>Every smile is different. Visit us for a personalised smile assessment and see real patient results on our Instagram.</p>
+        <div class="btn-row">
+          <a href="#appointment" class="btn btn-gradient" data-book="cosmetic">Book Smile Assessment</a>
+          <a href="#" class="btn btn-insta" data-social-link="instagram" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> Instagram</a>
+        </div>
+      </div>
+    </div>
+    <div class="photo-gallery" id="photoGallery" hidden></div>
+  </div>
+</section>
+
+<!-- ============ REVIEWS ============ -->
+<section class="section reviews" id="reviews">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Patient Stories</p>
+      <h2 class="section-title">What Our Patients Say</h2>
+    </div>
+    <div class="reviews-slider" id="reviewsSlider" hidden>
+      <div class="reviews-track" id="reviewsTrack"></div>
+      <div class="reviews-nav">
+        <button class="slider-arrow-sm" data-rev="prev" aria-label="Previous review"><i class="fa-solid fa-angle-left"></i></button>
+        <button class="slider-arrow-sm" data-rev="next" aria-label="Next review"><i class="fa-solid fa-angle-right"></i></button>
+      </div>
+    </div>
+    <div class="review-cta reveal">
+      <i class="fa-solid fa-quote-left"></i>
+      <div>
+        <h3>Visited DENTZEN? We'd love to hear from you.</h3>
+        <p>Your feedback helps other families in Patna find the right dental care — and helps us keep improving.</p>
+      </div>
+      <div class="btn-row">
+        <a href="#" class="btn btn-white-outline" data-social-link="googleReview" target="_blank" rel="noopener"><i class="fa-brands fa-google"></i> Review on Google</a>
+        <a href="#" class="btn btn-white-outline" data-social-link="practo" target="_blank" rel="noopener"><i class="fa-solid fa-star"></i> Review on Practo</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APPOINTMENT ============ -->
+<section class="appointment" id="appointment">
+  <div class="container appt-grid">
+    <div class="appt-text reveal">
+      <p class="eyebrow dark">Book Online</p>
+      <h2>Book Your Visit with Our Expert Team</h2>
+      <p>Pick a convenient day and time — slots follow our real clinic hours. Your request goes straight to the clinic on WhatsApp, and we will confirm your appointment shortly.</p>
+      <ul class="appt-points">
+        <li><i class="fa-solid fa-clock"></i><span><strong>Clinic hours</strong><span data-bind="hoursShort">Mon–Sat 10 AM–1 PM, 3–8 PM · Sun 10 AM–1 PM</span></span></li>
+        <li data-fee-show><i class="fa-solid fa-indian-rupee-sign"></i><span><strong>Consultation</strong>₹<span data-bind="fee">250</span></span></li>
+        <li><i class="fa-solid fa-phone"></i><span><strong>Prefer to call?</strong><a href="#appointment" data-tel><span data-bind="phone">+91 XXXXX XXXXX</span></a></span></li>
+      </ul>
+      <div class="social-row">
+        <a href="#" data-social-link="instagram" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#" data-social-link="facebook" target="_blank" rel="noopener" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+        <a href="#" data-social-link="youtube" target="_blank" rel="noopener" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+        <a href="#appointment" data-wa aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+      </div>
+    </div>
+
+    <div class="appt-card reveal">
+      <form id="bookingForm" novalidate>
+        <h3><i class="fa-regular fa-calendar-check"></i> Request an Appointment</h3>
+        <div class="form-row">
+          <div class="field">
+            <label for="fName">Full name *</label>
+            <input id="fName" name="name" type="text" autocomplete="name" required placeholder="Your name">
+            <small class="err"></small>
+          </div>
+          <div class="field">
+            <label for="fPhone">Mobile number *</label>
+            <input id="fPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="10-digit mobile">
+            <small class="err"></small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="fService">Treatment</label>
+            <select id="fService" name="service"><option value="General consultation">General consultation</option></select>
+          </div>
+          <div class="field">
+            <label for="fDate">Preferred date *</label>
+            <input id="fDate" name="date" type="date" required>
+            <small class="err"></small>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label" id="slotLabel">Preferred time *</span>
+          <div class="slots" id="slots" role="radiogroup" aria-labelledby="slotLabel"><p class="slots-hint">Select a date to see available times.</p></div>
+          <small class="err" id="slotErr"></small>
+        </div>
+        <div class="field">
+          <label for="fMsg">Anything we should know? <span class="muted">(optional)</span></label>
+          <textarea id="fMsg" name="message" rows="3" placeholder="e.g. pain in lower left tooth since 3 days"></textarea>
+        </div>
+        <label class="consent"><input type="checkbox" id="fConsent" required> I agree to be contacted by DENTZEN about this appointment.</label>
+        <small class="err" id="consentErr"></small>
+        <button type="submit" class="btn btn-accent btn-block btn-lg"><i class="fa-brands fa-whatsapp"></i> <span id="submitText">Send Booking Request</span></button>
+        <p class="form-note"><i class="fa-solid fa-lock"></i> Your details are only used to arrange your appointment.</p>
+      </form>
+      <div class="booking-done" id="bookingDone" hidden>
+        <span class="done-ic"><i class="fa-solid fa-circle-check"></i></span>
+        <h3>Thank you, <span id="doneName"></span>!</h3>
+        <p id="doneMsg">Your request has been prepared. We will confirm your appointment shortly.</p>
+        <pre class="done-summary" id="doneSummary"></pre>
+        <div class="btn-row center" id="doneActions"></div>
+        <button type="button" class="btn btn-link" id="bookAnother">Book another appointment</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DENTAL TIPS (new feature) ============ -->
+<section class="section tips" id="tips">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Dental Tips</p>
+      <h2 class="section-title">Simple Habits for a Healthier Smile</h2>
+      <p class="section-sub">Good oral health starts at home. These everyday habits make a big difference between visits.</p>
+    </div>
+    <div class="tips-grid" id="tipsGrid"></div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section faq" id="faq">
+  <div class="container narrow">
+    <div class="section-head reveal">
+      <p class="eyebrow">FAQ</p>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+      <p class="section-sub">Common questions about DENTZEN Dental Hospital, our treatments and visiting us.</p>
+    </div>
+    <div class="faq-list" id="faqList">
+      <details class="faq-item"><summary>Where is DENTZEN Dental Hospital located?</summary><div class="faq-body"><p>We are on <span data-bind="addressShort">Bhootnath Road, Kankarbagh, Patna</span> (<span data-bind="landmark">ground floor, right of Domino's, opposite Bhootnath Mandir</span>). See the map in the Contact section below for directions.</p></div></details>
+      <details class="faq-item"><summary>What are the clinic timings?</summary><div class="faq-body"><p>Monday to Saturday: 10:00 AM – 1:00 PM and 3:00 PM – 8:00 PM. Sunday: 10:00 AM – 1:00 PM. For emergencies, please call or WhatsApp us.</p></div></details>
+      <details class="faq-item"><summary>What is the consultation fee?</summary><div class="faq-body"><p>The consultation fee is ₹<span data-bind="fee">250</span>. After examining you, we explain your treatment options and give you a clear cost estimate before any treatment begins.</p></div></details>
+      <details class="faq-item"><summary>Is root canal treatment painful?</summary><div class="faq-body"><p>Modern root canal treatment is done under local anaesthesia and feels much like getting a filling. Most patients feel relief because the treatment removes the infection that was causing the pain. Mild soreness for a day or two afterwards is normal.</p></div></details>
+      <details class="faq-item"><summary>How much does a root canal or dental implant cost?</summary><div class="faq-body"><p>The cost depends on the tooth, its condition, the number of visits and the type of crown or implant chosen. After the examination (and X-ray if needed) we give you a clear, written estimate so you can decide with no surprises.</p></div></details>
+      <details class="faq-item"><summary>Do you treat children?</summary><div class="faq-body"><p>Yes. We see children of all ages for check-ups, fluoride and sealants, fillings and baby-tooth treatments, in a calm and friendly way. We recommend the first visit by your child's first birthday.</p></div></details>
+      <details class="faq-item"><summary>Do I need an appointment, or can I walk in?</summary><div class="faq-body"><p>Booking an appointment online, by phone or on WhatsApp helps us keep your waiting time short. If you have severe pain or swelling, contact us and we will try to see you as early as possible.</p></div></details>
+      <details class="faq-item"><summary>How often should I visit the dentist?</summary><div class="faq-body"><p>Every 6 months for a check-up and cleaning is ideal for most people. Regular visits catch small problems early, when treatment is simpler and more affordable.</p></div></details>
+      <details class="faq-item"><summary>Is teeth whitening safe?</summary><div class="faq-body"><p>Yes, when it is done or supervised by a dentist. We first make sure your teeth and gums are healthy, protect your gums during treatment and use controlled whitening gels. Some patients feel mild, temporary sensitivity.</p></div></details>
+      <details class="faq-item"><summary>Do you offer braces for adults?</summary><div class="faq-body"><p>Yes. Teeth can be straightened at any age. Adults often prefer tooth-coloured ceramic braces or near-invisible clear aligners. We will assess your teeth and suggest the best option.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section class="section contact" id="contact">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow">Visit Us</p>
+      <h2 class="section-title">Contact &amp; Location</h2>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info reveal">
+        <div class="c-item">
+          <span class="c-ic"><i class="fa-solid fa-location-dot"></i></span>
+          <div><h3>Address</h3><p data-bind="addressFull">Bhootnath Road, Kankarbagh, Patna, Bihar</p><p class="muted" data-bind="landmark">Ground floor, right of Domino's, opposite Bhootnath Mandir</p></div>
+        </div>
+        <div class="c-item">
+          <span class="c-ic"><i class="fa-solid fa-phone"></i></span>
+          <div><h3>Phone &amp; WhatsApp</h3><p><a href="#appointment" data-tel><span data-bind="phone">+91 XXXXX XXXXX</span></a></p><p><a href="#appointment" data-wa class="wa-link"><i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp</a></p></div>
+        </div>
+        <div class="c-item" data-needs="email">
+          <span class="c-ic"><i class="fa-solid fa-envelope"></i></span>
+          <div><h3>Email</h3><p><a href="#" data-mail><span data-bind="email"></span></a></p></div>
+        </div>
+        <div class="c-item">
+          <span class="c-ic"><i class="fa-solid fa-clock"></i></span>
+          <div class="hours-wrap">
+            <h3>Clinic Hours <span class="open-status" data-open-status><span class="dot"></span><span class="txt"></span></span></h3>
+            <table class="hours-table" id="hoursTable"></table>
+          </div>
+        </div>
+      </div>
+      <div class="map-wrap reveal">
+        <iframe id="mapFrame" title="Map showing DENTZEN Dental Hospital location" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <a href="#" class="btn btn-navy map-btn" id="directionsBtn" target="_blank" rel="noopener"><i class="fa-solid fa-diamond-turn-right"></i> Get Directions</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="f-col f-about">
+      <a href="#home" class="brand brand-footer" aria-label="DENTZEN Dental Hospital">
+        <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+          <use href="#toothShape" fill="#fff" stroke="#E3A82B" stroke-width="2.6" stroke-linejoin="round"/>
+          <path d="M16 20c2.5 4 13.5 4 16 0" fill="none" stroke="#1F7A64" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M28.5 9.5c3.5-1.5 6.5 0 7.5 3-3.5 1.5-6.5 0-7.5-3z" fill="#E3A82B"/>
+        </svg>
+        <span class="brand-text"><strong>DENTZEN</strong><small>DENTAL HOSPITAL</small></span>
+      </a>
+      <p>Gentle, honest and complete dental care for the whole family in Kankarbagh, Patna — led by Dr. W. Wagisha, BDS.</p>
+      <h4>Follow Us</h4>
+      <div class="f-social">
+        <a href="#" data-social-link="instagram" target="_blank" rel="noopener" aria-label="Instagram" class="s-ig"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#" data-social-link="facebook" target="_blank" rel="noopener" aria-label="Facebook" class="s-fb"><i class="fa-brands fa-facebook-f"></i></a>
+        <a href="#" data-social-link="youtube" target="_blank" rel="noopener" aria-label="YouTube" class="s-yt"><i class="fa-brands fa-youtube"></i></a>
+        <a href="#appointment" data-wa aria-label="WhatsApp" class="s-wa"><i class="fa-brands fa-whatsapp"></i></a>
+      </div>
+    </div>
+    <div class="f-col">
+      <h4>Useful Links</h4>
+      <ul class="f-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#about">About Us</a></li>
+        <li><a href="#doctor">Our Doctor</a></li>
+        <li><a href="#finder">Treatment Finder</a></li>
+        <li><a href="#gallery">Smile Gallery</a></li>
+        <li><a href="#tips">Dental Tips</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#appointment">Book Appointment</a></li>
+      </ul>
+    </div>
+    <div class="f-col">
+      <h4>Treatments</h4>
+      <ul class="f-links" id="footerServices"></ul>
+    </div>
+    <div class="f-col">
+      <h4>Contact Us</h4>
+      <ul class="f-contact">
+        <li><i class="fa-solid fa-location-dot"></i><span data-bind="addressFull">Bhootnath Road, Kankarbagh, Patna, Bihar</span></li>
+        <li><i class="fa-solid fa-phone"></i><a href="#appointment" data-tel><span data-bind="phone">+91 XXXXX XXXXX</span></a></li>
+        <li data-needs="email"><i class="fa-solid fa-envelope"></i><a href="#" data-mail><span data-bind="email"></span></a></li>
+        <li><i class="fa-regular fa-clock"></i><span data-bind="hoursShort">Mon–Sat 10 AM–1 PM, 3–8 PM · Sun 10 AM–1 PM</span></li>
+      </ul>
+      <a href="#appointment" class="btn btn-accent">Book Appointment</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="container fb-inner">
+      <p>&copy; <span id="year">2026</span> DENTZEN Dental Hospital. All rights reserved.</p>
+      <p class="muted">Information on this website is for general awareness and is not a substitute for a dental examination.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ FLOATING ACTIONS ============ -->
+<a href="#appointment" class="float-wa" data-wa aria-label="Chat with us on WhatsApp"><i class="fa-brands fa-whatsapp"></i><span class="float-wa-tip">Chat with us</span></a>
+<button class="to-top" id="toTop" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+<nav class="mobile-bar" aria-label="Quick actions">
+  <a href="#appointment" data-tel><i class="fa-solid fa-phone"></i><span>Call</span></a>
+  <a href="#appointment" data-wa class="mb-wa"><i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span></a>
+  <a href="#appointment" class="mb-book"><i class="fa-regular fa-calendar-check"></i><span>Book</span></a>
+  <a href="#contact"><i class="fa-solid fa-diamond-turn-right"></i><span>Directions</span></a>
+</nav>
+
+<!-- ============ SERVICE DETAIL MODAL ============ -->
+<div class="modal" id="serviceModal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-close" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<noscript><div class="noscript">Please enable JavaScript to see our full list of treatments and to book online.</div></noscript>
 </body>
 </html>
