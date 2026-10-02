@@ -64,14 +64,20 @@ def _trend(close: pd.Series) -> str:
     return "up" if last > s20 > s50 else "down" if last < s20 < s50 else "flat"
 
 
-def load_universe(tickers, period, interval, offline, cache_dir, log=print) -> dict[str, pd.DataFrame]:
+def load_universe(tickers, period, interval, offline, cache_dir, log=print, progress=None) -> dict[str, pd.DataFrame]:
+    done = [0]
+
     def one(t):
         try:
             df = load_prices(t, period, interval, offline, cache_dir)
-            return t, df if len(df) >= 250 else None
+            out = t, df if len(df) >= 250 else None
         except Exception as exc:
             log(f"[screen] skip {t}: {exc}")
-            return t, None
+            out = t, None
+        done[0] += 1
+        if progress:
+            progress(f"Loading prices {done[0]}/{len(tickers)}", 0.6 * done[0] / len(tickers))
+        return out
 
     with ThreadPoolExecutor(max_workers=8) as ex:
         return {t: df for t, df in ex.map(one, tickers) if df is not None}
@@ -95,11 +101,19 @@ def screen(
     size: bool = True,
     capital: float | None = None,
     risk_pct: float = 0.02,
+    affordable_only: bool = False,
+    progress=None,
 ) -> tuple[list[Pick], list[Pick], dict]:
-    """Return (top picks, every candidate ranked, stats)."""
+    """Return (top picks, every candidate ranked, stats).
+
+    With `affordable_only`, picks are taken in rank order but only those where at least one lot fits
+    the risk budget, so the list is always tradeable (possibly with weaker setups).
+    """
+    progress = progress or (lambda msg, frac: None)
     cache_dir = cache_dir or DEFAULT_CACHE
     kw = {"cache_dir": cache_dir}
-    prices = load_universe(tickers, period, interval, offline, cache_dir, log)
+    prices = load_universe(tickers, period, interval, offline, cache_dir, log, progress)
+    progress("Backtesting candlestick rules", 0.65)
     log(f"[screen] {len(prices)}/{len(tickers)} stocks loaded; backtesting {horizon}-bar rules ...")
 
     rules = {t: evaluate_rules(df, horizons=(horizon,), use_context=use_context) for t, df in prices.items()}
@@ -154,6 +168,7 @@ def screen(
                     best.notes.append(f"edge faded: {best.recent_win_rate:.0%} in the last {recent_bars // 250}y")
             candidates.append(best)
     log(f"[screen] {len(candidates)} stocks have an active setup with a historical edge; reading news ...")
+    progress(f"Reading news for {len(candidates)} stocks with a setup", 0.75)
 
     # ---- news for candidates only
     def news(p: Pick):
@@ -187,17 +202,31 @@ def screen(
     if size:
         from . import options, sizing
 
-        for p in ranked[:top]:
+        progress("Sizing orders", 0.9)
+        chosen = []
+        for p in ranked:
+            if len(chosen) >= top:
+                break
             try:
                 chain = options.load_chain(p.ticker, offline, cache_dir)
                 p.plan = sizing.plan_trade(p.ticker, prices[p.ticker], p.direction, horizon, p.pattern,
                                            p.signal_date, chain, capital, risk_pct, offline=offline, cache_dir=cache_dir)
             except Exception as exc:
                 log(f"[screen] sizing failed for {p.ticker}: {exc}")
+            if not affordable_only or (p.plan is not None and p.plan.lots > 0):
+                chosen.append(p)
+        if affordable_only:
+            ranked = chosen + [p for p in ranked if p not in chosen]
+            picks_override = chosen
+        else:
+            picks_override = None
+    else:
+        picks_override = None
     as_of = max((df.index[-1] for df in prices.values()), default=None)
     stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked),
              "as_of": str(as_of.date()) if as_of is not None else ""}
-    return ranked[:top], ranked, stats
+    progress("Done", 1.0)
+    return (picks_override if picks_override is not None else ranked[:top]), ranked, stats
 
 
 def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon: int, top: int) -> str:

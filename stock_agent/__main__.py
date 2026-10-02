@@ -4,6 +4,8 @@
     python -m stock_agent rules AAPL --period 10y   # only the ranked candlestick rules
     python -m stock_agent news AAPL                 # only headlines + sentiment
     python -m stock_agent trade AAPL TSLA NVDA      # one line each: BUY CALL / BUY PUT / NO TRADE
+    python -m stock_agent app                       # point-and-click app in your browser
+    python -m stock_agent shortcut                  # desktop launcher for the app
     python -m stock_agent screen                    # top 5 Nifty 50 setups by success rate + news
     python -m stock_agent screen --universe us      # same for US mega caps
     python -m stock_agent research AAPL --offline   # use cached prices/news, no network
@@ -105,6 +107,7 @@ def cmd_screen(args) -> int:
         tickers, args.period, args.interval, args.horizon, args.lookback, args.top, args.prior_strength,
         args.min_edge, args.news_weight, args.offline, args.cache_dir, not args.no_context,
         size=not args.no_size, capital=args.capital, risk_pct=args.risk / 100,
+        affordable_only=args.affordable_only,
     )
     md = screener.render_markdown(picks, ranked, stats, args.horizon, args.top)
     if args.brief:
@@ -205,7 +208,17 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--capital", type=float, help="trading capital (default ₹5,00,000 for NSE, $25,000 for US)")
     sc.add_argument("--risk", type=float, default=2.0, help="percent of capital to risk per trade (default 2)")
     sc.add_argument("--no-size", action="store_true", help="skip lots / stop-loss / target sizing")
+    sc.add_argument("--affordable-only", action="store_true", help="only list picks where at least 1 lot fits your risk")
     sc.set_defaults(func=cmd_screen)
+
+    ap_ = sub.add_parser("app", help="open the point-and-click app in your browser")
+    ap_.add_argument("--port", type=int, default=8765)
+    ap_.add_argument("--no-browser", action="store_true", help="start the server without opening a browser")
+    ap_.set_defaults(func=lambda a: (__import__("stock_agent.app", fromlist=["serve"]).serve(a.port, not a.no_browser), 0)[1])
+
+    sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
+    sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut()}"
+                                          " - double-click it to open the app."), 0)[1])
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")
     _common(ru)

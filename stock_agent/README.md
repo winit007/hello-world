@@ -27,7 +27,29 @@ to the folder you run it from (`reports\` and `.cache\`).
 Or from a clone: `pip install -r requirements.txt` and use `python -m stock_agent ...`.
 Every `python -m stock_agent` example below also works as `stock-agent` when its folder is on PATH.
 
-## Use
+## The app (easiest)
+
+```bat
+python -m stock_agent app        :: opens the app in your browser
+python -m stock_agent shortcut   :: puts a "Stock Agent" icon on your desktop; double-click it next time
+```
+
+The app runs on your own computer and opens at `http://127.0.0.1:8765`. Keep the black window
+that appears open while you use it; close it to stop the app. It has five pages:
+
+| Page | What it does |
+|---|---|
+| **Today's picks** | Press *Scan now* for the top 5 setups as cards: success rate vs the usual rate, the exact order (contract, lots, cost), stop-loss, two targets and the exit date. Tick *Only trades I can afford* to hide picks that break your risk limit. |
+| **Stock lookup** | Type any symbol (TCS.NS, AAPL) for its verdict, a 6-month candlestick chart with patterns and your stop/targets marked, its best candlestick rules and its latest news. |
+| **My trades** | *Add to my trades* from any pick, then enter the price you sold at to close it. Shows your win rate and total profit or loss. |
+| **Settings** | Capital, risk per trade, which stocks to scan (Nifty 50, US, or your own list), holding period. |
+| **How to use** | The three-step routine: scan in the evening, buy in the morning, manage the exit. |
+
+Settings, your trade journal and the downloaded data are kept in a `.stock_agent` folder in your
+user folder, so nothing is lost when you update the app. The page works in light and dark mode and on
+a phone-sized window.
+
+## Use from the command line
 
 ```bash
 # full report: ranked rules, live signals, news sentiment, outlook → reports/AAPL_<date>.md
@@ -199,8 +221,10 @@ stock_agent/
   universes.py  built-in Nifty 50 and US mega-cap lists
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
+  app.py        local web app server (standard library only) + desktop shortcut
+  web/          the app's single-page interface
   llm.py        optional local Ollama narrative
-  __main__.py   CLI (screen / research / trade / rules / news)
+  __main__.py   CLI (app / shortcut / screen / research / trade / rules / news)
 tests/          unit tests: python -m unittest discover -s tests
 ```
 

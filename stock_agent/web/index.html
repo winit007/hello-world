@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Agent</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 6v20M16 9v17M23 4v18' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f6f6f3; --surface: #ffffff; --surface-2: #f2f1ed; --chart: #fcfcfb;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-ink: #ffffff; --accent-soft: #e6f0fc;
+  --up: #008300; --up-soft: #e7f4e7; --up-text: #006300;
+  --down: #e34948; --down-soft: #fdecec; --down-text: #b42525;
+  --warn: #fab219; --warn-soft: #fff5dc; --warn-text: #7a5300;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --chart: #1a1a19;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-ink: #ffffff; --accent-soft: #17283d;
+    --up: #0ca30c; --up-soft: #12261a; --up-text: #3fc23f;
+    --down: #e66767; --down-soft: #2e1717; --down-text: #f08a8a;
+    --warn: #fab219; --warn-soft: #2d2410; --warn-text: #f6c454;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --chart: #1a1a19;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --accent: #3987e5; --accent-ink: #ffffff; --accent-soft: #17283d;
+  --up: #0ca30c; --up-soft: #12261a; --up-text: #3fc23f;
+  --down: #e66767; --down-soft: #2e1717; --down-text: #f08a8a;
+  --warn: #fab219; --warn-soft: #2d2410; --warn-text: #f6c454;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+
+/* ---- shell */
+header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--ring); }
+.bar { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.brand .logo { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; overflow-x: auto; max-width: 100%; }
+nav.tabs button { border: 0; background: transparent; padding: 7px 14px; border-radius: 9px; cursor: pointer; color: var(--ink-2); white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+.icon-btn { border: 1px solid var(--ring); background: var(--surface); border-radius: 10px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; }
+main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; }
+section.page { display: none; }
+section.page.active { display: block; }
+h1 { font-size: 24px; margin: 0 0 2px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 10px; }
+.sub { color: var(--ink-2); margin: 0; }
+.head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* ---- controls */
+.btn { border: 1px solid var(--ring); background: var(--surface); padding: 9px 16px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.small { padding: 5px 11px; font-size: 13px; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.field { display: grid; gap: 4px; align-content: start; }
+.field label { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.field .hint { font-size: 12.5px; color: var(--muted); }
+input[type=text], input[type=number], select, textarea { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--axis); background: var(--surface); }
+input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.switch { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--ink-2); }
+.switch input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* ---- cards */
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.pick-top { display: flex; align-items: center; gap: 10px; }
+.rank { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--ink-2); flex: none; }
+.ticker { font-weight: 700; font-size: 18px; }
+.price { margin-left: auto; text-align: right; }
+.price b { font-size: 17px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+.pill.call { background: var(--up-soft); color: var(--up-text); }
+.pill.put { background: var(--down-soft); color: var(--down-text); }
+.pill.none { background: var(--surface-2); color: var(--ink-2); }
+.pill.warn { background: var(--warn-soft); color: var(--warn-text); font-weight: 600; }
+.setup { color: var(--ink-2); font-size: 13.5px; margin: 6px 0 12px; }
+.meter { margin: 4px 0 2px; }
+.meter-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); }
+.meter-row b { color: var(--ink); font-size: 15px; }
+.track { position: relative; height: 10px; background: var(--surface-2); border-radius: 6px; margin: 6px 0 4px; }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 6px; }
+.basemark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink-2); border-radius: 1px; }
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin: 8px 0 12px; }
+.stats b { color: var(--ink); font-weight: 600; }
+.order { background: var(--surface-2); border-radius: 11px; padding: 12px; }
+.order .line1 { font-weight: 700; }
+.order .line2 { font-size: 13px; color: var(--ink-2); }
+.order.blocked { background: var(--warn-soft); }
+.order.blocked .line1 { color: var(--warn-text); }
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; margin-top: 10px; }
+.level { background: var(--surface); border-radius: 9px; padding: 7px 8px; border: 1px solid var(--ring); }
+.level .k { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.level .v { font-weight: 700; font-size: 14px; }
+.level .p { font-size: 12px; color: var(--ink-2); }
+.level.stop .k { color: var(--down-text); }
+.level.tgt .k { color: var(--up-text); }
+.warns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.empty { text-align: center; padding: 40px 16px; color: var(--ink-2); }
+.empty .et { color: var(--ink); display: block; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.notice { border-radius: 12px; padding: 12px 14px; background: var(--accent-soft); color: var(--ink); font-size: 14px; margin-bottom: 14px; }
+.notice.warn { background: var(--warn-soft); }
+.notice.error { background: var(--down-soft); }
+
+/* ---- progress */
+.progress { margin: 0 0 16px; }
+.progress .track { height: 8px; }
+.progress .msg { font-size: 13px; color: var(--ink-2); }
+
+/* ---- stock page */
+.search { display: flex; gap: 8px; max-width: 520px; }
+.verdict { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.verdict .big { font-size: 28px; font-weight: 750; }
+.chg.up { color: var(--up-text); } .chg.down { color: var(--down-text); }
+.cols { display: grid; gap: 14px; grid-template-columns: 1.6fr 1fr; margin-top: 14px; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.chart-wrap { position: relative; }
+.chart-wrap svg { width: 100%; height: auto; display: block; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--ring); box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  border-radius: 10px; padding: 8px 10px; font-size: 12.5px; min-width: 150px; display: none; z-index: 5; }
+.tip .t { font-weight: 700; margin-bottom: 2px; }
+.tip .r { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); }
+.tip .r b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin-top: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sw { width: 10px; height: 12px; border-radius: 2px; display: inline-block; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+td.r, th.r { text-align: right; }
+.table-scroll { overflow-x: auto; }
+ul.reasons { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+ul.reasons li { margin: 3px 0; }
+.news-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 14px; }
+.news-item:last-child { border-bottom: 0; }
+.news-item .s { flex: none; width: 54px; font-size: 12px; font-weight: 700; text-align: center; border-radius: 7px; padding: 2px 0; height: fit-content; }
+.s.pos { background: var(--up-soft); color: var(--up-text); } .s.neg { background: var(--down-soft); color: var(--down-text); } .s.neu { background: var(--surface-2); color: var(--ink-2); }
+.news-item .meta { font-size: 12px; color: var(--muted); }
+
+/* ---- journal + settings */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.tile .k { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.tile .v { font-size: 26px; font-weight: 700; }
+.form { display: grid; gap: 16px; max-width: 560px; }
+.form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.budget { font-size: 14px; background: var(--surface-2); padding: 10px 12px; border-radius: 10px; }
+dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 20px; width: min(440px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+.help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
+.foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
+@media (max-width: 720px) {
+  .bar { gap: 10px; }
+  nav.tabs { order: 3; flex-basis: 100%; }
+  nav.tabs button { flex: 1 0 auto; padding: 7px 10px; }
+}
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
+  .form .two { grid-template-columns: 1fr; }
+  h1 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand"><span class="logo" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M3 2v12M8 4v10M13 1v9"/><path d="M1.5 6h3M6.5 7h3M11.5 4h3"/></svg>
+    </span>Stock Agent</div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="picks" aria-selected="true">Today's picks</button>
+      <button role="tab" data-tab="stock">Stock lookup</button>
+      <button role="tab" data-tab="journal">My trades</button>
+      <button role="tab" data-tab="settings">Settings</button>
+      <button role="tab" data-tab="help">How to use</button>
+    </nav>
+    <button class="icon-btn" id="theme" title="Switch light / dark" aria-label="Switch light or dark theme">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ PICKS ============ -->
+  <section class="page active" id="page-picks">
+    <div class="head-row">
+      <div>
+        <h1>Today's top picks</h1>
+        <p class="sub" id="picks-sub">Scan the market to find today's best candlestick setups.</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label class="switch" title="Only show stocks where at least one lot fits your risk limit">
+          <input type="checkbox" id="afford"> Only trades I can afford
+        </label>
+        <button class="btn primary" id="scan">Scan now</button>
+      </div>
+    </div>
+    <div class="progress" id="scan-progress" hidden>
+      <div class="track"><div class="fill" style="width:0%"></div></div>
+      <div class="msg">Starting…</div>
+    </div>
+    <div id="picks"></div>
+  </section>
+
+  <!-- ============ STOCK ============ -->
+  <section class="page" id="page-stock">
+    <div class="head-row">
+      <div>
+        <h1>Stock lookup</h1>
+        <p class="sub">Verdict, chart, best rules and news for any stock. Indian stocks end in .NS, for example TCS.NS.</p>
+      </div>
+    </div>
+    <form class="search" id="stock-form">
+      <input type="text" id="stock-input" list="symbols" placeholder="e.g. RELIANCE.NS or AAPL" autocomplete="off" aria-label="Stock symbol">
+      <datalist id="symbols"></datalist>
+      <button class="btn primary">Analyse</button>
+    </form>
+    <div class="progress" id="stock-progress" hidden style="margin-top:14px">
+      <div class="track"><div class="fill" style="width:0%"></div></div>
+      <div class="msg">Starting…</div>
+    </div>
+    <div id="stock" style="margin-top:16px"></div>
+  </section>
+
+  <!-- ============ JOURNAL ============ -->
+  <section class="page" id="page-journal">
+    <div class="head-row">
+      <div>
+        <h1>My trades</h1>
+        <p class="sub">Log the trades you actually take. After 20 or so you will know whether this works for you.</p>
+      </div>
+    </div>
+    <div class="tiles" id="j-tiles"></div>
+    <div id="journal"></div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="page" id="page-settings">
+    <div class="head-row"><div><h1>Settings</h1><p class="sub">Saved on this computer. Every scan and order uses them.</p></div></div>
+    <form class="card form" id="settings-form">
+      <div class="two">
+        <div class="field"><label for="s-capital">Trading capital</label>
+          <input type="number" id="s-capital" min="1000" step="1000" class="num"><span class="hint">In rupees for Indian stocks, dollars for US.</span></div>
+        <div class="field"><label for="s-risk">Risk per trade (%)</label>
+          <input type="number" id="s-risk" min="0.1" max="20" step="0.1" class="num"><span class="hint">Most traders use 1 to 2%.</span></div>
+      </div>
+      <div class="budget" id="s-budget"></div>
+      <div class="two">
+        <div class="field"><label for="s-universe">Stocks to scan</label>
+          <select id="s-universe">
+            <option value="nifty50">Nifty 50 (India)</option>
+            <option value="us">US mega caps</option>
+            <option value="custom">My own list</option>
+          </select></div>
+        <div class="field"><label for="s-horizon">Holding period</label>
+          <select id="s-horizon"><option value="3">3 trading days</option><option value="5">5 trading days</option><option value="10">10 trading days</option></select></div>
+      </div>
+      <div class="field" id="s-custom-wrap"><label for="s-custom">My own list</label>
+        <textarea id="s-custom" rows="3" placeholder="INFY.NS, TCS.NS, WIPRO.NS, HCLTECH.NS"></textarea>
+        <span class="hint">Separate symbols with commas. NSE stocks end in .NS.</span></div>
+      <div class="two">
+        <div class="field"><label for="s-top">Number of picks</label>
+          <select id="s-top"><option>3</option><option selected>5</option><option>10</option></select></div>
+        <div class="field" style="align-content:end"><label class="switch"><input type="checkbox" id="s-afford"> Only trades I can afford</label></div>
+      </div>
+      <div><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" style="display:inline;margin-left:8px"></span></div>
+    </form>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <section class="page help" id="page-help">
+    <div class="head-row"><div><h1>How to use</h1><p class="sub">Three steps: scan in the evening, check in the morning, manage the exit.</p></div></div>
+    <div class="grid">
+      <div class="card"><h2>1. Evening: scan</h2>
+        <ol><li>After the market closes (3:30 pm IST), open <b>Today's picks</b> and press <b>Scan now</b>.</li>
+        <li>Each card is one idea. <b>CALL</b> expects the stock to rise, <b>PUT</b> expects a fall.</li>
+        <li><b>Success rate</b> is how often this setup worked on this stock before. The grey tick is how often the stock moved that way anyway; the gap is the edge.</li></ol></div>
+      <div class="card"><h2>2. Morning: check and buy</h2>
+        <ol><li>Skip cards that say <b>Not affordable</b> or <b>Edge faded</b>.</li>
+        <li>Look up the contract in your broker app. The premium here is an estimate; if the live one is much higher, the trade is riskier than planned.</li>
+        <li>Buy only the number of lots shown, then press <b>Add to my trades</b> with your real price.</li></ol></div>
+      <div class="card"><h2>3. Manage the exit</h2>
+        <ol><li>Set price alerts on the stock at <b>Stop</b>, <b>Target 1</b> and <b>Target 2</b>.</li>
+        <li>Stop hit: sell everything. Target 1: sell half. Target 2: sell the rest.</li>
+        <li>Nothing hit by <b>Exit by</b>: sell anyway, because options lose value daily.</li>
+        <li>Close the trade in <b>My trades</b> to track your win rate.</li></ol></div>
+      <div class="card"><h2>Stay safe</h2>
+        <ol><li>Take one or two picks, not all five. They often move together.</li>
+        <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
+        <li>This is a statistics tool, not investment advice.</li></ol></div>
+    </div>
+  </section>
+  <p class="foot">Runs on your computer · data from Yahoo Finance, Google News and NSE · not investment advice</p>
+</main>
+
+<dialog id="dlg"><form method="dialog" id="dlg-form"></form></dialog>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (x, d = 0) => x == null ? "–" : (x * 100).toFixed(d) + "%";
+const spct = (x, d = 1) => x == null ? "–" : (x >= 0 ? "+" : "") + (x * 100).toFixed(d) + "%";
+const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
+const money = (x, c = "₹", d = 0) => x == null ? "–" : c + Number(x).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
+const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "–";
+let SETTINGS = {};
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function runJob(startPromise, box) {
+  const { job } = await startPromise;
+  box.hidden = false;
+  const fill = $(".fill", box), msg = $(".msg", box);
+  while (true) {
+    const j = await api("/api/job/" + job);
+    fill.style.width = Math.round((j.progress || 0) * 100) + "%";
+    msg.textContent = j.message + "…";
+    if (j.status === "done") { box.hidden = true; return j.result; }
+    if (j.status === "error") { box.hidden = true; throw new Error(j.error); }
+    await new Promise(r => setTimeout(r, 600));
+  }
+}
+
+/* ---------------- theme + tabs ---------------- */
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$("#theme").onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) {}
+  if (window._lastStock) drawChart(window._lastStock);
+};
+function showTab(name) {
+  $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
+  if (name === "journal") loadJournal();
+  if (name === "settings") fillSettings();
+  try { sessionStorage.setItem("tab", name); } catch (e) {}
+}
+$$("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------------- shared pieces ---------------- */
+function sidePill(side) {
+  if (side === "CALL") return `<span class="pill call">▲ BUY CALL</span>`;
+  if (side === "PUT") return `<span class="pill put">▼ BUY PUT</span>`;
+  return `<span class="pill none">NO TRADE</span>`;
+}
+function orderBlock(plan, ticker) {
+  if (!plan) return "";
+  const c = plan.currency;
+  if (plan.lot_size == null) return `<div class="order blocked"><div class="line1">Not tradable in F&amp;O</div><div class="line2">${esc(plan.lot_source)}</div></div>`;
+  const head = plan.lots > 0
+    ? `<div class="order"><div class="line1">BUY ${plan.lots} lot${plan.lots > 1 ? "s" : ""} · ${esc(plan.contract)}</div>
+       <div class="line2 num">Lot ${plan.lot_size} · premium ~${money(plan.premium, c, 2)} · total cost <b>${money(plan.cost, c)}</b> · max loss at stop ${money(plan.max_loss_at_stop, c)}</div>`
+    : `<div class="order blocked"><div class="line1">Not affordable at your risk limit</div>
+       <div class="line2 num">1 lot of ${esc(plan.contract)} (lot ${plan.lot_size}, ~${money(plan.premium, c, 2)}) risks ${money(plan.risk_per_lot, c)} to the stop. Your limit is ${money(plan.budget, c)}.</div>`;
+  const down = plan.side === "PUT";
+  return head + `<div class="levels num">
+      <div class="level stop"><div class="k">Stop</div><div class="v">${down ? "above" : "below"} ${plan.stop_underlying.toFixed(2)}</div><div class="p">option ~${money(plan.stop_premium, c, 2)}</div></div>
+      <div class="level tgt"><div class="k">Target 1</div><div class="v">${plan.target1_underlying.toFixed(2)}</div><div class="p">sell half · ~${money(plan.target1_premium, c, 2)}</div></div>
+      <div class="level tgt"><div class="k">Target 2</div><div class="v">${plan.target2_underlying.toFixed(2)}</div><div class="p">sell rest · ~${money(plan.target2_premium, c, 2)}</div></div>
+      <div class="level"><div class="k">Exit by</div><div class="v">${fmtDate(plan.time_stop)}</div><div class="p">if nothing hit</div></div>
+    </div>${plan.estimated ? `<div class="line2" style="margin-top:8px">Premium is an estimate. Check the live price in your broker app before buying.</div>` : ""}</div>`;
+}
+
+/* ---------------- picks ---------------- */
+function renderPicks(res) {
+  const box = $("#picks");
+  if (!res) { box.innerHTML = `<div class="card empty"><span class="et">No scan yet</span>Press <b>Scan now</b>. The first scan downloads 10 years of prices and takes a minute or two.</div>`; return; }
+  const s = res.settings || {}, st = res.stats || {};
+  const c = (s.universe === "us") ? "$" : "₹";
+  $("#picks-sub").innerHTML = `Market data to <b>${fmtDate(st.as_of)}</b> · ${st.loaded} stocks scanned · ${st.candidates} with an active setup · sized for ${money(s.capital, c)} at ${s.risk}% risk · ${s.horizon}-day hold`;
+  if (!res.picks.length) {
+    box.innerHTML = `<div class="card empty"><span class="et">Nothing qualifies today</span>${s.affordable_only ? "No setup with an edge fits your risk limit. Turn off <i>Only trades I can afford</i> to see them anyway, or raise your risk in Settings." : "No stock has an active setup with a historical edge. Sitting out is a valid answer."}</div>`;
+    return;
+  }
+  const blocked = res.picks.filter(p => p.plan && p.plan.lots === 0).length;
+  let html = "";
+  if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade. Tick <b>Only trades I can afford</b> to see only tradeable ones.</div>`;
+  if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. If today is a trading day, scan again after 3:30 pm IST for fresh picks.</div>`;
+  html += `<div class="grid">` + res.picks.map((p, i) => {
+    const c2 = cur(p.ticker), warns = (p.notes || []).map(n => `<span class="pill warn">⚠ ${esc(n)}</span>`).join("");
+    const scale = x => Math.max(0, Math.min(100, x * 100));
+    return `<article class="card">
+      <div class="pick-top"><span class="rank">${i + 1}</span>
+        <div><div class="ticker">${esc(bare(p.ticker))}</div>${sidePill(p.side)}</div>
+        <div class="price num"><b>${money(p.last_close, c2, 2)}</b><div class="sub" style="font-size:12.5px">trend ${esc(p.trend)}</div></div></div>
+      <div class="setup">${esc(p.pattern)} on ${fmtDate(p.signal_date)}</div>
+      <div class="meter">
+        <div class="meter-row"><span>Success rate</span><span><b class="num">${pct(p.success)}</b> vs ${pct(p.baseline)} usual</span></div>
+        <div class="track" title="Blue: this setup's success rate. Grey tick: how often the stock moves this way anyway.">
+          <div class="fill" style="width:${scale(p.success)}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
+      </div>
+      <div class="stats num"><span>Past signals <b>${p.n}</b></span><span>Last 3 years <b>${p.recent_n ? pct(p.recent_win_rate) : "–"}</b></span>
+        <span>Avg move <b>${spct(p.avg_return, 2)}</b></span><span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
+      ${orderBlock(p.plan, p.ticker)}
+      ${warns ? `<div class="warns">${warns}</div>` : ""}
+      <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
+        ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}</div>
+    </article>`;
+  }).join("") + `</div>`;
+  box.innerHTML = html;
+  $$("[data-detail]", box).forEach(b => b.onclick = () => { showTab("stock"); $("#stock-input").value = b.dataset.detail; analyse(b.dataset.detail); });
+  $$("[data-log]", box).forEach(b => b.onclick = () => logTrade(res.picks[+b.dataset.log]));
+}
+$("#scan").onclick = async () => {
+  const btn = $("#scan"); btn.disabled = true; btn.textContent = "Scanning…";
+  try {
+    const res = await runJob(api("/api/screen", { method: "POST", body: { affordable_only: $("#afford").checked } }), $("#scan-progress"));
+    renderPicks(res);
+  } catch (e) { $("#picks").innerHTML = `<div class="notice error">Scan failed: ${esc(e.message)}. Check your internet connection and try again.</div>`; }
+  btn.disabled = false; btn.textContent = "Scan now";
+};
+$("#afford").onchange = async () => { SETTINGS = await api("/api/settings", { method: "POST", body: { affordable_only: $("#afford").checked } }); };
+
+/* ---------------- journal ---------------- */
+function logTrade(p) {
+  const plan = p.plan, c = plan.currency;
+  $("#dlg-form").innerHTML = `<h2>Add to my trades</h2>
+    <p class="sub" style="margin-bottom:12px">${esc(plan.contract)} · lot ${plan.lot_size}</p>
+    <div class="form" style="gap:12px">
+      <div class="two"><div class="field"><label>Premium you paid (${c})</label><input type="number" step="0.05" name="entry" value="${plan.premium}" required></div>
+      <div class="field"><label>Lots</label><input type="number" min="1" step="1" name="lots" value="${plan.lots}" required></div></div>
+      <div class="field"><label>Notes</label><input type="text" name="notes" placeholder="optional"></div>
+      <div class="actions"><button class="btn primary" value="ok">Save trade</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div></div>`;
+  const dlg = $("#dlg"); dlg.showModal();
+  dlg.onclose = async () => {
+    if (dlg.returnValue !== "ok") return;
+    const f = $("#dlg-form");
+    await api("/api/journal", { method: "POST", body: { ticker: p.ticker, contract: plan.contract, side: plan.side, lots: +f.lots.value,
+      lot_size: plan.lot_size, entry_premium: +f.entry.value, stop: plan.stop_underlying, target1: plan.target1_underlying,
+      target2: plan.target2_underlying, time_exit: plan.time_stop, pattern: p.pattern, notes: f.notes.value } });
+    showTab("journal");
+  };
+}
+async function loadJournal() {
+  const { entries, summary } = await api("/api/journal");
+  $("#j-tiles").innerHTML = [
+    ["Open trades", summary.open], ["Closed trades", summary.closed],
+    ["Win rate", summary.win_rate == null ? "–" : pct(summary.win_rate)],
+    ["Total P&L", `<span class="${summary.pnl > 0 ? "chg up" : summary.pnl < 0 ? "chg down" : ""}">${money(summary.pnl, "₹")}</span>`],
+  ].map(([k, v]) => `<div class="card tile"><div class="k">${k}</div><div class="v num">${v}</div></div>`).join("");
+  const box = $("#journal");
+  if (!entries.length) { box.innerHTML = `<div class="card empty"><span class="et">No trades yet</span>On a pick you take, press <b>Add to my trades</b>.</div>`; return; }
+  box.innerHTML = `<div class="card table-scroll"><table class="num"><thead><tr><th>Opened</th><th>Contract</th><th class="r">Lots</th><th class="r">Bought at</th>
+    <th class="r">Stop / targets</th><th>Exit by</th><th class="r">Sold at</th><th class="r">P&L</th><th></th></tr></thead><tbody>` +
+    entries.map(e => {
+      const c = cur(e.ticker);
+      const open = e.status === "open";
+      return `<tr><td>${fmtDate(e.opened)}</td><td><b>${esc(e.contract)}</b><div class="sub" style="font-size:12px">${esc(e.pattern || "")}${e.notes ? " · " + esc(e.notes) : ""}</div></td>
+        <td class="r">${e.lots}</td><td class="r">${money(e.entry_premium, c, 2)}</td>
+        <td class="r">${(+e.stop).toFixed(2)} / ${(+e.target1).toFixed(2)} / ${(+e.target2).toFixed(2)}</td><td>${fmtDate(e.time_exit)}</td>
+        <td class="r">${open ? `<input type="number" step="0.05" placeholder="premium" style="width:100px" data-exit="${e.id}">` : money(e.exit_premium, c, 2)}</td>
+        <td class="r">${open ? "open" : `<span class="chg ${e.pnl >= 0 ? "up" : "down"}">${money(e.pnl, c)}</span>`}</td>
+        <td class="r" style="white-space:nowrap">${open ? `<button class="btn small" data-close="${e.id}">Close</button> ` : ""}<button class="btn small" data-del="${e.id}" title="Delete">✕</button></td></tr>`;
+    }).join("") + `</tbody></table></div>`;
+  $$("[data-close]", box).forEach(b => b.onclick = async () => {
+    const v = $(`[data-exit="${b.dataset.close}"]`, box).value;
+    if (!v) { $(`[data-exit="${b.dataset.close}"]`, box).focus(); return; }
+    await api("/api/journal/" + b.dataset.close, { method: "POST", body: { exit_premium: +v } }); loadJournal();
+  });
+  $$("[data-del]", box).forEach(b => b.onclick = async () => {
+    if (!confirm("Delete this trade from your journal?")) return;
+    await fetch("/api/journal/" + b.dataset.del, { method: "DELETE" }); loadJournal();
+  });
+}
+
+/* ---------------- settings ---------------- */
+function budgetText() {
+  const cap = +$("#s-capital").value || 0, r = +$("#s-risk").value || 0;
+  const c = $("#s-universe").value === "us" ? "$" : "₹";
+  $("#s-budget").innerHTML = `You can lose up to <b>${money(cap * r / 100, c)}</b> on each trade before the stop-loss closes it.`;
+  $("#s-custom-wrap").hidden = $("#s-universe").value !== "custom";
+}
+function fillSettings() {
+  const s = SETTINGS;
+  $("#s-capital").value = s.capital; $("#s-risk").value = s.risk; $("#s-universe").value = s.universe;
+  $("#s-horizon").value = s.horizon; $("#s-custom").value = s.custom || ""; $("#s-top").value = s.top; $("#s-afford").checked = !!s.affordable_only;
+  $("#s-saved").textContent = ""; budgetText();
+}
+["#s-capital", "#s-risk", "#s-universe"].forEach(id => $(id).addEventListener("input", budgetText));
+$("#settings-form").onsubmit = async ev => {
+  ev.preventDefault();
+  SETTINGS = await api("/api/settings", { method: "POST", body: { capital: +$("#s-capital").value, risk: +$("#s-risk").value,
+    universe: $("#s-universe").value, horizon: +$("#s-horizon").value, custom: $("#s-custom").value, top: +$("#s-top").value,
+    affordable_only: $("#s-afford").checked } });
+  $("#afford").checked = !!SETTINGS.affordable_only;
+  $("#s-saved").textContent = "Saved. Press Scan now on Today's picks to use them.";
+};
+
+/* ---------------- stock page ---------------- */
+$("#stock-form").onsubmit = ev => { ev.preventDefault(); const t = $("#stock-input").value.trim(); if (t) analyse(t); };
+async function analyse(ticker) {
+  const box = $("#stock"); box.innerHTML = "";
+  try {
+    const d = await runJob(api("/api/stock?ticker=" + encodeURIComponent(ticker)), $("#stock-progress"));
+    window._lastStock = d; renderStock(d);
+  } catch (e) { box.innerHTML = `<div class="notice error">Could not analyse ${esc(ticker)}: ${esc(e.message)}. Check the symbol (Indian stocks end in .NS) and your connection.</div>`; }
+}
+function renderStock(d) {
+  const c = cur(d.ticker), o = d.outlook, t = d.trade;
+  const action = t.action === "BUY CALL" ? "CALL" : t.action === "BUY PUT" ? "PUT" : "NONE";
+  const sum = d.news.summary;
+  $("#stock").innerHTML = `
+    <div class="card">
+      <div class="verdict">
+        <div><div class="ticker" style="font-size:22px">${esc(bare(d.ticker))}</div><div class="sub">data to ${fmtDate(d.as_of)}</div></div>
+        <div class="num"><span class="big">${money(d.last_close, c, 2)}</span> <span class="chg ${d.change >= 0 ? "up" : "down"}">${spct(d.change, 2)}</span></div>
+        <div style="margin-left:auto;text-align:right">${sidePill(action)}<div class="sub" style="font-size:13px">bias ${esc(o.bias)} · confidence ${pct(o.confidence)} · ${o.horizon}-day view</div></div>
+      </div>
+      ${t.action === "NO TRADE" ? `<p style="margin:12px 0 0;color:var(--ink-2);font-size:14px">${esc(t.reason)}</p>` : ""}
+      ${d.plan ? `<div style="margin-top:12px">${orderBlock(d.plan, d.ticker)}</div>` : ""}
+      ${(t.warnings || []).length ? `<div class="warns">${t.warnings.map(w => `<span class="pill warn">⚠ ${esc(w)}</span>`).join("")}</div>` : ""}
+    </div>
+    <div class="cols">
+      <div class="card"><h2>Last 6 months</h2><div class="chart-wrap" id="chart"></div>
+        <div class="legend"><span><i class="sw" style="border:1.5px solid var(--up);background:var(--chart)"></i>Up day (hollow)</span>
+          <span><i class="sw" style="background:var(--down)"></i>Down day (filled)</span>
+          <span style="color:var(--up-text)">▲ bullish pattern</span><span style="color:var(--down-text)">▼ bearish pattern</span></div></div>
+      <div class="card"><h2>Why</h2><ul class="reasons">${(o.reasons || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>
+    </div>
+    <div class="cols">
+      <div class="card table-scroll"><h2>Best rules for ${esc(bare(d.ticker))}</h2>
+        ${d.rules.length ? `<table class="num"><thead><tr><th>Pattern</th><th>Hold</th><th class="r">Signals</th><th class="r">Success</th><th class="r">Usual</th><th class="r">Avg move</th></tr></thead><tbody>
+        ${d.rules.map(r => `<tr><td>${r.direction === "bullish" ? '<span style="color:var(--up-text)">▲</span>' : '<span style="color:var(--down-text)">▼</span>'} ${esc(r.pattern)}</td><td>${r.horizon}d</td><td class="r">${r.n}</td>
+          <td class="r"><b>${pct(r.win_rate)}</b></td><td class="r">${pct(r.baseline)}</td><td class="r">${spct(r.avg_return, 2)}</td></tr>`).join("")}</tbody></table>
+          <p class="sub" style="font-size:12.5px;margin-top:8px">Ranked by a sample-size-adjusted success rate, so rules seen only a few times rank lower.</p>` : `<p class="sub">Not enough history to rank rules.</p>`}</div>
+      <div class="card"><h2>News</h2>
+        <p class="sub" style="font-size:13px;margin-bottom:6px">${sum.count} headlines · ${sum.positive} positive · ${sum.negative} negative</p>
+        ${d.news.items.map(h => { const k = h.label === "positive" ? "pos" : h.label === "negative" ? "neg" : "neu";
+          return `<div class="news-item"><span class="s ${k} num">${h.sentiment >= 0 ? "+" : ""}${h.sentiment.toFixed(2)}</span>
+          <div><a href="${esc(h.link)}" target="_blank" rel="noopener noreferrer">${esc(h.title)}</a><div class="meta">${esc(h.source)} · ${fmtDate(h.published)}</div></div></div>`; }).join("") || '<p class="sub">No headlines found.</p>'}</div>
+    </div>`;
+  drawChart(d);
+}
+
+/* candlestick chart: hollow up / filled down, pattern markers, crosshair tooltip */
+function drawChart(d) {
+  const wrap = $("#chart"); if (!wrap) return;
+  const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const W = Math.max(320, Math.round(wrap.clientWidth || 760)), H = W < 520 ? 260 : 340, m = { l: 8, r: 58, t: 14, b: 26 };
+  const cs = d.candles, n = cs.length, c = cur(d.ticker);
+  const lo = Math.min(...cs.map(k => k.l)), hi = Math.max(...cs.map(k => k.h)), pad = (hi - lo) * 0.08;
+  const y0 = lo - pad, y1 = hi + pad;
+  const bw = (W - m.l - m.r) / n, X = i => m.l + bw * (i + 0.5), Y = p => m.t + (H - m.t - m.b) * (1 - (p - y0) / (y1 - y0));
+  const step = (() => { const raw = (y1 - y0) / 5, p10 = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(s => s * p10).find(s => s >= raw); })();
+  let g = "";
+  for (let p = Math.ceil(y0 / step) * step; p <= y1; p += step)
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(p)}" y2="${Y(p)}" stroke="${v("--grid")}" stroke-width="1"/>
+          <text x="${W - m.r + 6}" y="${Y(p) + 4}" font-size="11" fill="${v("--muted")}" class="num">${p.toLocaleString(undefined, { maximumFractionDigits: 2 })}</text>`;
+  let lastMonth = "";
+  cs.forEach((k, i) => { const mo = k.d.slice(0, 7); if (mo !== lastMonth) { lastMonth = mo; if (i > 2)
+    g += `<text x="${X(i)}" y="${H - 8}" font-size="11" fill="${v("--muted")}" text-anchor="middle">${new Date(k.d + "T00:00:00").toLocaleDateString(undefined, { month: "short" })}</text>`; } });
+  const up = v("--up"), dn = v("--down"), surf = v("--chart");
+  const body = Math.max(1.5, bw * 0.62);
+  let candles = "";
+  cs.forEach((k, i) => {
+    const isUp = k.c >= k.o, col = isUp ? up : dn, top = Y(Math.max(k.o, k.c)), h = Math.max(1, Math.abs(Y(k.o) - Y(k.c)));
+    candles += `<line x1="${X(i)}" x2="${X(i)}" y1="${Y(k.h)}" y2="${Y(k.l)}" stroke="${col}" stroke-width="1"/>
+      <rect x="${X(i) - body / 2}" y="${top}" width="${body}" height="${h}" rx="1" fill="${isUp ? surf : col}" stroke="${col}" stroke-width="${isUp ? 1.2 : 0}"/>`;
+  });
+  const idx = Object.fromEntries(cs.map((k, i) => [k.d, i]));
+  const byDay = {};
+  d.markers.forEach(mk => { (byDay[mk.d] = byDay[mk.d] || []).push(mk); });
+  let marks = "";
+  Object.entries(byDay).forEach(([day, list]) => {
+    const i = idx[day]; if (i == null) return; const k = cs[i];
+    const bull = list.some(x => x.dir === "bullish"), bear = list.some(x => x.dir === "bearish"), s = 5;
+    if (bull) { const yy = Y(k.l) + 9; marks += `<path d="M${X(i)} ${yy - s} L${X(i) + s} ${yy + s * 0.8} L${X(i) - s} ${yy + s * 0.8}Z" fill="${up}" stroke="${surf}" stroke-width="1.5"/>`; }
+    if (bear) { const yy = Y(k.h) - 9; marks += `<path d="M${X(i)} ${yy + s} L${X(i) + s} ${yy - s * 0.8} L${X(i) - s} ${yy - s * 0.8}Z" fill="${dn}" stroke="${surf}" stroke-width="1.5"/>`; }
+  });
+  const last = cs[n - 1];
+  const lastLine = `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(last.c)}" y2="${Y(last.c)}" stroke="${v("--ink-2")}" stroke-dasharray="3 3" stroke-width="1"/>
+    <rect x="${W - m.r + 2}" y="${Y(last.c) - 9}" width="${m.r - 4}" height="18" rx="4" fill="${v("--ink")}"/>
+    <text x="${W - m.r + 6}" y="${Y(last.c) + 4}" font-size="11" font-weight="700" fill="${v("--surface")}" class="num">${last.c.toFixed(2)}</text>`;
+  let levels = "";
+  if (d.plan) {
+    [["stop_underlying", dn, "Stop"], ["target1_underlying", up, "T1"], ["target2_underlying", up, "T2"]].forEach(([key, col, lab]) => {
+      const p = d.plan[key]; if (p < y0 || p > y1) return;
+      levels += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(p)}" y2="${Y(p)}" stroke="${col}" stroke-width="1" stroke-dasharray="6 4" opacity=".8"/>
+        <text x="${m.l + 4}" y="${Y(p) - 4}" font-size="11" fill="${col}" font-weight="700" paint-order="stroke" stroke="${surf}" stroke-width="3" stroke-linejoin="round">${lab} ${p.toFixed(2)}</text>`;
+    });
+  }
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(bare(d.ticker))} daily candlestick chart, last ${n} trading days">
+    <rect width="${W}" height="${H}" fill="${surf}"/>${g}${candles}${levels}${marks}${lastLine}
+    <line id="xh" y1="${m.t}" y2="${H - m.b}" stroke="${v("--axis")}" stroke-width="1" visibility="hidden"/>
+    <rect id="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = $("svg", wrap), tip = $(".tip", wrap), xh = $("#xh", wrap);
+  const move = ev => {
+    const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(n - 1, Math.floor((sx - m.l) / bw))), k = cs[i];
+    xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.setAttribute("visibility", "visible");
+    const pats = (byDay[k.d] || []).map(x => `<div style="color:var(${x.dir === "bullish" ? "--up-text" : "--down-text"});font-weight:600">${x.dir === "bullish" ? "▲" : "▼"} ${esc(x.name)}</div>`).join("");
+    tip.innerHTML = `<div class="t">${new Date(k.d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</div>
+      ${[["Open", k.o], ["High", k.h], ["Low", k.l], ["Close", k.c]].map(([a, b]) => `<div class="r num"><span>${a}</span><b>${money(b, c, 2)}</b></div>`).join("")}
+      <div class="r num"><span>Change</span><b class="chg ${k.c >= k.o ? "up" : "down"}">${spct(k.c / k.o - 1, 2)}</b></div>${pats}`;
+    tip.style.display = "block";
+    const px = X(i) * r.width / W, left = px > r.width / 2 ? px - tip.offsetWidth - 14 : px + 14;
+    tip.style.left = left + "px"; tip.style.top = "12px";
+  };
+  $("#hit", wrap).addEventListener("pointermove", move);
+  $("#hit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
+}
+
+let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => window._lastStock && drawChart(window._lastStock), 150); });
+
+/* ---------------- boot ---------------- */
+(async () => {
+  SETTINGS = await api("/api/settings");
+  $("#afford").checked = !!SETTINGS.affordable_only;
+  renderPicks(await api("/api/last-screen"));
+  api("/api/symbols").then(list => { $("#symbols").innerHTML = list.map(s => `<option value="${esc(s)}">`).join(""); });
+  try { const t = sessionStorage.getItem("tab"); if (t) showTab(t); } catch (e) {}
+})();
+</script>
+</body>
+</html>
