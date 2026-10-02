@@ -45,6 +45,86 @@ _jobs: dict[str, dict] = {}
 # website open in the same browser cannot drive this local server (and never your Kite account).
 SESSION_TOKEN = secrets.token_urlsafe(24)
 _kite = None
+# Phone mode: the server also listens on the Wi-Fi network. Other devices must present this key once
+# (from the link printed at start-up); it is then kept in a cookie. It is stored so that a phone's
+# home-screen icon keeps working after restarts.
+PHONE = {"on": False, "key": None, "urls": []}
+PHONE_KEY_FILE = HOME / "phone_key.txt"
+
+
+def _phone_key() -> str:
+    try:
+        k = PHONE_KEY_FILE.read_text(encoding="utf-8").strip()
+        if len(k) >= 8:
+            return k
+    except Exception:
+        pass
+    k = secrets.token_urlsafe(6)
+    PHONE_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PHONE_KEY_FILE.write_text(k, encoding="utf-8")
+    return k
+
+
+def _lan_ips() -> list[str]:
+    import socket
+
+    ips = set()
+    try:  # the address used to reach the internet (no packet is actually sent for a UDP connect)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sk:
+            sk.connect(("10.255.255.255", 1))
+            ips.add(sk.getsockname()[0])
+    except Exception:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ips.add(info[4][0])
+    except Exception:
+        pass
+    return sorted(ip for ip in ips if not ip.startswith("127."))
+
+
+def _icon_png(size: int) -> bytes:
+    """The app icon (blue rounded square, three white candles) as a PNG, drawn without any image library."""
+    import struct
+    import zlib
+
+    r = size * 0.22
+    blue, white = (42, 120, 214), (255, 255, 255)
+    bars = [(0.30, 0.20, 0.80), (0.50, 0.30, 0.82), (0.70, 0.14, 0.62)]  # (x centre, top, bottom) as fractions
+    rows = []
+    for y in range(size):
+        row = bytearray([0])
+        for x in range(size):
+            # rounded-corner mask
+            cx = min(max(x, r), size - 1 - r)
+            cy = min(max(y, r), size - 1 - r)
+            inside = (x - cx) ** 2 + (y - cy) ** 2 <= r * r
+            px = (0, 0, 0, 0)
+            if inside:
+                px = (*blue, 255)
+                for bx, top, bot in bars:
+                    if abs(x - bx * size) <= size * 0.018 and top * size <= y <= bot * size:
+                        px = (*white, 255)
+                    if abs(x - bx * size) <= size * 0.065 and (top + 0.12) * size <= y <= (bot - 0.12) * size:
+                        px = (*white, 255)
+            row.extend(px)
+        rows.append(bytes(row))
+    raw = zlib.compress(b"".join(rows), 9)
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)) +
+            chunk(b"IDAT", raw) + chunk(b"IEND", b""))
+
+
+_ICONS: dict[int, bytes] = {}
+MANIFEST = {
+    "name": "Stock Agent", "short_name": "Stock Agent", "start_url": "/", "scope": "/", "display": "standalone",
+    "background_color": "#f6f6f3", "theme_color": "#2a78d6",
+    "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+              {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
+}
 
 
 def kite_client():
@@ -428,9 +508,28 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _local_client(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
     def _host_ok(self) -> bool:
-        host = (self.headers.get("Host") or "").split(":")[0]
-        return host in ("127.0.0.1", "localhost")  # blocks DNS-rebinding attacks
+        """Only plain addresses are accepted as Host, which blocks DNS-rebinding attacks."""
+        import re
+
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
+        if host in ("127.0.0.1", "localhost"):
+            return True
+        return PHONE["on"] and bool(re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host))
+
+    def _key_ok(self) -> bool:
+        """Devices other than this computer need the phone key (in the cookie, after the first visit)."""
+        if self._local_client():
+            return True
+        if not PHONE["on"]:
+            return False
+        from http.cookies import SimpleCookie
+
+        c = SimpleCookie(self.headers.get("Cookie") or "")
+        return "agent_key" in c and secrets.compare_digest(c["agent_key"].value, PHONE["key"])
 
     def _token_ok(self) -> bool:
         return secrets.compare_digest(self.headers.get("X-Agent-Token") or "", SESSION_TOKEN)
@@ -444,7 +543,31 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         if not self._host_ok():
             return self._send(403, {"error": "forbidden host"})
+        # app icon and manifest: harmless, and needed by "Add to Home screen" before the key cookie exists
+        if url.path == "/manifest.webmanifest":
+            return self._send(200, json.dumps(MANIFEST).encode(), "application/manifest+json")
+        if url.path in ("/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/favicon.ico"):
+            size = 512 if "512" in url.path else 192
+            if size not in _ICONS:
+                _ICONS[size] = _icon_png(size)
+            return self._send(200, _ICONS[size], "image/png")
+        if not self._key_ok():
+            if PHONE["on"] and url.path in ("/", "/index.html") and q.get("key"):
+                if secrets.compare_digest(q["key"], PHONE["key"]):
+                    self.send_response(303)
+                    self.send_header("Set-Cookie", f"agent_key={PHONE['key']}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Strict")
+                    self.send_header("Location", "/")
+                    self.end_headers()
+                    return
+            page = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+                    "<body style='font:16px system-ui;padding:32px'><h2>Stock Agent</h2><p>Open the phone link shown "
+                    "in the Stock Agent window on your computer (it ends with <b>?key=…</b>).</p>")
+            return self._send(403, page.encode("utf-8"), "text/html; charset=utf-8")
         try:
+            if url.path == "/api/phone":
+                if not self._token_ok():
+                    return self._send(403, {"error": "missing app token; reload the page"})
+                return self._send(200, {"on": PHONE["on"], "urls": PHONE["urls"]})
             if url.path in ("/", "/index.html"):
                 html = (WEB / "index.html").read_text(encoding="utf-8").replace("__AGENT_TOKEN__", SESSION_TOKEN)
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
@@ -510,7 +633,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if not (self._host_ok() and self._token_ok()):
+        if not (self._host_ok() and self._key_ok() and self._token_ok()):
             return self._send(403, {"error": "missing app token; reload the page"})
         try:
             body = self._body()
@@ -560,7 +683,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
 
     def do_DELETE(self):
-        if not (self._host_ok() and self._token_ok()):
+        if not (self._host_ok() and self._key_ok() and self._token_ok()):
             return self._send(403, {"error": "missing app token; reload the page"})
         try:
             return self._send(200, journal_op("DELETE", urlparse(self.path).path, {}))
@@ -568,18 +691,28 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
 
 
-def serve(port: int = 8765, open_browser: bool = True) -> None:
+def serve(port: int = 8765, open_browser: bool = True, phone: bool = False) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
+    bind = "0.0.0.0" if phone else "127.0.0.1"
     for p in range(port, port + 20):  # find a free port
         try:
-            httpd = ThreadingHTTPServer(("127.0.0.1", p), Handler)
+            httpd = ThreadingHTTPServer((bind, p), Handler)
             break
         except OSError:
             continue
     else:
         raise SystemExit(f"No free port between {port} and {port + 19}")
-    url = f"http://127.0.0.1:{httpd.server_address[1]}/"
+    real_port = httpd.server_address[1]
+    url = f"http://127.0.0.1:{real_port}/"
     print(f"Stock Agent is running at {url}")
+    if phone:
+        PHONE.update(on=True, key=_phone_key())
+        PHONE["urls"] = [f"http://{ip}:{real_port}/?key={PHONE['key']}" for ip in _lan_ips()]
+        print("\nOn your phone (connected to the same Wi-Fi), open in Chrome:")
+        for u in PHONE["urls"] or ["(no Wi-Fi address found: is this computer on a network?)"]:
+            print(f"    {u}")
+        print("Then use Chrome's menu > Add to Home screen for an app icon.")
+        print("If Windows asks about the firewall, allow Python on Private networks.\n")
     print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
     if open_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
@@ -589,7 +722,7 @@ def serve(port: int = 8765, open_browser: bool = True) -> None:
         print("Stopped.")
 
 
-def make_shortcut() -> Path:
+def make_shortcut(phone: bool = False) -> Path:
     """Put a double-click launcher on the desktop."""
     home = Path.home()
     desktops = [home / "OneDrive" / "Desktop", home / "Desktop", home]
@@ -597,10 +730,11 @@ def make_shortcut() -> Path:
     py = Path(sys.executable)
     if os.name == "nt":
         pyw = py.with_name("python.exe")
-        target = desktop / "Stock Agent.bat"
-        target.write_text(f'@echo off\r\ntitle Stock Agent\r\n"{pyw}" -m stock_agent app\r\npause\r\n', encoding="utf-8")
+        target = desktop / ("Stock Agent (phone).bat" if phone else "Stock Agent.bat")
+        flag = " --phone" if phone else ""
+        target.write_text(f'@echo off\r\ntitle Stock Agent\r\n"{pyw}" -m stock_agent app{flag}\r\npause\r\n', encoding="utf-8")
     else:
-        target = desktop / "stock-agent.command"
-        target.write_text(f'#!/bin/sh\n"{py}" -m stock_agent app\n', encoding="utf-8")
+        target = desktop / ("stock-agent-phone.command" if phone else "stock-agent.command")
+        target.write_text(f'#!/bin/sh\n"{py}" -m stock_agent app{" --phone" if phone else ""}\n', encoding="utf-8")
         target.chmod(0o755)
     return target

@@ -90,3 +90,67 @@ class AppTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PhoneModeTests(unittest.TestCase):
+    """The server reached from another device: key required once, then a cookie; plain-IP Host only."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib
+        import socket
+        cls.tmp = tempfile.TemporaryDirectory()
+        os.environ["STOCK_AGENT_HOME"] = cls.tmp.name
+        from stock_agent import app
+        cls.app = importlib.reload(app)
+        ips = cls.app._lan_ips()
+        if not ips:
+            raise unittest.SkipTest("no non-loopback address in this environment")
+        cls.ip = ips[0]
+        cls.app.PHONE.update(on=True, key="testkey123")
+        from http.server import ThreadingHTTPServer
+        cls.httpd = ThreadingHTTPServer(("0.0.0.0", 0), cls.app.Handler)
+        cls.port = cls.httpd.server_address[1]
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        cls.app.PHONE.update(on=False, key=None)
+        cls.tmp.cleanup()
+        os.environ.pop("STOCK_AGENT_HOME", None)
+
+    def get(self, path, headers=None, ip=None):
+        import http.client
+        c = http.client.HTTPConnection(ip or self.ip, self.port, timeout=10)
+        c.request("GET", path, headers=headers or {})
+        r = c.getresponse()
+        return r.status, dict(r.getheaders()), r.read()
+
+    def test_key_cookie_flow(self):
+        status, _, body = self.get("/")
+        self.assertEqual(status, 403)
+        self.assertIn(b"?key=", body)
+        self.assertEqual(self.get("/?key=wrong")[0], 403)
+        status, headers, _ = self.get("/?key=testkey123")
+        self.assertEqual(status, 303)
+        cookie = headers["Set-Cookie"].split(";")[0]
+        status, _, page = self.get("/", {"Cookie": cookie})
+        self.assertEqual(status, 200)
+        token = self.app.SESSION_TOKEN
+        self.assertIn(token.encode(), page)
+        self.assertEqual(self.get("/api/settings", {"Cookie": cookie, "X-Agent-Token": token})[0], 200)
+        self.assertEqual(self.get("/api/settings", {"X-Agent-Token": token})[0], 403)          # no cookie
+        self.assertEqual(self.get("/api/settings", {"Cookie": cookie, "X-Agent-Token": token,
+                                                    "Host": "evil.example"})[0], 403)        # rebinding
+
+    def test_icons_and_manifest_without_key(self):
+        status, headers, body = self.get("/manifest.webmanifest")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["display"], "standalone")
+        status, headers, body = self.get("/icon-192.png")
+        self.assertEqual((status, body[:4]), (200, b"\x89PNG"))
+
+    def test_this_computer_needs_no_key(self):
+        self.assertEqual(self.get("/", ip="127.0.0.1")[0], 200)

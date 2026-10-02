@@ -50,6 +50,23 @@ Settings, your trade journal and the downloaded data are kept in a `.stock_agent
 user folder, so nothing is lost when you update the app. The page works in light and dark mode and on
 a phone-sized window.
 
+## On your Android phone
+
+```bat
+python -m stock_agent app --phone          :: or once: python -m stock_agent shortcut --phone
+```
+
+The window prints a link such as `http://192.168.1.20:8765/?key=AbC123xy`. On your phone, connected to
+the same Wi-Fi, open it in Chrome once (the phone keeps the key in a cookie), then tap **⋮ > Add to Home
+screen** for a Stock Agent icon that opens full-screen like an app. Every page is laid out for phone
+screens. The computer must be on with the app running; if Windows asks about the firewall, allow Python on
+*Private networks*. Without `--phone` the app only listens to this computer. In phone mode other devices
+need the key, requests must address the computer by its IP (which blocks DNS-rebinding tricks), and
+every action still needs the page's own token. The key is kept in `.stock_agent/phone_key.txt`; delete
+that file to issue a new one.
+
+The daily top-5 message already reaches the phone as a push notification and email without the computer.
+
 ## Use from the command line
 
 ```bash

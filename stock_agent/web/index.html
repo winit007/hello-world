@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="agent-token" content="__AGENT_TOKEN__">
+<meta name="theme-color" content="#2a78d6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Stock Agent</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 6v20M16 9v17M23 4v18' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -138,7 +143,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 .verdict .big { font-size: 28px; font-weight: 750; }
 .chg.up { color: var(--up-text); } .chg.down { color: var(--down-text); }
 .cols { display: grid; gap: 14px; grid-template-columns: 1.6fr 1fr; margin-top: 14px; }
-@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.goal-cols { grid-template-columns: minmax(280px, 1fr) 2fr; }
+.cols > * { min-width: 0; }
+@media (max-width: 860px) { .cols, .goal-cols { grid-template-columns: 1fr; } }
 .chart-wrap { position: relative; }
 .chart-wrap svg { width: 100%; height: auto; display: block; }
 .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--ring); box-shadow: 0 4px 16px rgba(0,0,0,.12);
@@ -336,7 +343,7 @@ details.events li { margin: 2px 0; }
   <section class="page" id="page-goals">
     <div class="head-row"><div><h1>Long-term goals</h1>
       <p class="sub">How much to invest each month, in what mix, and the chance of reaching your goal, simulated from ten years of Nifty and gold history.</p></div></div>
-    <div class="cols" style="grid-template-columns: minmax(280px, 1fr) 2fr; margin-top:0">
+    <div class="cols goal-cols" style="margin-top:0">
       <form class="card form" id="goal-form" style="max-width:none;align-self:start;align-content:start">
         <div class="field"><label for="g-name">Goal</label><input type="text" id="g-name" value="My goal"></div>
         <div class="two">
@@ -429,6 +436,11 @@ details.events li { margin: 2px 0; }
       <div><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" style="display:inline;margin-left:8px"></span></div>
     </form>
 
+    <div class="card form" id="phone-card" style="margin-top:16px">
+      <h2 style="margin:0">Use on your Android phone</h2>
+      <div id="phone-body" class="sub" style="font-size:14px"></div>
+    </div>
+
     <div class="card form" id="kite-card" style="margin-top:16px">
       <div class="kite-row"><h2 style="margin:0">Zerodha Kite</h2><span class="dot" id="k-dot"></span><span id="k-state" class="sub"></span></div>
       <div class="sub" style="font-size:14px">Lets you place a pick on your Kite account with one click. Every order is shown to you first;
@@ -477,7 +489,8 @@ details.events li { margin: 2px 0; }
       <div class="card"><h2>The other tabs</h2>
         <ol><li><b>Crypto</b> and <b>Commodities</b> use the same candlestick engine on coins (daily) and gold, silver, crude, gas and copper (15-minute). Each shows its own strategy check at the top.</li>
         <li><b>Goals</b> turns a target amount and date into a monthly investment and a mix of equity, debt and gold, with the chance of getting there.</li>
-        <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li></ol></div>
+        <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li>
+        <li><b>On your phone</b>: start the app with <b>python -m stock_agent app --phone</b>, open the link it shows in Chrome on your phone (same Wi-Fi), then Add to Home screen. Details are in Settings.</li></ol></div>
       <div class="card"><h2>Stay safe</h2>
         <ol><li>Take one or two picks, not all five. They often move together.</li>
         <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
@@ -545,7 +558,7 @@ function showTab(name) {
   if (name === "ipo" && !window._ipoLoaded) loadIpo();
   if (name === "goals") loadGoal();
   if (name === "rebalance") loadPortfolio();
-  if (name === "settings") { fillSettings(); loadKite(); }
+  if (name === "settings") { fillSettings(); loadKite(); loadPhone(); }
   try { sessionStorage.setItem("tab", name); } catch (e) {}
 }
 $$("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -1173,6 +1186,20 @@ function drawPnl(ev) {
     tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, want)) + "px"; tip.style.top = "10px";
   });
   $("#phit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; });
+}
+
+/* ---------------- phone ---------------- */
+async function loadPhone() {
+  const p = await api("/api/phone");
+  $("#phone-body").innerHTML = p.on
+    ? `<p style="margin:0 0 6px">Phone mode is <b>on</b>. On your phone, connected to the same Wi-Fi, open this link in Chrome:</p>
+       ${p.urls.map(u => `<p style="margin:4px 0"><span class="copy">${esc(u)}</span></p>`).join("") || "<p>No Wi-Fi address found on this computer.</p>"}
+       <ol style="padding-left:20px;margin:8px 0"><li>Open the link once. Your phone remembers the key.</li>
+       <li>In Chrome tap <b>⋮</b> then <b>Add to Home screen</b>. You get a Stock Agent icon that opens like an app.</li>
+       <li>The computer must be on with this app running while you use it.</li></ol>`
+    : `<p style="margin:0 0 6px">To use the app from your phone on the same Wi-Fi, close this window and start the app in phone mode:</p>
+       <p><span class="copy">python -m stock_agent app --phone</span></p>
+       <p style="margin:6px 0 0">or create a desktop icon for it once with <span class="copy">python -m stock_agent shortcut --phone</span>. The window then shows the link to open on your phone.</p>`;
 }
 
 /* ---------------- Zerodha Kite ---------------- */
