@@ -207,6 +207,25 @@ that into a steady loss through time decay. Only 19% of the 72 variants were pos
 about what luck alone produces, and variants that looked best on the older years were negative on the
 newer ones. No filter improved results consistently, so the rules were left unchanged.
 
+**Reversing it does not help either** (`python -m stock_agent lab --reverse`). On the same signals and
+exits over the last 3 years, with 2% of premium per option leg for brokerage, taxes and the bid/ask spread:
+
+| Reversal | Trades won | Average per trade | Worst trade |
+|---|---|---|---|
+| Buy the option (current) | 37% | -4.2% of premium | -100% |
+| Flip: buy the opposite option | 38% | -2.9% of premium | -100% |
+| Sell the recommended option | 61% | +0.2% of premium | -1,151% (11.5x the premium) |
+| Credit spread (capped loss) | 53% | -4.0% of the capped risk | -105% |
+
+Flipping fails because the stock moves were already coin flips; the loss came from time decay, which a
+buyer pays in both directions. Selling wins most often because the seller collects that decay, but the
+average win (+33% of premium) is smaller than the average loss (-51%), 1 trade in 26 loses more than the
+whole premium, and a one-at-a-time sample of these trades fell ₹2.1 lakh below its peak at ₹20,000 of
+premium per trade, more than a ₹2 lakh account, which also could not post the roughly ₹1-1.5 lakh
+exchange margin a single naked stock-option lot needs. Even the small positive average leans on the
+model's assumption that options are priced 10% above recent volatility. The app therefore keeps buying
+(defined risk, practice mode) and does not recommend selling options.
+
 There is no rule that never loses. Strategies that win almost every time (for example selling options)
 do so by taking rare, very large losses. The app and the daily message therefore show this check on
 every scan, and the Kite dialog warns while it is negative: **use the picks for research and practice

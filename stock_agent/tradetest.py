@@ -143,8 +143,8 @@ class _Sim:
         self.r = INDIA_RATE if india else US_RATE
         self.min_days = math.ceil(horizon * 7 / 5) + 3
 
-    def trade(self, i: int, bull: bool, candles: int):
-        """Return (exit_index, option_return, r_multiple, skipped) for a signal on bar i, or None."""
+    def path(self, i: int, bull: bool, candles: int) -> dict | None:
+        """When and where the planned trade exits: entry bar, exit bar, exit stock price."""
         n = len(self.c)
         if i + 1 >= n or np.isnan(self.atr[i]):
             return None
@@ -152,30 +152,37 @@ class _Sim:
         lo, hi = self.l[i - candles + 1: i + 1].min(), self.h[i - candles + 1: i + 1].max()
         stop, t1, _, dist = levels(entry_ref, lo, hi, a, bull, self.st)
         j = i + 1
+        base = {"i": i, "j": j, "bull": bull, "dist": dist, "ref": entry_ref, "spot_in": self.o[j]}
         if (self.o[j] <= stop) if bull else (self.o[j] >= stop):
-            return (j, 0.0, 0.0, True)
+            return {**base, "t": j, "s_exit": self.o[j], "skipped": True, "why": "skip"}
         last = min(i + self.horizon, n - 1)
-        unfinished = i + self.horizon > n - 1  # time exit lies beyond the data: only an early exit counts
-        kind = "call" if bull else "put"
-        d0 = self.dates[i]
-        expiry = _monthly_expiry(d0, self.min_days, self.india)
-        k, sig = _strike(entry_ref), self.sigma[i]
-        val = lambda s, d: max(bs_price(s, k, max((expiry - d).days, 0.5) / 365, sig, kind, self.r), 0.05)
-        entry = val(self.o[j], self.dates[j])
         for t in range(j, last + 1):
             o, h, l = self.o[t], self.h[t], self.l[t]
             if (l <= stop) if bull else (h >= stop):
-                px, s_exit = val(min(o, stop) if bull else max(o, stop), self.dates[t]), (min(o, stop) if bull else max(o, stop))
-                return (t, px / entry - 1, ((s_exit - self.o[j]) if bull else (self.o[j] - s_exit)) / dist, False)
+                return {**base, "t": t, "s_exit": min(o, stop) if bull else max(o, stop), "skipped": False, "why": "stop"}
             if (h >= t1) if bull else (l <= t1):
-                s_exit = max(o, t1) if bull else min(o, t1)
-                px = val(s_exit, self.dates[t])
-                return (t, px / entry - 1, ((s_exit - self.o[j]) if bull else (self.o[j] - s_exit)) / dist, False)
-        if unfinished:
+                return {**base, "t": t, "s_exit": max(o, t1) if bull else min(o, t1), "skipped": False, "why": "target"}
+        if i + self.horizon > n - 1:
+            return None  # time exit lies beyond the data and nothing triggered yet
+        return {**base, "t": last, "s_exit": self.c[last], "skipped": False, "why": "time"}
+
+    def value(self, p: dict, strike: float, kind: str, at_exit: bool) -> float:
+        """Black-Scholes value per share of one option on the trade's entry or exit."""
+        expiry = _monthly_expiry(self.dates[p["i"]], self.min_days, self.india)
+        d, spot = (self.dates[p["t"]], p["s_exit"]) if at_exit else (self.dates[p["j"]], p["spot_in"])
+        return max(bs_price(spot, strike, max((expiry - d).days, 0.5) / 365, self.sigma[p["i"]], kind, self.r), 0.05)
+
+    def trade(self, i: int, bull: bool, candles: int):
+        """Return (exit_index, option_return, r_multiple, skipped) for a signal on bar i, or None."""
+        p = self.path(i, bull, candles)
+        if p is None:
             return None
-        s_exit = self.c[last]
-        px = val(s_exit, self.dates[last])
-        return (last, px / entry - 1, ((s_exit - self.o[j]) if bull else (self.o[j] - s_exit)) / dist, False)
+        if p["skipped"]:
+            return (p["j"], 0.0, 0.0, True)
+        kind, k = ("call" if bull else "put"), _strike(p["ref"])
+        entry, exit_ = self.value(p, k, kind, False), self.value(p, k, kind, True)
+        move = (p["s_exit"] - p["spot_in"]) if bull else (p["spot_in"] - p["s_exit"])
+        return (p["t"], exit_ / entry - 1, move / p["dist"], False)
 
 
 def allowed_mask(df: pd.DataFrame, bull: bool, st: Strategy, regime: pd.Series | None) -> np.ndarray:

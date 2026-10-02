@@ -67,3 +67,16 @@ class TradeTestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReverseStudyTests(unittest.TestCase):
+    def test_sell_mirrors_buy_and_spread_is_capped(self):
+        prices = {"AAA.NS": _df(seed=11), "BBB.NS": _df(seed=12, drift=0.0005)}
+        df = lab.reverse_study(prices, test_years=1.0, cost=0.0)
+        self.assertGreater(len(df), 50)
+        # with zero costs selling the same option on the same exits is the exact opposite of buying it
+        np.testing.assert_allclose(df["sell"].to_numpy(), -df["buy"].to_numpy(), atol=1e-12)
+        self.assertGreaterEqual(df["spread"].min(), -1.0 - 1e-9)   # never more than the capped loss
+        self.assertGreaterEqual(df["buy"].min(), -1.0 - 1e-9)      # a buyer can only lose the premium
+        s = lab.summarize_reverse(df)
+        self.assertEqual(set(s["period"]), {"older years", "last 3 years"})

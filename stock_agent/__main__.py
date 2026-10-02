@@ -167,6 +167,15 @@ def cmd_lab(args) -> int:
     except Exception:
         idx = None
     print(f"[lab] {len(prices)} stocks; testing on the last {args.test_years:g} years ...")
+    if args.reverse:
+        study = lab.reverse_study(prices, args.test_years, cost=args.cost / 100)
+        pd.set_option("display.width", 200)
+        print(f"\nReversal study (round-trip cost {args.cost:g}% of premium per option leg):")
+        print(lab.summarize_reverse(study).to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+        sell = study.loc[study["test"], "sell"]
+        print(f"\nSelling, last {args.test_years:g} years: {(sell < -1).mean():.1%} of trades lost more than the whole "
+              f"premium received; worst {sell.min():.1f}x the premium.")
+        return 0
     if not args.check_only:
         res = lab.run(prices, idx, args.test_years, progress=lambda m, f: print(f"[lab] {m}", end="\r"))
         cols = ["label", "patterns", "train_trades", "train_avg_ret", "test_trades", "test_win_rate", "test_avg_ret",
@@ -290,6 +299,8 @@ def main(argv: list[str] | None = None) -> int:
     lb.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
     lb.add_argument("--test-years", type=float, default=3.0)
     lb.add_argument("--check-only", action="store_true", help="only re-check the current strategy (fast)")
+    lb.add_argument("--reverse", action="store_true", help="compare buying with flipping, selling and credit spreads")
+    lb.add_argument("--cost", type=float, default=2.0, help="round-trip cost per option leg, %% of premium (default 2)")
     lb.add_argument("--offline", action="store_true")
     lb.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
     lb.set_defaults(func=cmd_lab)
