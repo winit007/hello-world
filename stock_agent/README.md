@@ -41,6 +41,7 @@ that appears open while you use it; close it to stop the app. It has five pages:
 |---|---|
 | **Today's picks** | Press *Scan now* for the top 5 setups as cards: success rate vs the usual rate, the exact order (contract, lots, cost), stop-loss, two targets and the exit date. Tick *Only trades I can afford* to hide picks that break your risk limit. |
 | **Stock lookup** | Type any symbol (TCS.NS, AAPL) for its verdict, a 6-month candlestick chart with patterns and your stop/targets marked, its best candlestick rules and its latest news. |
+| **Track record** | What every pick would have made if you had taken it: profit or loss for each day, a running total, and the outcome of each pick (target, stop, time exit). *Rebuild last 10 days* fills in history straight away. |
 | **My trades** | *Add to my trades* from any pick, then enter the price you sold at to close it. Shows your win rate and total profit or loss. |
 | **Settings** | Capital, risk per trade, which stocks to scan (Nifty 50, US, or your own list), holding period. |
 | **How to use** | The three-step routine: scan in the evening, buy in the morning, manage the exit. |
@@ -140,7 +141,7 @@ $25,000 for US, and `--risk`, default 2% per trade):
 ```
 1. HINDALCO BUY CALL @ 955.20 · Doji after downtrend · 70% success (base 55%, 3y 81%) · news +0.22
    BUY 1 lot HINDALCO 27-Oct-2026 960 CE · lot 700 · premium ~₹28.05 · cost ₹19,635
-   STOP: sell if HINDALCO closes below 939.42 (premium ~₹20.05)
+   STOP: sell if HINDALCO trades below 939.42 (premium ~₹20.05)
    TARGET: book half at 978.87 (~₹41.15), rest at 994.66 (~₹52.00) · time exit 06-Oct
 ```
 
@@ -149,7 +150,8 @@ $25,000 for US, and `--risk`, default 2% per trade):
 - **Contract**: at-the-money strike, first monthly expiry that outlives the holding period (NSE: last
   Tuesday of the month). The live option chain is used when reachable.
 - **Stop-loss** on the stock: just beyond the pattern's low (CALL) or high (PUT), padded by a quarter
-  of the 14-day ATR, kept between 0.75 and 2.5 ATR from entry. The matching option premium is shown
+  of the 14-day ATR, kept between 0.75 and 2.5 ATR from entry. It is an intraday stop: sell as soon as
+  the stock trades through it (a Kite GTT on the option premium does exactly this), not at the close. The matching option premium is shown
   so you can place the exit on the option itself.
 - **Targets**: 1.5× and 2.5× the stop distance; book half at the first. **Time exit** after the
   holding period if neither level is hit.
@@ -162,6 +164,29 @@ $25,000 for US, and `--risk`, default 2% per trade):
 stock-agent screen --capital 300000 --risk 1.5 --brief
 stock-agent trade HINDALCO.NS --capital 300000
 ```
+
+## Track record: what-if profit and loss
+
+```bash
+python -m stock_agent screen --record                 # save today's picks (the app does this on every scan)
+python -m stock_agent track --brief                   # what they made since, day by day
+python -m stock_agent track --replay 10 --brief       # also rebuild the last 10 market days from prices
+```
+
+Each saved pick is scored with the plan's own rules on the real daily candles that followed:
+
+1. **Buy** at the next trading day's open. If the stock already opened beyond the stop, the pick is
+   **skipped** (the setup is broken), exactly as the Kite dialog would refuse it.
+2. **Stop**: as soon as the stock trades through the stop, everything is sold there (or at the open after
+   a gap). If the stop and a target are touched on the same day, the stop is assumed first.
+3. **Targets**: half at Target 1 and the rest at Target 2 (a single lot exits fully at Target 1).
+4. **Time exit**: anything left is sold at the close of the exit date.
+
+Option prices come from Black-Scholes using the volatility implied by the pick's own premium, because
+no free history of NSE option prices exists. Brokerage, taxes and the bid/ask spread are not deducted.
+*Your account* counts picks that fitted your risk limit at their real lot count; *all picks* counts
+every pick at one lot. Replayed days are rebuilt without news, so they can differ slightly from what the
+daily message sent on those days.
 
 ## The call / put verdict
 
@@ -221,6 +246,8 @@ stock_agent/
   universes.py  built-in Nifty 50 and US mega-cap lists
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
+  tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days
+  kite.py       Zerodha Kite Connect: login, contract lookup, one-click LIMIT buy + GTT stop/target
   app.py        local web app server (standard library only) + desktop shortcut
   web/          the app's single-page interface
   llm.py        optional local Ollama narrative

@@ -70,7 +70,7 @@ class TradePlan:
                     f"{money(self.capital * self.risk_pct, c)} budget")
         return [
             head,
-            f"   STOP: sell if {self.ticker.split('.')[0]} closes {'below' if self.side == 'CALL' else 'above'} "
+            f"   STOP: sell if {self.ticker.split('.')[0]} trades {'below' if self.side == 'CALL' else 'above'} "
             f"{self.stop_underlying:.2f} (premium ~{c}{self.stop_premium:.2f})",
             f"   TARGET: book half at {self.target1_underlying:.2f} (~{c}{self.target1_premium:.2f}), rest at "
             f"{self.target2_underlying:.2f} (~{c}{self.target2_premium:.2f}) · time exit {self.time_stop:%d-%b}",

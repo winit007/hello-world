@@ -29,6 +29,7 @@ HOME = Path(os.environ.get("STOCK_AGENT_HOME", Path.home() / ".stock_agent"))
 CACHE = HOME / "cache"
 SETTINGS_FILE = HOME / "settings.json"
 JOURNAL_FILE = HOME / "journal.json"
+LEDGER_FILE = HOME / "track.json"
 WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
@@ -144,6 +145,9 @@ def run_screen(settings: dict, progress) -> dict:
         capital=float(settings["capital"]), risk_pct=float(settings["risk"]) / 100,
         affordable_only=bool(settings.get("affordable_only")), log=lambda *a: None, progress=progress,
     )
+    from . import tracker
+
+    tracker.record(LEDGER_FILE, picks, stats)  # every scan feeds the track record
     out = []
     for p in picks:
         d = clean(p)
@@ -151,6 +155,30 @@ def run_screen(settings: dict, progress) -> dict:
         d.update(side=p.side, edge=p.edge, plan=plan_dict(p.plan))
         out.append(d)
     return {"picks": out, "stats": stats, "settings": settings, "generated": datetime.now().isoformat(timespec="minutes")}
+
+
+def run_track(settings: dict, replay_days: int, progress) -> dict:
+    from . import screener, tracker
+    from .universes import UNIVERSES
+
+    if replay_days:
+        tickers = (UNIVERSES.get(settings.get("universe"), UNIVERSES["nifty50"]) if settings.get("universe") != "custom"
+                   else [t.strip().upper() for t in str(settings.get("custom", "")).split(",") if t.strip()])
+        progress("Loading prices", 0.05)
+        prices = screener.load_universe(tickers, "10y", "1d", False, CACHE, log=lambda *a: None,
+                                        progress=lambda m, f: progress(m, 0.05 + f * 0.4))
+        tracker.replay(tickers, replay_days, prices, LEDGER_FILE, int(settings["horizon"]), int(settings["top"]),
+                       float(settings["capital"]), float(settings["risk"]) / 100, CACHE,
+                       progress=lambda m, f: progress(m, 0.45 + f * 0.5))
+    rows = tracker.load_ledger(LEDGER_FILE)
+    need = sorted({r["ticker"] for r in rows})
+    progress("Updating prices for tracked picks", 0.95)
+    prices = screener.load_universe(need, "10y", "1d", False, CACHE, log=lambda *a: None) if need else {}
+    ev = tracker.evaluate(rows, prices)
+    for x in ev["results"]:
+        x.pop("daily_values", None)
+    progress("Done", 1.0)
+    return ev
 
 
 def run_stock(ticker: str, settings: dict, progress) -> dict:
@@ -388,6 +416,8 @@ class Handler(BaseHTTPRequestHandler):
                 from .universes import UNIVERSES
 
                 return self._send(200, sorted({t for v in UNIVERSES.values() for t in v}))
+            if url.path == "/api/track":
+                return self._send(200, {"job": start_job("track", run_track, load_settings(), int(q.get("replay", 0) or 0))})
             if url.path == "/api/stock":
                 return self._send(200, {"job": start_job("stock", run_stock, q.get("ticker", ""), load_settings())})
             return self._send(404, {"error": "not found"})

@@ -164,7 +164,7 @@ ul.reasons li { margin: 3px 0; }
 /* ---- journal + settings */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
 .tile .k { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
-.tile .v { font-size: 26px; font-weight: 700; }
+.tile .v { font-size: 26px; font-weight: 700; white-space: nowrap; }
 .form { display: grid; gap: 16px; max-width: 560px; }
 .form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .budget { font-size: 14px; background: var(--surface-2); padding: 10px 12px; border-radius: 10px; }
@@ -189,6 +189,7 @@ details.events li { margin: 2px 0; }
   nav.tabs button { flex: 1 0 auto; padding: 7px 10px; }
 }
 @media (max-width: 520px) {
+  .tile .v { font-size: 22px; }
   .grid { grid-template-columns: 1fr; }
   .form .two { grid-template-columns: 1fr; }
   h1 { font-size: 21px; }
@@ -205,6 +206,7 @@ details.events li { margin: 2px 0; }
       <button role="tab" data-tab="picks" aria-selected="true">Today's picks</button>
       <button role="tab" data-tab="stock">Stock lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
+      <button role="tab" data-tab="track">Track record</button>
       <button role="tab" data-tab="settings">Settings</button>
       <button role="tab" data-tab="help">How to use</button>
     </nav>
@@ -266,6 +268,22 @@ details.events li { margin: 2px 0; }
     </div>
     <div class="tiles" id="j-tiles"></div>
     <div id="journal"></div>
+  </section>
+
+  <!-- ============ TRACK RECORD ============ -->
+  <section class="page" id="page-track">
+    <div class="head-row">
+      <div>
+        <h1>Track record</h1>
+        <p class="sub">What the picks would have made if you had taken every one, day by day.</p>
+      </div>
+      <button class="btn" id="track-replay" title="Rebuild the picks of the last 10 market days from prices">Rebuild last 10 days</button>
+    </div>
+    <div class="notice">Rules used: buy at the next morning's open, sell half at Target 1 and the rest at Target 2, sell everything
+      as soon as the stock trades through the stop, and sell what is left on the exit date. Option prices are
+      <b>model estimates</b> (no free history of NSE option prices exists), before brokerage and taxes.</div>
+    <div class="progress" id="track-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="track"></div>
   </section>
 
   <!-- ============ SETTINGS ============ -->
@@ -342,7 +360,7 @@ details.events li { margin: 2px 0; }
         <li>Buy only the number of lots shown, then press <b>Add to my trades</b> with your real price.</li></ol></div>
       <div class="card"><h2>3. Manage the exit</h2>
         <ol><li>Set price alerts on the stock at <b>Stop</b>, <b>Target 1</b> and <b>Target 2</b>.</li>
-        <li>Stop hit: sell everything. Target 1: sell half. Target 2: sell the rest.</li>
+        <li>Stock trades through the stop: sell everything at once, don't wait for the close. Target 1: sell half. Target 2: sell the rest.</li>
         <li>Nothing hit by <b>Exit by</b>: sell anyway, because options lose value daily.</li>
         <li>Close the trade in <b>My trades</b> to track your win rate.</li></ol></div>
       <div class="card"><h2>Stay safe</h2>
@@ -364,7 +382,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const pct = (x, d = 0) => x == null ? "–" : (x * 100).toFixed(d) + "%";
 const spct = (x, d = 1) => x == null ? "–" : (x >= 0 ? "+" : "") + (x * 100).toFixed(d) + "%";
 const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
-const money = (x, c = "₹", d = 0) => x == null ? "–" : c + Number(x).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const money = (x, c = "₹", d = 0) => x == null ? "–" : (Number(x) < 0 ? "-" : "") + c + Math.abs(Number(x)).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
 const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "–";
 let SETTINGS = {}, KITE = {};
@@ -400,11 +418,13 @@ $("#theme").onclick = () => {
   document.documentElement.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) {}
   if (window._lastStock) drawChart(window._lastStock);
+  if (window._lastTrack) drawPnl(window._lastTrack);
 };
 function showTab(name) {
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
+  if (name === "track") loadTrack(0);
   if (name === "settings") { fillSettings(); loadKite(); }
   try { sessionStorage.setItem("tab", name); } catch (e) {}
 }
@@ -688,10 +708,104 @@ function drawChart(d) {
       <div class="r num"><span>Change</span><b class="chg ${k.c >= k.o ? "up" : "down"}">${spct(k.c / k.o - 1, 2)}</b></div>${pats}`;
     tip.style.display = "block";
     const px = X(i) * r.width / W, left = px > r.width / 2 ? px - tip.offsetWidth - 14 : px + 14;
-    tip.style.left = left + "px"; tip.style.top = "12px";
+    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, left)) + "px"; tip.style.top = "12px";
   };
   $("#hit", wrap).addEventListener("pointermove", move);
   $("#hit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
+}
+
+/* ---------------- track record ---------------- */
+async function loadTrack(replay) {
+  const box = $("#track");
+  try {
+    const ev = await runJob(api("/api/track?replay=" + (replay || 0)), $("#track-progress"));
+    window._lastTrack = ev; renderTrack(ev);
+  } catch (e) { box.innerHTML = `<div class="notice error">Could not build the track record: ${esc(e.message)}</div>`; }
+}
+$("#track-replay").onclick = () => loadTrack(10);
+function renderTrack(ev) {
+  const box = $("#track");
+  if (!ev.days.length) {
+    box.innerHTML = `<div class="card empty"><span class="et">No results yet</span>Picks are scored from the morning after each scan.
+      Press <b>Rebuild last 10 days</b> to see how the last two weeks of picks would have done.</div>`; return;
+  }
+  const a = ev.account, all = ev.all, last = ev.latest_day;
+  const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
+  box.innerHTML = `
+    <div class="tiles">
+      <div class="card tile"><div class="k">${fmtDate(last)}: your account</div><div class="v num ${cls(a.by_day[last])}">${money(a.by_day[last] || 0)}</div></div>
+      <div class="card tile"><div class="k">Total: your account</div><div class="v num ${cls(a.total)}">${money(a.total)}</div>
+        <div class="sub" style="font-size:12.5px">${a.closed} closed · ${a.wins} won · ${a.open} open</div></div>
+      <div class="card tile"><div class="k">Total: every pick at 1 lot</div><div class="v num ${cls(all.total)}">${money(all.total)}</div>
+        <div class="sub" style="font-size:12.5px">${all.closed} closed · ${all.wins} won${all.win_rate != null ? " (" + pct(all.win_rate) + ")" : ""}</div></div>
+    </div>
+    <div class="card"><h2>Daily profit and loss: your account</h2><div class="chart-wrap" id="pnl-chart"></div>
+      <div class="legend"><span><i class="sw" style="background:var(--up)"></i>Profit day</span><span><i class="sw" style="background:var(--down)"></i>Loss day</span>
+        <span><i class="sw" style="height:2px;width:16px;background:var(--ink)"></i>Running total</span></div>
+      <p class="sub" style="font-size:12.5px;margin-top:6px">"Your account" counts only picks where at least one lot fitted your risk limit, at the lots shown on the card.</p></div>
+    <div class="card table-scroll" style="margin-top:14px"><h2>Every pick</h2>
+      <table class="num"><thead><tr><th>Picked</th><th>Stock</th><th>Contract</th><th class="r">Lots</th><th class="r">Bought</th><th>Outcome</th><th class="r">${fmtDate(last)}</th><th class="r">Total P&L</th></tr></thead><tbody>
+      ${ev.results.slice().sort((x, y) => (y.as_of + (9 - y.rank)).localeCompare(x.as_of + (9 - x.rank))).map(x => {
+        const today = x.daily[last];
+        return `<tr><td>${fmtDate(x.as_of)}${x.replayed ? ' <span class="sub" style="font-size:11.5px">replay</span>' : ""}</td>
+          <td><b>${esc(bare(x.ticker))}</b></td><td>${x.strike} ${x.side === "CALL" ? "CE" : "PE"}</td>
+          <td class="r">${x.sim_lots}${x.affordable ? "" : '<span title="Not affordable at your risk limit; counted as 1 lot under every pick only">*</span>'}</td>
+          <td class="r">${x.entry_premium != null ? money(x.entry_premium, "₹", 2) + " · " + fmtDate(x.entry_date) : x.status === "Skipped" ? "not bought" : "tomorrow"}</td>
+          <td>${outcomePill(x.status)}</td>
+          <td class="r ${cls(today)}">${today == null ? "–" : money(today)}</td>
+          <td class="r ${cls(x.pnl)}"><b>${x.status === "waiting" || x.status === "Skipped" ? "–" : money(x.pnl)}</b></td></tr>`; }).join("")}
+      </tbody></table>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">* not affordable at your risk limit; counted as 1 lot under "every pick" only. "replay" rows were rebuilt from prices without news.</p></div>`;
+  drawPnl(ev);
+}
+function outcomePill(st) {
+  if (st === "open") return `<span class="pill none">open</span>`;
+  if (st === "waiting") return `<span class="pill none">buy tomorrow</span>`;
+  if (st === "Skipped") return `<span class="pill none" title="Opened beyond the stop on the entry morning, so it would not be bought">skipped</span>`;
+  if (st.startsWith("Target")) return `<span class="pill call">✓ ${esc(st)}</span>`;
+  if (st === "Stop") return `<span class="pill put">✕ Stop</span>`;
+  return `<span class="pill none">${esc(st)}</span>`;
+}
+function drawPnl(ev) {
+  const wrap = $("#pnl-chart"); if (!wrap) return;
+  const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const days = ev.days, vals = days.map(d => ev.account.by_day[d] || 0);
+  let run = 0; const cum = vals.map(x => (run += x));
+  const W = Math.max(320, Math.round(wrap.clientWidth || 760)), H = 240, m = { l: 8, r: 70, t: 14, b: 26 };
+  const lo = Math.min(0, ...vals, ...cum), hi = Math.max(0, ...vals, ...cum), span = (hi - lo) || 1;
+  const y0 = lo - span * 0.08, y1 = hi + span * 0.08;
+  const bw = (W - m.l - m.r) / days.length, X = i => m.l + bw * (i + 0.5), Y = p => m.t + (H - m.t - m.b) * (1 - (p - y0) / (y1 - y0));
+  const step = (() => { const raw = (y1 - y0) / 4, p10 = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(s => s * p10).find(s => s >= raw); })();
+  let g = "";
+  for (let p = Math.ceil(y0 / step) * step; p <= y1; p += step)
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(p)}" y2="${Y(p)}" stroke="${v(p === 0 ? "--axis" : "--grid")}" stroke-width="1"/>
+      <text x="${W - m.r + 6}" y="${Y(p) + 4}" font-size="11" fill="${v("--muted")}" class="num">${money(p)}</text>`;
+  const bwid = Math.min(28, bw * 0.6);
+  let bars = "";
+  vals.forEach((x, i) => {
+    const top = Y(Math.max(0, x)), h = Math.max(1, Math.abs(Y(x) - Y(0)));
+    bars += `<rect x="${X(i) - bwid / 2}" y="${top}" width="${bwid}" height="${h}" rx="3" fill="${v(x >= 0 ? "--up" : "--down")}"/>`;
+    if (i % Math.max(1, Math.ceil(days.length * 52 / (W - m.l - m.r))) === 0)
+      g += `<text x="${X(i)}" y="${H - 8}" font-size="11" fill="${v("--muted")}" text-anchor="middle">${fmtDate(days[i])}</text>`;
+  });
+  const path = cum.map((c, i) => `${i ? "L" : "M"}${X(i)} ${Y(c)}`).join(" ");
+  const line = `<path d="${path}" fill="none" stroke="${v("--ink")}" stroke-width="2" stroke-linejoin="round"/>` +
+    cum.map((c, i) => `<circle cx="${X(i)}" cy="${Y(c)}" r="3" fill="${v("--ink")}" stroke="${v("--chart")}" stroke-width="2"/>`).join("") +
+    `<text x="${X(cum.length - 1) - 8}" y="${Y(cum[cum.length - 1]) + (cum[cum.length - 1] < 0 ? 18 : -10)}" font-size="11.5" font-weight="700" fill="${v("--ink")}" text-anchor="end" class="num" paint-order="stroke" stroke="${v("--chart")}" stroke-width="3">${money(cum[cum.length - 1])}</text>`;
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily profit and loss bars with running total line">
+    <rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${bars}${line}
+    <rect id="phit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = $("svg", wrap), tip = $(".tip", wrap);
+  $("#phit", wrap).addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(days.length - 1, Math.floor((sx - m.l) / bw)));
+    tip.innerHTML = `<div class="t">${fmtDate(days[i])}</div><div class="r num"><span>That day</span><b class="${vals[i] >= 0 ? "chg up" : "chg down"}">${money(vals[i])}</b></div>
+      <div class="r num"><span>Running total</span><b>${money(cum[i])}</b></div>`;
+    tip.style.display = "block"; const px = X(i) * r.width / W;
+    const want = px > r.width / 2 ? px - tip.offsetWidth - 12 : px + 12;
+    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, want)) + "px"; tip.style.top = "10px";
+  });
+  $("#phit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; });
 }
 
 /* ---------------- Zerodha Kite ---------------- */
@@ -757,7 +871,7 @@ async function kiteOrder(ticker, plan, pattern, limit) {
   };
 }
 
-let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => window._lastStock && drawChart(window._lastStock), 150); });
+let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); }, 150); });
 
 /* ---------------- boot ---------------- */
 (async () => {

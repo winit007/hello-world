@@ -103,6 +103,8 @@ def screen(
     risk_pct: float = 0.02,
     affordable_only: bool = False,
     progress=None,
+    prices: dict | None = None,
+    use_chain: bool = True,
 ) -> tuple[list[Pick], list[Pick], dict]:
     """Return (top picks, every candidate ranked, stats).
 
@@ -112,7 +114,8 @@ def screen(
     progress = progress or (lambda msg, frac: None)
     cache_dir = cache_dir or DEFAULT_CACHE
     kw = {"cache_dir": cache_dir}
-    prices = load_universe(tickers, period, interval, offline, cache_dir, log, progress)
+    if prices is None:  # callers replaying past days pass prices already cut off at that day
+        prices = load_universe(tickers, period, interval, offline, cache_dir, log, progress)
     progress("Backtesting candlestick rules", 0.65)
     log(f"[screen] {len(prices)}/{len(tickers)} stocks loaded; backtesting {horizon}-bar rules ...")
 
@@ -172,6 +175,8 @@ def screen(
 
     # ---- news for candidates only
     def news(p: Pick):
+        if not news_weight:
+            return p, {"count": 0, "mean": 0.0}
         try:
             s = summarize(load_news(p.ticker, None, offline, **kw))
         except Exception as exc:
@@ -208,7 +213,7 @@ def screen(
             if len(chosen) >= top:
                 break
             try:
-                chain = options.load_chain(p.ticker, offline, cache_dir)
+                chain = options.load_chain(p.ticker, offline, cache_dir) if use_chain else None
                 p.plan = sizing.plan_trade(p.ticker, prices[p.ticker], p.direction, horizon, p.pattern,
                                            p.signal_date, chain, capital, risk_pct, offline=offline, cache_dir=cache_dir)
             except Exception as exc:

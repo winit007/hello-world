@@ -59,3 +59,71 @@ class SizingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrackerTests(unittest.TestCase):
+    def _rec(self, **kw):
+        base = {"as_of": "2026-01-05", "rank": 1, "ticker": "TEST.NS", "side": "CALL", "pattern": "Hammer",
+                "success": 0.6, "baseline": 0.55, "close": 100.0, "strike": 100.0, "expiry": "2026-01-27",
+                "premium": 3.0, "lot_size": 100, "lots": 2, "stop": 98.0, "target1": 103.0, "target2": 105.0,
+                "time_exit": "2026-01-12"}
+        return {**base, **kw}
+
+    def _df(self, bars):
+        idx = pd.bdate_range("2026-01-05", periods=len(bars))
+        return pd.DataFrame(bars, columns=["Open", "High", "Low", "Close"], index=idx).assign(Volume=1.0)
+
+    def test_targets_split_and_daily_sum(self):
+        from stock_agent import tracker
+        df = self._df([(100, 100, 100, 100), (100.5, 103.5, 100.2, 103), (103, 105.5, 102.8, 105)])
+        x = tracker.simulate(self._rec(), df)
+        self.assertEqual([e["reason"] for e in x["exits"]], ["Target 1", "Target 2"])
+        self.assertEqual(x["status"], "Target 2")
+        self.assertGreater(x["pnl"], 0)
+        self.assertAlmostEqual(sum(x["daily"].values()), x["pnl"], places=1)
+
+    def test_intraday_stop_and_gap(self):
+        from stock_agent import tracker
+        # day 2 trades through the stop intraday but closes above it: still stopped out
+        df = self._df([(100, 100, 100, 100), (100, 100.5, 97.5, 99.5), (99.5, 104, 99, 104)])
+        x = tracker.simulate(self._rec(lots=1), df)
+        self.assertEqual(x["status"], "Stop")
+        self.assertEqual(len(x["exits"]), 1)
+        # a gap below the stop after entry fills at the open, which is worse than the stop level
+        gap = tracker.simulate(self._rec(lots=1), self._df([(100, 100, 100, 100), (100, 100.5, 99, 99.5), (95, 96, 94, 95.5)]))
+        stop = tracker.simulate(self._rec(lots=1), self._df([(100, 100, 100, 100), (100, 100.5, 99, 99.5), (99, 99.5, 97.9, 99)]))
+        self.assertEqual(gap["status"], "Stop")
+        self.assertLess(gap["pnl"], stop["pnl"])
+        # opening below the stop on the entry morning: the trade is skipped, not counted
+        skip = tracker.simulate(self._rec(lots=1), self._df([(100, 100, 100, 100), (95, 96, 94, 95.5)]))
+        self.assertEqual((skip["status"], skip["pnl"]), ("Skipped", 0.0))
+
+    def test_time_exit_and_waiting(self):
+        from stock_agent import tracker
+        flat = [(100, 100.5, 99.5, 100)] * 8
+        x = tracker.simulate(self._rec(lots=1), self._df(flat))
+        self.assertEqual(x["status"], "Time exit")
+        self.assertEqual(x["exits"][0]["date"], "2026-01-12")
+        w = tracker.simulate(self._rec(), self._df([(100, 100, 100, 100)]))
+        self.assertEqual(w["status"], "waiting")
+
+    def test_put_and_unaffordable(self):
+        from stock_agent import tracker
+        df = self._df([(100, 100, 100, 100), (99.5, 99.8, 96.8, 97)])
+        x = tracker.simulate(self._rec(side="PUT", lots=0, stop=102.0, target1=97.0, target2=95.0), df)
+        self.assertFalse(x["affordable"])
+        self.assertEqual(x["sim_lots"], 1)
+        self.assertEqual(x["status"], "Target 1")
+        ev = tracker.evaluate([self._rec(side="PUT", lots=0, stop=102.0, target1=97.0, target2=95.0)], {"TEST.NS": df})
+        self.assertEqual(ev["account"]["trades"], 0)
+        self.assertEqual(ev["all"]["wins"], 1)
+
+    def test_ledger_record_replaces_same_day(self):
+        import tempfile
+        from pathlib import Path
+        from stock_agent import tracker
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "t.json"
+            tracker.save_ledger(path, [self._rec(), self._rec(as_of="2026-01-06")])
+            tracker.record(path, [], {"as_of": "2026-01-06"})
+            self.assertEqual([r["as_of"] for r in tracker.load_ledger(path)], ["2026-01-05"])

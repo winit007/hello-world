@@ -8,6 +8,7 @@
     python -m stock_agent shortcut                  # desktop launcher for the app
     python -m stock_agent screen                    # top 5 Nifty 50 setups by success rate + news
     python -m stock_agent screen --universe us      # same for US mega caps
+    python -m stock_agent track --replay 10 --brief # what-if P&L of the picks, day by day
     python -m stock_agent research AAPL --offline   # use cached prices/news, no network
 """
 from __future__ import annotations
@@ -16,8 +17,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import llm, options, screener, sizing
+from . import llm, options, screener, sizing, tracker
 from .universes import UNIVERSES
+
+DEFAULT_LEDGER = Path.home() / ".stock_agent" / "track.json"
 from .backtest import DEFAULT_HORIZONS, evaluate_rules, pool_rules, rank_rules
 from .data import DEFAULT_CACHE, load_prices
 from .news import load_news, summarize
@@ -110,6 +113,8 @@ def cmd_screen(args) -> int:
         affordable_only=args.affordable_only,
     )
     md = screener.render_markdown(picks, ranked, stats, args.horizon, args.top)
+    if args.record:
+        tracker.record(args.ledger, picks, stats)
     if args.brief:
         name = "custom" if (args.tickers or args.universe_file) else args.universe
         print(screener.render_brief(picks, stats, args.horizon, args.top, name))
@@ -119,6 +124,28 @@ def cmd_screen(args) -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(md, encoding="utf-8")
         print(f"[screen] written to {args.out}")
+    return 0
+
+
+def cmd_track(args) -> int:
+    """What the saved (and replayed) picks would have made, day by day."""
+    tickers = list(args.tickers or []) or UNIVERSES[args.universe]
+    prices = screener.load_universe(tickers, args.period, "1d", args.offline, args.cache_dir, log=lambda *a: None)
+    if args.replay:
+        n = tracker.replay(tickers, args.replay, prices, args.ledger, args.horizon, args.top, args.capital,
+                           args.risk / 100, args.cache_dir)
+        if n:
+            print(f"[track] replayed {n} past market day(s) from prices (no news)")
+    rows = tracker.load_ledger(args.ledger)
+    missing = sorted({r["ticker"] for r in rows} - set(prices))
+    if missing:
+        prices.update(screener.load_universe(missing, args.period, "1d", args.offline, args.cache_dir, log=lambda *a: None))
+    ev = tracker.evaluate(rows, prices)
+    md = tracker.render_markdown(ev)
+    print(tracker.render_brief(ev) if args.brief else md)
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(md, encoding="utf-8")
     return 0
 
 
@@ -209,6 +236,8 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--risk", type=float, default=2.0, help="percent of capital to risk per trade (default 2)")
     sc.add_argument("--no-size", action="store_true", help="skip lots / stop-loss / target sizing")
     sc.add_argument("--affordable-only", action="store_true", help="only list picks where at least 1 lot fits your risk")
+    sc.add_argument("--record", action="store_true", help="save these picks to the track-record ledger")
+    sc.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER, help="track-record file (default ~/.stock_agent/track.json)")
     sc.set_defaults(func=cmd_screen)
 
     ap_ = sub.add_parser("app", help="open the point-and-click app in your browser")
@@ -219,6 +248,22 @@ def main(argv: list[str] | None = None) -> int:
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
     sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut()}"
                                           " - double-click it to open the app."), 0)[1])
+
+    tk = sub.add_parser("track", help="what-if P&L of saved picks, day by day")
+    tk.add_argument("tickers", nargs="*", help="universe to replay (default: --universe)")
+    tk.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    tk.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
+    tk.add_argument("--replay", type=int, default=0, help="rebuild picks for the last N market days missing from the ledger")
+    tk.add_argument("--period", default="10y")
+    tk.add_argument("--horizon", type=int, default=5)
+    tk.add_argument("--top", type=int, default=5)
+    tk.add_argument("--capital", type=float)
+    tk.add_argument("--risk", type=float, default=2.0)
+    tk.add_argument("--offline", action="store_true")
+    tk.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    tk.add_argument("--brief", action="store_true", help="short text for notifications")
+    tk.add_argument("--out", type=Path, help="also write the full report to this markdown file")
+    tk.set_defaults(func=cmd_track)
 
     ru = sub.add_parser("rules", help="rank candlestick rules by historical win rate")
     _common(ru)
