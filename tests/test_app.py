@@ -154,3 +154,69 @@ class PhoneModeTests(unittest.TestCase):
 
     def test_this_computer_needs_no_key(self):
         self.assertEqual(self.get("/", ip="127.0.0.1")[0], 200)
+
+
+class TunnelModeTests(unittest.TestCase):
+    """Anywhere mode: requests relayed by the tunnel arrive over loopback but must still present the key."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib
+        import stat
+        import sys
+        cls.tmp = tempfile.TemporaryDirectory()
+        os.environ["STOCK_AGENT_HOME"] = cls.tmp.name
+        from stock_agent import app
+        cls.app = importlib.reload(app)
+        # stand-in for cloudflared: prints a quick-tunnel address the way the real tool does, opens nothing
+        cls.fake = Path(cls.tmp.name) / "fake_cloudflared"
+        cls.fake.write_text(f"#!{sys.executable}\nimport sys, time\nprint('INF |  https://fair-test-words.trycloudflare.com  |', flush=True)\ntime.sleep(30)\n")
+        cls.fake.chmod(cls.fake.stat().st_mode | stat.S_IEXEC)
+        from http.server import ThreadingHTTPServer
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), cls.app.Handler)
+        cls.port = cls.httpd.server_address[1]
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        cls.app.PHONE.update(on=False, key=None, tunnel_host=None, tunnel_url=None, tunnel_only=False)
+        cls.tmp.cleanup()
+        os.environ.pop("STOCK_AGENT_HOME", None)
+
+    def get(self, path, host, headers=None):
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", path, headers={"Host": host, **(headers or {})})
+        r = c.getresponse()
+        return r.status, dict(r.getheaders()), r.read()
+
+    def test_start_tunnel_reads_address(self):
+        if os.name == "nt":
+            self.skipTest("shebang script stand-in is POSIX only")
+        url = self.app.start_tunnel(self.port, exe=str(self.fake), timeout=10)
+        self.assertEqual(url, "https://fair-test-words.trycloudflare.com")
+
+    def test_relayed_requests_need_the_key(self):
+        key = self.app._phone_key(min_len=16)
+        self.assertGreaterEqual(len(key), 16)
+        self.app.PHONE.update(on=True, key=key, tunnel_only=True, tunnel_host="fair-test-words.trycloudflare.com")
+        host = "fair-test-words.trycloudflare.com"
+        self.assertEqual(self.get("/", host)[0], 403)                        # loopback, but relayed: key needed
+        status, headers, _ = self.get(f"/?key={key}", host)
+        self.assertEqual(status, 303)
+        self.assertIn("Secure", headers["Set-Cookie"])
+        cookie = headers["Set-Cookie"].split(";")[0]
+        self.assertEqual(self.get("/", host, {"Cookie": cookie})[0], 200)
+        self.assertEqual(self.get("/", "evil.example", {"Cookie": cookie})[0], 403)     # other names refused
+        self.assertEqual(self.get("/", "192.168.1.2", {"Cookie": cookie})[0], 403)      # no Wi-Fi access in this mode
+        self.assertEqual(self.get("/", "127.0.0.1")[0], 200)                            # this computer, no key
+
+
+class QrTests(unittest.TestCase):
+    def test_qr_svg_is_drawn_locally(self):
+        from stock_agent.app import qr_svg
+        svg = qr_svg("https://example.trycloudflare.com/?key=abc")
+        self.assertTrue(svg.lstrip().startswith(b"<?xml") or b"<svg" in svg[:200])
+        self.assertIn(b"<path", svg)

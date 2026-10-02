@@ -52,6 +52,23 @@ a phone-sized window.
 
 ## On your Android phone
 
+**Easiest, works on Wi-Fi and mobile data (no firewall or router changes):**
+
+```bat
+winget install --id Cloudflare.cloudflared      :: once
+python -m stock_agent shortcut --tunnel          :: once: puts "Stock Agent (anywhere)" on the desktop
+```
+
+Double-click **Stock Agent (anywhere)**. It starts the app and a free Cloudflare quick tunnel, which makes
+an outgoing connection, so Windows Firewall, VPNs and router settings do not get in the way. The window
+prints an `https://….trycloudflare.com/?key=…` link; open *Settings* on the PC and scan its QR code with
+the phone's camera. Requests through the tunnel must present a 16-character key (then kept in a secure
+cookie), wrong keys are slowed down, and the app still listens only to this computer. The link changes
+each time you start it, so scan the new QR code then. Anyone with the full link could open your app:
+do not share it, and do not leave it running when you are not using it, especially with Kite connected.
+
+**Same Wi-Fi only:**
+
 ```bat
 python -m stock_agent app --phone          :: or once: python -m stock_agent shortcut --phone
 ```

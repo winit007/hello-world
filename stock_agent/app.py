@@ -48,18 +48,19 @@ _kite = None
 # Phone mode: the server also listens on the Wi-Fi network. Other devices must present this key once
 # (from the link printed at start-up); it is then kept in a cookie. It is stored so that a phone's
 # home-screen icon keeps working after restarts.
-PHONE = {"on": False, "key": None, "urls": []}
+PHONE = {"on": False, "key": None, "urls": [], "tunnel_host": None, "tunnel_url": None}
 PHONE_KEY_FILE = HOME / "phone_key.txt"
 
 
-def _phone_key() -> str:
+def _phone_key(min_len: int = 8) -> str:
+    """The stored access key; a longer one is made when the app is reachable from the internet."""
     try:
         k = PHONE_KEY_FILE.read_text(encoding="utf-8").strip()
-        if len(k) >= 8:
+        if len(k) >= min_len:
             return k
     except Exception:
         pass
-    k = secrets.token_urlsafe(6)
+    k = secrets.token_urlsafe(6 if min_len <= 8 else 12)
     PHONE_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
     PHONE_KEY_FILE.write_text(k, encoding="utf-8")
     return k
@@ -116,6 +117,20 @@ def _icon_png(size: int) -> bytes:
 
     return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)) +
             chunk(b"IDAT", raw) + chunk(b"IEND", b""))
+
+
+def qr_svg(text: str) -> bytes:
+    """A QR code of the phone link as SVG, drawn locally (no internet needed)."""
+    import io
+
+    import qrcode
+    import qrcode.image.svg
+
+    img = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathFillImage, box_size=10, border=2,
+                      error_correction=qrcode.constants.ERROR_CORRECT_M)
+    buf = io.BytesIO()
+    img.save(buf)
+    return buf.getvalue()
 
 
 _ICONS: dict[int, bytes] = {}
@@ -523,7 +538,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _local_client(self) -> bool:
-        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+        """This computer's own browser: a loopback connection that also addresses the server as localhost.
+
+        Requests relayed by the tunnel also arrive over loopback, but carry the tunnel's host name, so they
+        are treated as remote and must present the key.
+        """
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
+        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1") and host in ("127.0.0.1", "localhost")
 
     def _host_ok(self) -> bool:
         """Only plain addresses are accepted as Host, which blocks DNS-rebinding attacks."""
@@ -532,7 +553,9 @@ class Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
         if host in ("127.0.0.1", "localhost"):
             return True
-        return PHONE["on"] and bool(re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host))
+        if PHONE.get("tunnel_host") and host == PHONE["tunnel_host"]:
+            return True
+        return PHONE["on"] and not PHONE.get("tunnel_only") and bool(re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host))
 
     def _key_ok(self) -> bool:
         """Devices other than this computer need the phone key (in the cookie, after the first visit)."""
@@ -568,20 +591,31 @@ class Handler(BaseHTTPRequestHandler):
         if not self._key_ok():
             if PHONE["on"] and url.path in ("/", "/index.html") and q.get("key"):
                 if secrets.compare_digest(q["key"], PHONE["key"]):
+                    secure = "; Secure" if PHONE.get("tunnel_host") and self.headers.get("Host", "").startswith(PHONE["tunnel_host"]) else ""
                     self.send_response(303)
-                    self.send_header("Set-Cookie", f"agent_key={PHONE['key']}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Strict")
+                    self.send_header("Set-Cookie", f"agent_key={PHONE['key']}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Strict{secure}")
                     self.send_header("Location", "/")
                     self.end_headers()
                     return
+            if q.get("key"):
+                time.sleep(1.0)  # a wrong key: slow down anyone guessing
             page = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
                     "<body style='font:16px system-ui;padding:32px'><h2>Stock Agent</h2><p>Open the phone link shown "
                     "in the Stock Agent window on your computer (it ends with <b>?key=…</b>).</p>")
             return self._send(403, page.encode("utf-8"), "text/html; charset=utf-8")
         try:
+            if url.path == "/api/phone-qr.svg":
+                if not self._token_ok():
+                    return self._send(403, {"error": "missing app token; reload the page"})
+                link = PHONE.get("tunnel_url") or (PHONE.get("urls") or [None])[0]
+                if not link:
+                    return self._send(404, {"error": "phone mode is off"})
+                return self._send(200, qr_svg(link), "image/svg+xml")
             if url.path == "/api/phone":
                 if not self._token_ok():
                     return self._send(403, {"error": "missing app token; reload the page"})
-                return self._send(200, {"on": PHONE["on"], "urls": PHONE["urls"]})
+                return self._send(200, {"on": PHONE["on"], "urls": PHONE["urls"], "tunnel_url": PHONE.get("tunnel_url"),
+                                        "tunnel_only": bool(PHONE.get("tunnel_only"))})
             if url.path in ("/", "/index.html"):
                 html = (WEB / "index.html").read_text(encoding="utf-8").replace("__AGENT_TOKEN__", SESSION_TOKEN)
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
@@ -707,9 +741,63 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
 
 
-def serve(port: int = 8765, open_browser: bool = True, phone: bool = False) -> None:
+def find_cloudflared() -> str | None:
+    """cloudflared on PATH, or where winget / the Windows installer put it."""
+    import shutil
+
+    exe = shutil.which("cloudflared")
+    if exe:
+        return exe
+    candidates = [Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links" / "cloudflared.exe",
+                  Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "cloudflared" / "cloudflared.exe",
+                  Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "cloudflared" / "cloudflared.exe"]
+    winget = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
+    if winget.is_dir():
+        candidates += list(winget.glob("Cloudflare.cloudflared*/**/cloudflared*.exe"))
+    return next((str(c) for c in candidates if c and Path(c).is_file()), None)
+
+
+def start_tunnel(port: int, exe: str | None = None, timeout: float = 60.0) -> str:
+    """Start a Cloudflare quick tunnel to this app and return its https address.
+
+    The tunnel makes an outgoing connection to Cloudflare, so no firewall or router change is needed.
+    """
+    import atexit
+    import re
+    import subprocess
+
+    exe = exe or find_cloudflared()
+    if not exe:
+        raise SystemExit("cloudflared is not installed. Install it once with:\n    winget install --id Cloudflare.cloudflared\n"
+                         "then close this window and start the app again.")
+    proc = subprocess.Popen([exe, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    atexit.register(lambda: proc.poll() is None and proc.terminate())
+    found: dict = {}
+
+    def read():
+        for line in proc.stdout:
+            m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+            if m and "url" not in found:
+                found["url"] = m.group(0)
+
+    threading.Thread(target=read, daemon=True).start()
+    end = time.time() + timeout
+    while time.time() < end and "url" not in found:
+        if proc.poll() is not None:
+            break
+        time.sleep(0.2)
+    if "url" not in found:
+        proc.terminate()
+        raise SystemExit("The Cloudflare tunnel did not start (no internet, or cloudflared blocked by antivirus). "
+                         "Try again, or use the Wi-Fi link instead.")
+    return found["url"]
+
+
+def serve(port: int = 8765, open_browser: bool = True, phone: bool = False, tunnel: bool = False,
+          cloudflared: str | None = None) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
-    bind = "0.0.0.0" if phone else "127.0.0.1"
+    bind = "0.0.0.0" if phone and not tunnel else "127.0.0.1"   # the tunnel connects locally: no Wi-Fi exposure
     for p in range(port, port + 20):  # find a free port
         try:
             httpd = ThreadingHTTPServer((bind, p), Handler)
@@ -721,7 +809,17 @@ def serve(port: int = 8765, open_browser: bool = True, phone: bool = False) -> N
     real_port = httpd.server_address[1]
     url = f"http://127.0.0.1:{real_port}/"
     print(f"Stock Agent is running at {url}")
-    if phone:
+    if tunnel:
+        PHONE.update(on=True, key=_phone_key(min_len=16), tunnel_only=True)
+        print("Starting a secure link through Cloudflare (takes up to a minute) ...")
+        t_url = start_tunnel(real_port, cloudflared)
+        PHONE["tunnel_host"] = t_url.split("//", 1)[1]
+        PHONE["tunnel_url"] = f"{t_url}/?key={PHONE['key']}"
+        print("\nOn your phone (Wi-Fi or mobile data), open in Chrome, or scan the QR code in Settings:")
+        print(f"    {PHONE['tunnel_url']}")
+        print("This link changes every time you start the app. Anyone with the full link can open the app,")
+        print("so do not share it. Then use Chrome's menu > Add to Home screen.\n")
+    elif phone:
         PHONE.update(on=True, key=_phone_key())
         PHONE["urls"] = [f"http://{ip}:{real_port}/?key={PHONE['key']}" for ip in _lan_ips()]
         print("\nOn your phone (connected to the same Wi-Fi), open in Chrome:")
@@ -738,7 +836,7 @@ def serve(port: int = 8765, open_browser: bool = True, phone: bool = False) -> N
         print("Stopped.")
 
 
-def make_shortcut(phone: bool = False) -> Path:
+def make_shortcut(phone: bool = False, tunnel: bool = False) -> Path:
     """Put a double-click launcher on the desktop."""
     home = Path.home()
     desktops = [home / "OneDrive" / "Desktop", home / "Desktop", home]
@@ -746,11 +844,12 @@ def make_shortcut(phone: bool = False) -> Path:
     py = Path(sys.executable)
     if os.name == "nt":
         pyw = py.with_name("python.exe")
-        target = desktop / ("Stock Agent (phone).bat" if phone else "Stock Agent.bat")
-        flag = " --phone" if phone else ""
+        target = desktop / ("Stock Agent (anywhere).bat" if tunnel else "Stock Agent (phone).bat" if phone else "Stock Agent.bat")
+        flag = " --tunnel" if tunnel else " --phone" if phone else ""
         target.write_text(f'@echo off\r\ntitle Stock Agent\r\n"{pyw}" -m stock_agent app{flag}\r\npause\r\n', encoding="utf-8")
     else:
-        target = desktop / ("stock-agent-phone.command" if phone else "stock-agent.command")
-        target.write_text(f'#!/bin/sh\n"{py}" -m stock_agent app{" --phone" if phone else ""}\n', encoding="utf-8")
+        target = desktop / ("stock-agent-anywhere.command" if tunnel else "stock-agent-phone.command" if phone else "stock-agent.command")
+        flag = " --tunnel" if tunnel else " --phone" if phone else ""
+        target.write_text(f'#!/bin/sh\n"{py}" -m stock_agent app{flag}\n', encoding="utf-8")
         target.chmod(0o755)
     return target

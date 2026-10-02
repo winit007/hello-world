@@ -513,7 +513,7 @@ details.events li { margin: 2px 0; }
         <ol><li><b>Crypto</b> and <b>Commodities</b> use the same candlestick engine on coins (daily) and gold, silver, crude, gas and copper (15-minute). Each shows its own strategy check at the top.</li>
         <li><b>Goals</b> turns a target amount and date into a monthly investment and a mix of equity, debt and gold, with the chance of getting there.</li>
         <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li>
-        <li><b>On your phone</b>: start the app with <b>python -m stock_agent app --phone</b>, open the link it shows in Chrome on your phone (same Wi-Fi), then Add to Home screen. Details are in Settings.</li></ol></div>
+        <li><b>On your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
       <div class="card"><h2>Stay safe</h2>
         <ol><li>Take one or two picks, not all five. They often move together.</li>
         <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
@@ -1302,15 +1302,31 @@ function drawPnl(ev) {
 /* ---------------- phone ---------------- */
 async function loadPhone() {
   const p = await api("/api/phone");
-  $("#phone-body").innerHTML = p.on
-    ? `<p style="margin:0 0 6px">Phone mode is <b>on</b>. On your phone, connected to the same Wi-Fi, open this link in Chrome:</p>
-       ${p.urls.map(u => `<p style="margin:4px 0"><span class="copy">${esc(u)}</span></p>`).join("") || "<p>No Wi-Fi address found on this computer.</p>"}
-       <ol style="padding-left:20px;margin:8px 0"><li>Open the link once. Your phone remembers the key.</li>
-       <li>In Chrome tap <b>⋮</b> then <b>Add to Home screen</b>. You get a Stock Agent icon that opens like an app.</li>
-       <li>The computer must be on with this app running while you use it.</li></ol>`
-    : `<p style="margin:0 0 6px">To use the app from your phone on the same Wi-Fi, close this window and start the app in phone mode:</p>
-       <p><span class="copy">python -m stock_agent app --phone</span></p>
-       <p style="margin:6px 0 0">or create a desktop icon for it once with <span class="copy">python -m stock_agent shortcut --phone</span>. The window then shows the link to open on your phone.</p>`;
+  const link = p.tunnel_url || (p.urls || [])[0];
+  const body = $("#phone-body");
+  if (p.on && link) {
+    body.innerHTML = `<p style="margin:0 0 6px">${p.tunnel_url ? "Secure link is <b>on</b>: it works on Wi-Fi <b>and</b> mobile data." : "Wi-Fi link is <b>on</b> (phone must be on the same Wi-Fi)."}
+        Scan this with your phone's camera, or type the link in Chrome:</p>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <div id="qr" style="background:#fff;padding:10px;border-radius:10px;width:200px;height:200px"></div>
+        <div style="flex:1;min-width:220px">
+          ${[p.tunnel_url, ...(p.tunnel_only ? [] : p.urls || [])].filter(Boolean).map(u => `<p style="margin:4px 0"><span class="copy" style="word-break:break-all">${esc(u)}</span></p>`).join("")}
+          <ol style="padding-left:20px;margin:8px 0"><li>Open the link once; the phone remembers the key.</li>
+          <li>In Chrome tap <b>⋮</b> then <b>Add to Home screen</b>.</li>
+          <li>Keep this computer on with the app running.</li>
+          ${p.tunnel_url ? "<li>The secure link changes each time you start the app: scan the new one.</li>" : ""}</ol>
+        </div></div>`;
+    // the QR image is drawn by the app itself; fetched with the app token like every other request
+    fetch("/api/phone-qr.svg", { headers: { "X-Agent-Token": TOKEN } }).then(r => r.ok ? r.text() : Promise.reject())
+      .then(svg => { $("#qr").innerHTML = svg; const el = $("#qr svg"); if (el) { el.setAttribute("width", "180"); el.setAttribute("height", "180"); } })
+      .catch(() => { $("#qr").innerHTML = '<p class="sub" style="color:#333">QR code unavailable; type the link instead.</p>'; });
+  } else {
+    body.innerHTML = `<p style="margin:0 0 6px"><b>Easiest, works on any network (mobile data too):</b></p>
+      <ol style="padding-left:20px;margin:4px 0 10px"><li>Once, in Command Prompt: <span class="copy">winget install --id Cloudflare.cloudflared</span></li>
+        <li>Then: <span class="copy">python -m stock_agent shortcut --tunnel</span> and double-click <b>Stock Agent (anywhere)</b> on the desktop.</li>
+        <li>Come back to this Settings page and scan the QR code with your phone.</li></ol>
+      <p style="margin:0 0 6px"><b>Or, same Wi-Fi only:</b> start with <span class="copy">python -m stock_agent app --phone</span> (needs the Windows firewall to allow Python on Private networks).</p>`;
+  }
 }
 
 /* ---------------- Zerodha Kite ---------------- */

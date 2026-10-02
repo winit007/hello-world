@@ -373,11 +373,15 @@ def main(argv: list[str] | None = None) -> int:
     ap_.add_argument("--port", type=int, default=8765)
     ap_.add_argument("--no-browser", action="store_true", help="start the server without opening a browser")
     ap_.add_argument("--phone", action="store_true", help="also open it to phones on your Wi-Fi (with an access key)")
-    ap_.set_defaults(func=lambda a: (__import__("stock_agent.app", fromlist=["serve"]).serve(a.port, not a.no_browser, a.phone), 0)[1])
+    ap_.add_argument("--tunnel", action="store_true", help="a secure https link for your phone on any network (needs cloudflared)")
+    ap_.add_argument("--cloudflared", help="path to cloudflared if it is not found automatically")
+    ap_.set_defaults(func=lambda a: (__import__("stock_agent.app", fromlist=["serve"]).serve(
+        a.port, not a.no_browser, a.phone, a.tunnel, a.cloudflared), 0)[1])
 
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
     sh.add_argument("--phone", action="store_true", help="a launcher that also serves your phone")
-    sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut(a.phone)}"
+    sh.add_argument("--tunnel", action="store_true", help="a launcher with a secure link for any network")
+    sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut(a.phone, a.tunnel)}"
                                           " - double-click it to open the app."), 0)[1])
 
     for mk, helptext in (("crypto", "Bitcoin and other coins: setups, sizing in coins, strategy check"),
