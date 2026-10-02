@@ -23,6 +23,7 @@
   --warn: #fab219; --warn-soft: #fff5dc; --warn-text: #7a5300;
   --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
   --radius: 14px;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -35,6 +36,7 @@
     --down: #e66767; --down-soft: #2e1717; --down-text: #f08a8a;
     --warn: #fab219; --warn-soft: #2d2410; --warn-text: #f6c454;
     --shadow: none;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
   }
 }
 :root[data-theme="dark"] {
@@ -47,6 +49,7 @@
   --down: #e66767; --down-soft: #2e1717; --down-text: #f08a8a;
   --warn: #fab219; --warn-soft: #2d2410; --warn-text: #f6c454;
   --shadow: none;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -218,6 +221,7 @@ details.events li { margin: 2px 0; }
       <button role="tab" data-tab="ipo">New IPOs</button>
       <button role="tab" data-tab="crypto">Crypto</button>
       <button role="tab" data-tab="commodities">Commodities</button>
+      <button role="tab" data-tab="fund">Model fund</button>
       <button role="tab" data-tab="goals">Goals</button>
       <button role="tab" data-tab="rebalance">Rebalance</button>
       <button role="tab" data-tab="settings">Settings</button>
@@ -337,6 +341,22 @@ details.events li { margin: 2px 0; }
     <div class="notice">Prices are the US futures on Yahoo (COMEX and NYMEX). MCX contracts follow them in rupees with import duty, so stops and targets are approximate on MCX: check the MCX chart before trading. Lots are MCX mini contracts.</div>
     <div class="progress" id="commodities-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
     <div id="commodities"></div>
+  </section>
+
+  <!-- ============ MODEL FUND ============ -->
+  <section class="page" id="page-fund">
+    <div class="head-row">
+      <div><h1>Model fund</h1>
+        <p class="sub">A rules-based stock portfolio built like a systematic fund house's factor fund: momentum plus low volatility, equal weight, at most 5 stocks per industry.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select style="width:auto" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
+        <select style="width:auto" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
+        <select style="width:auto" id="f-rebal" aria-label="Rebalance"><option value="Q" selected>Quarterly</option><option value="M">Monthly</option></select>
+        <button class="btn primary" id="f-run">Build fund</button>
+      </div>
+    </div>
+    <div class="progress" id="fund-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="fund"><div class="card empty"><span class="et">Build the model fund</span>It ranks every stock, backtests the rules since 2017 and lists today's portfolio for your capital.</div></div>
   </section>
 
   <!-- ============ GOALS ============ -->
@@ -919,6 +939,84 @@ function renderMarket(res, box) {
   box.innerHTML = html;
 }
 
+/* ---------------- model fund ---------------- */
+$("#f-run").onclick = async () => {
+  const btn = $("#f-run"); btn.disabled = true;
+  try {
+    const r = await runJob(api("/api/fund", { method: "POST", body: { universe: $("#f-universe").value, size: +$("#f-size").value, rebalance: $("#f-rebal").value } }), $("#fund-progress"));
+    window._lastFund = r; renderFund(r);
+  } catch (e) { $("#fund").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  btn.disabled = false;
+};
+function renderFund(r) {
+  const m = r.metrics, a = r.after_tax, c = r.curve, first = c[0].date, last = c[c.length - 1].date;
+  const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
+  const row = (label, k) => `<tr><td>${label}</td><td class="r"><b>${spct(m[k].cagr)}</b></td><td class="r">${pct(m[k].vol)}</td><td class="r chg down">${pct(m[k].max_drawdown)}</td><td class="r">₹1 → ₹${m[k].growth_of_1.toFixed(2)}</td></tr>`;
+  $("#fund").innerHTML = `
+    <div class="notice warn"><b>Read this first.</b> These stocks are today's index members, the companies that survived and grew, so any backtest drawn from them looks better than it was in real time. Holding <i>all</i> of them in equal weight returned ${spct(m.equal_weight.cagr)} a year; the factor rules added ${spct(m.fund.cagr - m.equal_weight.cagr)} a year on top and beat that basket in ${pct(r.beat_equal_12m)} of 12-month periods. Expect much less than the backtest.</div>
+    <div class="tiles">
+      <div class="card tile"><div class="k">Model fund, after your tax</div><div class="v num">${spct(a.fund_cagr)}</div><div class="sub" style="font-size:12.5px">a year, ${fmtDate(first)} ${first.slice(0, 4)} to ${last.slice(0, 4)}</div></div>
+      <div class="card tile"><div class="k">Nifty 50 index fund, after tax</div><div class="v num">${spct(a.nifty_cagr)}</div><div class="sub" style="font-size:12.5px">a year, same period</div></div>
+      <div class="card tile"><div class="k">Trading per year</div><div class="v num">${pct(r.turnover_per_year)}</div><div class="sub" style="font-size:12.5px">of the portfolio; each sale at a profit is taxed</div></div>
+    </div>
+    <div class="card"><h2>Growth of ₹1</h2><div class="chart-wrap" id="fund-chart"></div>
+      <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Model fund</span>
+        <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--s1)"></i>Model fund after your tax</span>
+        <span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All ${esc(r.rules.universe)} stocks, equal weight</span>
+        <span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>Nifty 50 ETF</span></div>
+      <div class="table-scroll"><table class="num" style="margin-top:10px"><thead><tr><th></th><th class="r">A year</th><th class="r">Ups and downs</th><th class="r">Worst fall</th><th class="r">Growth</th></tr></thead><tbody>
+        ${row("Model fund (before tax)", "fund")}${row("All stocks, equal weight", "equal_weight")}${row("Nifty 50 ETF", "nifty")}</tbody></table></div></div>
+    <div class="cols">
+      <div class="card table-scroll"><h2>Today's portfolio · ${fmtDate(r.as_of)} · for ${money(r.capital)}</h2>
+        ${r.fit_note ? `<div class="notice warn" style="font-size:13.5px">${esc(r.fit_note)}</div>` : ""}
+        <table class="num"><thead><tr><th>Stock</th><th>Industry</th><th class="r">Shares</th><th class="r">Price</th><th class="r">Amount</th><th class="r">12-1m move</th><th class="r">Volatility</th></tr></thead><tbody>
+        ${r.holdings.map(h => `<tr><td><b>${esc(bare(h.ticker))}</b>${h.new ? ' <span class="pill call" style="font-size:11px">new</span>' : ""}</td><td>${esc(h.industry)}</td>
+          <td class="r ${h.shares ? "" : "chg down"}">${h.shares}</td><td class="r">${money(h.price, "₹", 2)}</td><td class="r">${money(h.amount)}</td>
+          <td class="r ${cls(h.momentum_12_1)}">${spct(h.momentum_12_1, 0)}</td><td class="r">${pct(h.volatility)}</td></tr>`).join("")}
+        </tbody></table>
+        <p class="sub" style="font-size:13px;margin-top:8px">Invested ${money(r.invested)} of ${money(r.capital)}.${r.dropped.length ? ` Sell since the last rebalance: <b>${r.dropped.map(t => esc(bare(t))).join(", ")}</b>.` : ""} Rebalance on the last trading day of each ${r.rules.rebalance === "M" ? "month" : "quarter"}: sell what dropped out, buy what came in, top the rest back to equal amounts.</p></div>
+      <div class="card"><h2>Year by year</h2><div class="table-scroll"><table class="num"><thead><tr><th>Year</th><th class="r">Fund</th><th class="r">Equal weight</th><th class="r">Nifty</th></tr></thead><tbody>
+        ${r.yearly.map(y => `<tr><td>${y.year}${y.partial ? ' <span class="sub" style="font-size:11px">part</span>' : ""}</td><td class="r ${cls(y.fund)}">${spct(y.fund, 0)}</td><td class="r ${cls(y.equal_weight)}">${spct(y.equal_weight, 0)}</td><td class="r ${cls(y.nifty)}">${spct(y.nifty, 0)}</td></tr>`).join("")}
+        </tbody></table></div>
+        <h2 style="margin-top:14px">How a fund house would run it</h2>
+        <ul class="reasons"><li>Rules fixed in advance (12-1 month momentum over volatility, plus low volatility), never changed because of a bad year.</li>
+          <li>Diversified: ${r.rules.size} stocks, equal weight, at most ${r.rules.per_industry} per industry.</li>
+          <li>Rebalanced on a calendar, not on news.</li>
+          <li>A mutual fund pays no tax when it trades; you do. NSE's factor indices (such as Nifty 200 Momentum 30 and Nifty Alpha Low-Volatility 30) are tracked by index funds that run this kind of strategy for you without that tax drag.</li></ul>
+        <p class="sub" style="font-size:12.5px">Costs: 0.25% of every rupee traded. Tax: 20% on gains held under a year, 12.5% after, losses carried forward; the index fund is taxed once at the end. Not investment advice.</p></div>
+    </div>`;
+  drawFund(r);
+}
+function drawFund(r) {
+  const wrap = $("#fund-chart"); if (!wrap) return;
+  const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const c = r.curve, W = Math.max(320, Math.round(wrap.clientWidth || 760)), H = 280, m = { l: 8, r: 64, t: 14, b: 26 };
+  const keys = [["fund", "--s1", ""], ["fund_after_tax", "--s1", "6 4"], ["equal_weight", "--s2", ""], ["nifty", "--s3", ""]];
+  const hi = Math.max(...c.flatMap(x => keys.map(([k]) => x[k]))) * 1.06, lo = 0;
+  const X = i => m.l + (W - m.l - m.r) * i / (c.length - 1), Y = val => m.t + (H - m.t - m.b) * (1 - (val - lo) / (hi - lo));
+  const step = (() => { const raw = hi / 4, p10 = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(s => s * p10).find(s => s >= raw); })();
+  let g = "";
+  for (let y = 0; y <= hi; y += step) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="${v(y === 0 ? "--axis" : "--grid")}"/><text x="${W - m.r + 6}" y="${Y(y) + 4}" font-size="11" fill="${v("--muted")}" class="num">₹${y.toFixed(y < 10 ? 1 : 0)}</text>`;
+  let lastYear = "";
+  c.forEach((x, i) => { const yr = x.date.slice(0, 4); if (yr !== lastYear) { lastYear = yr; if (i > 0 && X(i) < W - m.r - 20) g += `<text x="${X(i)}" y="${H - 8}" font-size="11" fill="${v("--muted")}" text-anchor="middle">${yr}</text>`; } });
+  const lines = keys.map(([k, col, dash]) => `<path d="${c.map((x, i) => `${i ? "L" : "M"}${X(i)} ${Y(x[k])}`).join(" ")}" fill="none" stroke="${v(col)}" stroke-width="2" ${dash ? `stroke-dasharray="${dash}"` : ""} stroke-linejoin="round"/>`).join("");
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of one rupee: model fund before and after tax, equal-weight basket and Nifty 50">
+    <rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${lines}
+    <line id="fxh" y1="${m.t}" y2="${H - m.b}" stroke="${v("--axis")}" visibility="hidden"/>
+    <rect id="fhit2" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = $("svg", wrap), tip = $(".tip", wrap), xh = $("#fxh", wrap);
+  $("#fhit2", wrap).addEventListener("pointermove", e => {
+    const rc = svg.getBoundingClientRect(), sx = (e.clientX - rc.left) * W / rc.width;
+    const i = Math.max(0, Math.min(c.length - 1, Math.round((sx - m.l) / ((W - m.l - m.r) / (c.length - 1))))), x = c[i];
+    xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div class="t">${fmtDate(x.date)} ${x.date.slice(0, 4)}</div>` + [["Model fund", "fund"], ["After your tax", "fund_after_tax"], ["Equal weight", "equal_weight"], ["Nifty 50", "nifty"]]
+      .map(([l, k]) => `<div class="r num"><span>${l}</span><b>₹${x[k].toFixed(2)}</b></div>`).join("");
+    tip.style.display = "block"; const p = X(i) * rc.width / W;
+    tip.style.left = Math.max(0, Math.min(rc.width - tip.offsetWidth, p > rc.width / 2 ? p - tip.offsetWidth - 12 : p + 12)) + "px"; tip.style.top = "10px";
+  });
+  $("#fhit2", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
+}
+
 /* ---------------- goals ---------------- */
 async function loadGoal() {
   if (window._goalLoaded) return; window._goalLoaded = true;
@@ -1278,7 +1376,7 @@ async function kiteOrder(ticker, plan, pattern, limit) {
   };
 }
 
-let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); if (window._lastGoal) drawFan(window._lastGoal); }, 150); });
+let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); if (window._lastGoal) drawFan(window._lastGoal); if (window._lastFund) drawFund(window._lastFund); }, 150); });
 
 /* ---------------- boot ---------------- */
 (async () => {

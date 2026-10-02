@@ -315,6 +315,20 @@ def run_rebalance(body: dict, progress) -> dict:
     return clean({**rec, "holdings": priced})
 
 
+def run_fund(body: dict, settings: dict, progress) -> dict:
+    from . import fund
+
+    rules = fund.FundRules(universe=body.get("universe", "nifty200"), size=int(body.get("size", 25)),
+                           rebalance=body.get("rebalance", "Q"))
+    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) or rules.rebalance not in ("M", "Q"):
+        raise ValueError("Unsupported fund settings")
+    res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress)
+    curve = res.pop("curve")
+    res["curve"] = [{"date": str(d.date()), **{k: float(v) for k, v in row.items()}} for d, row in curve.iterrows()]
+    res.pop("log", None)
+    return clean(res)
+
+
 def run_ipo(days: int, progress) -> dict:
     from . import ipo
 
@@ -673,6 +687,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"job": start_job("screen", run_screen, {**load_settings(), **body})})
             if url.path == "/api/goal":
                 return self._send(200, {"job": start_job("goal", run_goal, body)})
+            if url.path == "/api/fund":
+                return self._send(200, {"job": start_job("fund", run_fund, body, load_settings())})
             if url.path == "/api/rebalance":
                 return self._send(200, {"job": start_job("rebalance", run_rebalance, body)})
             if url.path.startswith("/api/journal"):

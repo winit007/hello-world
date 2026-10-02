@@ -249,6 +249,35 @@ def cmd_rebalance(args) -> int:
     return 0
 
 
+def cmd_fund(args) -> int:
+    """Rules-based factor portfolio (momentum + low volatility) with an honest backtest."""
+    from . import fund
+    from .sizing import money
+
+    r = fund.run(fund.FundRules(universe=args.universe, size=args.size, rebalance=args.rebalance), args.capital,
+                 args.offline, args.cache_dir)
+    m, a = r["metrics"], r["after_tax"]
+    c = r["curve"]
+    print(f"Model fund: top {args.size} of {r['universe_size']} {args.universe} stocks, rebalanced "
+          f"{'monthly' if args.rebalance == 'M' else 'quarterly'} · backtest {c.index[0].date()} to {c.index[-1].date()}")
+    for k, label in (("fund", "Model fund"), ("equal_weight", "All stocks, equal weight"), ("nifty", "Nifty 50 ETF")):
+        print(f"  {label:<26} {m[k]['cagr']:+.1%} a year · worst fall {m[k]['max_drawdown']:.0%} · ₹1 became ₹{m[k]['growth_of_1']:.2f}")
+    print(f"  After tax (you trading it): {a['fund_cagr']:+.1%} a year vs Nifty index fund {a['nifty_cagr']:+.1%}")
+    print(f"  Turnover {r['turnover_per_year']:.0%} a year · beat Nifty in {r['beat_nifty_12m']:.0%} and the equal-weight "
+          f"basket in {r['beat_equal_12m']:.0%} of 12-month periods")
+    print(f"\nToday's portfolio ({r['as_of']}) for {money(args.capital, '₹')}:")
+    for h in r["holdings"]:
+        print(f"  {h['ticker'].replace('.NS', ''):<12} {h['shares']:>5} shares @ {h['price']:>9.2f} = {money(h['amount'], '₹'):>10}"
+              f"  {h['industry']}{'  (new)' if h['new'] else ''}")
+    if r["dropped"]:
+        print("  Sell (dropped since last rebalance): " + ", ".join(t.replace(".NS", "") for t in r["dropped"]))
+    if r["fit_note"]:
+        print("  ! " + r["fit_note"])
+    print("\nToday's index members are the survivors, which flatters every backtest drawn from them; most of the gap over "
+          "the Nifty also shows up in the equal-weight basket. Not investment advice.")
+    return 0
+
+
 def cmd_research(args) -> int:
     horizons = [int(h) for h in args.horizons.split(",")]
     if args.horizon not in horizons:
@@ -359,6 +388,15 @@ def main(argv: list[str] | None = None) -> int:
         mp.add_argument("--offline", action="store_true")
         mp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
         mp.set_defaults(func=cmd_market, market=mk)
+
+    fp = sub.add_parser("fund", help="model factor fund: today's 25 stocks and an honest backtest")
+    fp.add_argument("--universe", choices=["nifty200", "nifty100", "fno"], default="nifty200")
+    fp.add_argument("--size", type=int, default=25)
+    fp.add_argument("--rebalance", choices=["M", "Q"], default="Q")
+    fp.add_argument("--capital", type=float, default=200000)
+    fp.add_argument("--offline", action="store_true")
+    fp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    fp.set_defaults(func=cmd_fund)
 
     gp = sub.add_parser("goal", help="long-term goal planner: monthly investment, mix and chance of success")
     gp.add_argument("--name", default="My goal")

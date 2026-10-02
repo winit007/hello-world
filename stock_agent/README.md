@@ -312,6 +312,32 @@ targets. Each tab opens with its own out-of-sample strategy check. On the data a
 neither showed an edge (crypto 44% won, -0.43% per trade; commodities 40% won, -0.05% per trade).
 Commodity prices are the US futures; MCX follows them in rupees with import duty, so levels are approximate.
 
+## Model fund: a stock portfolio built like a factor fund
+
+```bash
+python -m stock_agent fund --universe nifty200 --size 25 --rebalance Q --capital 200000
+```
+
+The *Model fund* tab works the way systematic fund houses run factor funds. On each rebalance date
+(quarter or month end) it ranks the liquid Nifty 200 stocks by risk-adjusted 12-1 month momentum (the
+return from 12 months ago to 1 month ago, divided by volatility) plus half a weight of low volatility,
+holds the top 25 in equal weight with at most 5 from one industry, and lists today's portfolio with
+the number of shares for your capital (stocks whose single share costs more than an equal slot are
+left out and the money is spread over the rest). The rules are textbook and fixed in advance.
+
+The backtest uses dividend-adjusted prices, 0.25% cost on every rupee traded, and an after-tax account
+(20% on gains held under a year, 12.5% after, losses carried forward) compared with a Nifty index fund
+taxed once at the end. Two benchmarks: the Nifty 50 ETF and an equal-weight basket of the whole universe.
+
+Result, end of 2017 to October 2026, quarterly: 24.6% a year before tax and 20.8% after, against 9.5%
+for a Nifty index fund after tax. **Read it with care.** The universe is today's index members, the
+companies that survived and grew, so every backtest drawn from it is flattered: the equal-weight basket
+of all of them also made 21.2% a year. The factor rules added about 3.4% a year on top, beat the basket
+in 61% of 12-month periods, and lagged badly in 2025 (-2% against +12% for the Nifty). Turnover is about
+190% a year, and unlike a mutual fund you pay tax on every profitable sale. Index funds that track NSE's
+factor indices (such as Nifty 200 Momentum 30 or Nifty Alpha Low-Volatility 30) run this kind of strategy
+without that tax drag.
+
 ## Long-term goals and rebalancing
 
 ```bash
@@ -396,6 +422,7 @@ stock_agent/
   lists/        dated copies of those lists for offline use
   ipo.py        new listings since their IPO, and IPO news
   markets.py    crypto (daily) and intraday commodity (15-minute) scans with MCX lot sizing
+  fund.py       model factor fund: momentum + low-volatility ranking, backtest with costs and tax
   planner.py    long-term goal planner (allocation, Monte Carlo, required monthly investment)
   rebalance.py  current vs target mix, full rebalance and new-money-only trades
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
