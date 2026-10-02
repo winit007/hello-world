@@ -61,7 +61,7 @@ def pick_record(p, as_of: str, rank: int, replayed: bool = False) -> dict | None
         "strike": plan.strike, "expiry": plan.expiry.isoformat(), "premium": plan.premium,
         "lot_size": plan.lot_size, "lots": plan.lots, "stop": plan.stop_underlying,
         "target1": plan.target1_underlying, "target2": plan.target2_underlying,
-        "time_exit": plan.time_stop.isoformat(), "replayed": replayed,
+        "time_exit": plan.time_stop.isoformat(), "replayed": replayed, "instrument": plan.instrument,
     }
 
 
@@ -93,8 +93,11 @@ def simulate(rec: dict, df: pd.DataFrame) -> dict:
     lot = int(rec["lot_size"])
     out = {**rec, "affordable": int(rec["lots"]) > 0, "sim_lots": lots, "qty": lots * lot, "status": "waiting",
            "entry_date": None, "entry_premium": None, "exits": [], "daily": {}, "pnl": 0.0, "value": None}
-    iv = implied_vol(rec["premium"], rec["close"], rec["strike"], _t(expiry, as_of), kind) or 0.3
-    price = lambda s, d: max(_round_tick(bs_price(s, rec["strike"], _t(expiry, d), iv, kind, r)), 0.05)
+    if rec.get("instrument") == "stock":
+        price = lambda s, d: round(float(s), 2)   # shares: the position is worth the share price
+    else:
+        iv = implied_vol(rec["premium"], rec["close"], rec["strike"], _t(expiry, as_of), kind) or 0.3
+        price = lambda s, d: max(_round_tick(bs_price(s, rec["strike"], _t(expiry, d), iv, kind, r)), 0.05)
 
     bars = df[df.index > pd.Timestamp(as_of)]
     if bars.empty:
@@ -237,7 +240,8 @@ def render_brief(ev: dict, recent_days: int = 5) -> str:
         tag = "" if x["affordable"] else " (1 lot, not affordable)"
         today = x["daily"].get(last)
         today_txt = f", {_fmt_day(last)} {money(today, c)}" if today is not None and x["status"] == "open" else ""
-        lines.append(f"• {x['ticker'].split('.')[0]} {x['strike']:g}{'CE' if x['side'] == 'CALL' else 'PE'} picked "
+        what = "shares" if x.get("instrument") == "stock" else f"{x['strike']:g}{'CE' if x['side'] == 'CALL' else 'PE'}"
+        lines.append(f"• {x['ticker'].split('.')[0]} {what} picked "
                      f"{_fmt_day(x['as_of'])}: {x['status']}{today_txt}, total {money(x['pnl'], c)}{tag}")
     return "\n".join(lines)
 
@@ -260,7 +264,7 @@ def render_markdown(ev: dict) -> str:
         bought = (f"{x['entry_premium']:.2f} on {_fmt_day(x['entry_date'])}" if x["entry_premium"] is not None
                   else "not bought" if x["status"] == "Skipped" else "tomorrow")
         out.append(f"| {_fmt_day(x['as_of'])}{' (replay)' if x.get('replayed') else ''} | {x['ticker'].split('.')[0]} | "
-                   f"{x['strike']:g} {'CE' if x['side'] == 'CALL' else 'PE'} | {x['sim_lots']}{'' if x['affordable'] else '*'} | "
+                   f"{'shares' if x.get('instrument') == 'stock' else str(x['strike']) + (' CE' if x['side'] == 'CALL' else ' PE')} | {x['sim_lots']}{'' if x['affordable'] else '*'} | "
                    f"{bought} | {x['status']} | {'–' if x['status'] in ('waiting', 'Skipped') else money(x['pnl'], c)} |")
     out += ["", "\\* not affordable at your risk limit; counted as 1 lot under All picks only."]
     return "\n".join(out)

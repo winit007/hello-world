@@ -9,6 +9,7 @@
     python -m stock_agent screen                    # top 5 Nifty 50 setups by success rate + news
     python -m stock_agent screen --universe us      # same for US mega caps
     python -m stock_agent track --replay 10 --brief # what-if P&L of the picks, day by day
+    python -m stock_agent ipo --days 90             # new NSE listings and IPO news
     python -m stock_agent research AAPL --offline   # use cached prices/news, no network
 """
 from __future__ import annotations
@@ -18,7 +19,7 @@ import sys
 from pathlib import Path
 
 from . import llm, options, screener, sizing, tracker
-from .universes import UNIVERSES
+from .universes import CHOICES, get_universe, index_symbol
 
 DEFAULT_LEDGER = Path.home() / ".stock_agent" / "track.json"
 from .backtest import DEFAULT_HORIZONS, evaluate_rules, pool_rules, rank_rules
@@ -105,7 +106,7 @@ def cmd_screen(args) -> int:
     if args.universe_file:
         tickers += [l.strip() for l in args.universe_file.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
     if not tickers:
-        tickers = UNIVERSES[args.universe]
+        tickers = get_universe(args.universe, args.offline)
     picks, ranked, stats = screener.screen(
         tickers, args.period, args.interval, args.horizon, args.lookback, args.top, args.prior_strength,
         args.min_edge, args.news_weight, args.offline, args.cache_dir, not args.no_context,
@@ -129,7 +130,7 @@ def cmd_screen(args) -> int:
 
 def cmd_track(args) -> int:
     """What the saved (and replayed) picks would have made, day by day."""
-    tickers = list(args.tickers or []) or UNIVERSES[args.universe]
+    tickers = list(args.tickers or []) or get_universe(args.universe, args.offline)
     prices = screener.load_universe(tickers, args.period, "1d", args.offline, args.cache_dir, log=lambda *a: None)
     if args.replay:
         n = tracker.replay(tickers, args.replay, prices, args.ledger, args.horizon, args.top, args.capital,
@@ -159,11 +160,11 @@ def cmd_lab(args) -> int:
     from .data import download_prices
     from .tradetest import USER_VALIDATION, load_strategy
 
-    tickers = list(args.tickers or []) or UNIVERSES[args.universe]
+    tickers = list(args.tickers or []) or get_universe(args.universe, args.offline)
     prices = screener.load_universe(tickers, "10y", "1d", args.offline, args.cache_dir, log=lambda *a: None)
-    index_symbol = "^NSEI" if args.universe == "nifty50" and not args.tickers else "^GSPC"
+    sym = index_symbol(args.universe) if not args.tickers else ("^NSEI" if tickers[0].endswith(".NS") else "^GSPC")
     try:
-        idx = download_prices(index_symbol, "10y")
+        idx = download_prices(sym, "10y")
     except Exception:
         idx = None
     print(f"[lab] {len(prices)} stocks; testing on the last {args.test_years:g} years ...")
@@ -191,6 +192,16 @@ def cmd_lab(args) -> int:
           f"{v['test_win_rate']:.1%} won, average {v['test_avg_ret']:+.2%} per option trade, "
           f"stock-level {v['test_stock_avg_r']:+.3f}R, worst losing streak {v['test_worst_streak']}.")
     print(screener.validation_line())
+    return 0
+
+
+def cmd_ipo(args) -> int:
+    """Recent NSE listings and how they have traded since, plus IPO news."""
+    from . import ipo
+
+    df = ipo.listings(args.days, args.offline, args.cache_dir)
+    news = [] if args.no_news else ipo.ipo_news(args.offline, args.cache_dir)
+    print(ipo.render_text(df, news, args.days))
     return 0
 
 
@@ -262,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sc = sub.add_parser("screen", help="scan a universe and pick the top N setups by success rate + news")
     sc.add_argument("tickers", nargs="*", help="symbols to scan (default: the --universe list)")
-    sc.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    sc.add_argument("--universe", choices=CHOICES, default="nifty50")
     sc.add_argument("--universe-file", type=Path, help="text file with one symbol per line")
     sc.add_argument("--period", default="10y")
     sc.add_argument("--interval", default="1d")
@@ -294,9 +305,16 @@ def main(argv: list[str] | None = None) -> int:
     sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut()}"
                                           " - double-click it to open the app."), 0)[1])
 
+    ip = sub.add_parser("ipo", help="new NSE listings since their IPO, and IPO news")
+    ip.add_argument("--days", type=int, default=90, help="listed within this many days (default 90)")
+    ip.add_argument("--no-news", action="store_true")
+    ip.add_argument("--offline", action="store_true")
+    ip.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    ip.set_defaults(func=cmd_ipo)
+
     lb = sub.add_parser("lab", help="test rule variants on years they were not tuned on")
     lb.add_argument("tickers", nargs="*")
-    lb.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    lb.add_argument("--universe", choices=CHOICES, default="nifty50")
     lb.add_argument("--test-years", type=float, default=3.0)
     lb.add_argument("--check-only", action="store_true", help="only re-check the current strategy (fast)")
     lb.add_argument("--reverse", action="store_true", help="compare buying with flipping, selling and credit spreads")
@@ -307,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tk = sub.add_parser("track", help="what-if P&L of saved picks, day by day")
     tk.add_argument("tickers", nargs="*", help="universe to replay (default: --universe)")
-    tk.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    tk.add_argument("--universe", choices=CHOICES, default="nifty50")
     tk.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
     tk.add_argument("--replay", type=int, default=0, help="rebuild picks for the last N market days missing from the ledger")
     tk.add_argument("--period", default="10y")

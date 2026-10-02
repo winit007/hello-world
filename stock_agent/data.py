@@ -69,3 +69,91 @@ def load_prices(
 def read_cached(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col="Date", parse_dates=True)
     return df[COLUMNS].astype(float)
+
+
+FRESH_SECONDS = 2 * 3600  # a cached file younger than this is used as is
+
+
+def _is_fresh(path: Path) -> bool:
+    import time as _t
+
+    return path.exists() and (_t.time() - path.stat().st_mtime) < FRESH_SECONDS
+
+
+def _split(raw: pd.DataFrame, tickers: list[str]) -> dict[str, pd.DataFrame]:
+    """Break a multi-ticker yfinance frame into one clean OHLCV frame per ticker."""
+    out = {}
+    if raw is None or raw.empty:
+        return out
+    if isinstance(raw.columns, pd.MultiIndex):
+        level0 = set(raw.columns.get_level_values(0))
+        for t in tickers:
+            if t in level0:
+                part = raw[t].dropna(how="all")
+                if not part.empty:
+                    out[t] = _flatten(part)
+    elif len(tickers) == 1:
+        out[tickers[0]] = _flatten(raw)
+    return out
+
+
+def refresh_many(tickers: list[str], period: str = "10y", interval: str = "1d", cache_dir: Path = DEFAULT_CACHE,
+                 chunk: int = 80, progress=None) -> list[str]:
+    """Bring the price cache of many tickers up to date with as few requests as possible.
+
+    New tickers get their full history; cached ones only the last 3 months, appended to the cache. If the
+    overlap disagrees by more than 1% (a split or bonus re-adjusted the history) the full history is
+    downloaded again. Returns the tickers that could not be refreshed.
+    """
+    import yfinance as yf
+
+    paths = {t: _cache_path(cache_dir, t, period, interval) for t in tickers}
+    stale = [t for t in tickers if not _is_fresh(paths[t])]
+    update = [t for t in stale if paths[t].exists()]
+    full = [t for t in stale if not paths[t].exists()]
+    failed: list[str] = []
+    done = 0
+
+    def batches(lst):
+        for k in range(0, len(lst), chunk):
+            yield lst[k:k + chunk]
+
+    def fetch(group, per):
+        try:
+            raw = yf.download(group, period=per, interval=interval, progress=False, auto_adjust=True,
+                              group_by="ticker", threads=True)
+        except Exception:
+            raw = None
+        return _split(raw, group)
+
+    total = max(len(stale), 1)
+    for group in batches(update):
+        got = fetch(group, "3mo")
+        for t in group:
+            new = got.get(t)
+            if new is None or new.empty:
+                failed.append(t)
+                continue
+            old = read_cached(paths[t])
+            common = old.index.intersection(new.index)
+            if len(common) and (abs(old.loc[common, "Close"] / new.loc[common, "Close"] - 1).max() > 0.01):
+                full.append(t)  # history was re-adjusted: fetch it all again
+                continue
+            merged = pd.concat([old[old.index < new.index[0]], new])
+            merged.to_csv(paths[t])
+        done += len(group)
+        if progress:
+            progress(f"Updating prices {done}/{len(stale)}", 0.6 * done / total)
+    for group in batches(full):
+        got = fetch(group, period)
+        for t in group:
+            df = got.get(t)
+            if df is None or df.empty:
+                failed.append(t)
+                continue
+            paths[t].parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(paths[t])
+        done += len(group)
+        if progress:
+            progress(f"Downloading prices {min(done, len(stale))}/{len(stale)}", 0.6 * min(done, total) / total)
+    return failed

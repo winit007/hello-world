@@ -52,14 +52,27 @@ class TradePlan:
     risk_pct: float
     currency: str
     warnings: list[str] = field(default_factory=list)
+    instrument: str = "option"    # "option", or "stock" for shares of a stock with no options
 
     @property
     def contract(self) -> str:
+        if self.instrument == "stock":
+            return f"{self.ticker.split('.')[0]} shares"
         suffix = "CE" if self.side == "CALL" else "PE"
         return f"{self.ticker.split('.')[0]} {self.expiry:%d-%b-%Y} {self.strike:g} {suffix}"
 
     def lines(self) -> list[str]:
         c = self.currency
+        sym = self.ticker.split('.')[0]
+        if self.instrument == "stock":
+            head = (f"   BUY {self.lots} shares of {sym} at ~{c}{self.premium:.2f} · cost {money(self.cost, c)} "
+                    f"(no options on this stock)")
+            if self.lots == 0:
+                head = f"   0 shares: your {money(self.capital * self.risk_pct, c)} risk budget is below one share's risk"
+            return [head,
+                    f"   STOP: sell if {sym} trades below {self.stop_underlying:.2f} · max loss {money(self.max_loss_at_stop, c)}",
+                    f"   TARGET: sell half at {self.target1_underlying:.2f}, rest at {self.target2_underlying:.2f} · "
+                    f"time exit {self.time_stop:%d-%b}"]
         if self.lot_size is None:
             return [f"   Not tradable in F&O: {self.lot_source}"]
         head = (f"   BUY {self.lots} lot{'s' if self.lots != 1 else ''} {self.contract} · lot {self.lot_size} · "
@@ -207,6 +220,18 @@ def plan_trade(
         cost = premium * lot * n_lots
         loss_stop = per_lot_risk * n_lots
         loss_total = cost
+    if lot is None and india and bullish and not lot_override:
+        # no options on this stock: size a plain share purchase on the same stop and targets
+        per_share = max(entry - stop, 0.05)
+        shares = int(min((capital * risk_pct) // per_share, (capital * 0.5) // entry))
+        return TradePlan(
+            ticker, "CALL", entry, add_trading_days(as_of, horizon), "no expiry (shares)", 0.0, round(entry, 2),
+            "last close; buy at the open with a limit near it", 1, "shares", shares, round(shares * entry, 2),
+            round(stop, 2), round(stop, 2), round(t1, 2), round(t1, 2), round(t2, 2), round(t2, 2),
+            round(per_share * shares, 2), round(per_share * shares, 2), add_trading_days(as_of, horizon), capital,
+            risk_pct, currency, ["no options on this stock: the order is for shares (delivery)"], instrument="stock")
+    if lot is None and india and not bullish:
+        lot_src = "no options on this stock, and delivery shares cannot be sold short: skip this idea"
     if (expiry - as_of).days < 7:
         warnings.append("expiry is less than a week away: time decay is fast")
 

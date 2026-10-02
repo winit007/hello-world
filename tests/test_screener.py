@@ -21,10 +21,9 @@ def _df(seed, n=600):
 class ScreenTests(unittest.TestCase):
     def test_screen_ranks_and_limits(self):
         frames = {f"S{i}": _df(i) for i in range(12)}
-        with mock.patch.object(screener, "load_prices", side_effect=lambda t, *a, **k: frames[t]), \
-             mock.patch.object(screener, "load_news", return_value=[]), tempfile.TemporaryDirectory() as d:
-            picks, ranked, stats = screener.screen(list(frames), lookback=30, top=5, min_edge=-1.0,
-                                                   cache_dir=Path(d), log=lambda *a: None)
+        with mock.patch.object(screener, "load_news", return_value=[]), tempfile.TemporaryDirectory() as d:
+            picks, ranked, stats = screener.screen(list(frames), lookback=30, top=5, min_edge=-1.0, prices=frames,
+                                                   cache_dir=Path(d), log=lambda *a: None, min_turnover=0)
         self.assertEqual(stats["loaded"], 12)
         self.assertEqual(stats["as_of"], str(frames["S0"].index[-1].date()))
         self.assertLessEqual(len(picks), 5)

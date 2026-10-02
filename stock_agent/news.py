@@ -194,3 +194,45 @@ def summarize(headlines: list[Headline]) -> dict:
         "neutral": sum(1 for h in headlines if h.label == "neutral"),
         "themes": dict(sorted(themes.items(), key=lambda kv: -kv[1])),
     }
+
+
+def recent(headlines: list[Headline], days: int = 14) -> list[Headline]:
+    """Headlines from the last `days` days (undated ones are kept)."""
+    from datetime import date as _date, timedelta as _td
+
+    cutoff = (_date.today() - _td(days=days)).isoformat()
+    return [h for h in headlines if not h.published or h.published >= cutoff]
+
+
+def digest(headlines: list[Headline], bullish: bool, max_items: int = 4) -> dict:
+    """What the news says about one trade: a one-paragraph summary plus the headlines that mattered.
+
+    Headlines are scored for the trade's direction: a positive headline supports a CALL, a negative one a
+    PUT. The list keeps the strongest supporting and opposing headlines, newest first.
+    """
+    if not headlines:
+        return {"summary": "No recent headlines found; news did not affect this pick.", "items": []}
+    s = summarize(headlines)
+    sign = 1 if bullish else -1
+    dated = sorted(h.published for h in headlines if h.published)
+    span = f" from {dated[0]} to {dated[-1]}" if dated else ""
+
+    def role(h):
+        v = sign * h.sentiment
+        return "supports" if v >= 0.2 else "against" if v <= -0.2 else "neutral"
+
+    strong = [h for h in headlines if role(h) != "neutral"]
+    strong.sort(key=lambda h: abs(h.sentiment), reverse=True)
+    picked = strong[:max_items] or headlines[:min(2, len(headlines))]
+    picked.sort(key=lambda h: h.published or "", reverse=True)
+    sup = sum(1 for h in headlines if role(h) == "supports")
+    agn = sum(1 for h in headlines if role(h) == "against")
+    lean = ("leans in favour of" if s["mean"] * sign > 0.05 else "leans against" if s["mean"] * sign < -0.05
+            else "is mixed for")
+    themes = ", ".join(list(s["themes"])[:3])
+    summary = (f"{s['count']} headlines{span}: {sup} support the trade, {agn} go against it"
+               f"{'; themes: ' + themes if themes else ''}. Overall the news {lean} a "
+               f"{'bullish' if bullish else 'bearish'} trade (average sentiment {s['mean']:+.2f}).")
+    items = [{"date": h.published, "title": h.title, "source": h.source, "link": h.link,
+              "sentiment": round(h.sentiment, 2), "role": role(h), "themes": h.themes} for h in picked]
+    return {"summary": summary, "items": items}

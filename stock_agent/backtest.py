@@ -40,6 +40,9 @@ def baseline_win_rates(close: np.ndarray, horizons) -> dict[tuple[str, int], flo
     """Unconditional probability that price is up (or down) after H bars."""
     out = {}
     for h in horizons:
+        if len(close) <= h:  # too little history (a new listing)
+            out[("bullish", h)] = out[("bearish", h)] = float("nan")
+            continue
         r = close[h:] / close[:-h] - 1.0
         out[("bullish", h)] = float((r > 0).mean())
         out[("bearish", h)] = float((r < 0).mean())

@@ -132,14 +132,17 @@ def plan_dict(plan) -> dict | None:
 
 def run_screen(settings: dict, progress) -> dict:
     from . import screener
-    from .universes import UNIVERSES
+    from .universes import get_universe
 
     if settings.get("universe") == "custom":
         tickers = [t.strip().upper() for t in str(settings.get("custom", "")).replace(";", ",").split(",") if t.strip()]
         if not tickers:
             raise ValueError("Add some symbols to your custom list in Settings, e.g. INFY.NS, TCS.NS")
     else:
-        tickers = UNIVERSES.get(settings.get("universe", "nifty50"), UNIVERSES["nifty50"])
+        try:
+            tickers = get_universe(settings.get("universe", "nifty50"))
+        except KeyError:
+            tickers = get_universe("nifty50")
     picks, ranked, stats = screener.screen(
         tickers, horizon=int(settings["horizon"]), top=int(settings["top"]), cache_dir=CACHE,
         capital=float(settings["capital"]), risk_pct=float(settings["risk"]) / 100,
@@ -163,10 +166,11 @@ def run_screen(settings: dict, progress) -> dict:
 
 def run_track(settings: dict, replay_days: int, progress) -> dict:
     from . import screener, tracker
-    from .universes import UNIVERSES
+    from .universes import get_universe
 
     if replay_days:
-        tickers = (UNIVERSES.get(settings.get("universe"), UNIVERSES["nifty50"]) if settings.get("universe") != "custom"
+        name = settings.get("universe", "nifty50")
+        tickers = (get_universe(name if name != "nse_all" else "fno") if name != "custom"   # replaying 2,000 stocks
                    else [t.strip().upper() for t in str(settings.get("custom", "")).split(",") if t.strip()])
         progress("Loading prices", 0.05)
         prices = screener.load_universe(tickers, "10y", "1d", False, CACHE, log=lambda *a: None,
@@ -183,6 +187,18 @@ def run_track(settings: dict, replay_days: int, progress) -> dict:
         x.pop("daily_values", None)
     progress("Done", 1.0)
     return ev
+
+
+def run_ipo(days: int, progress) -> dict:
+    from . import ipo
+
+    progress("Reading NSE's list of new listings", 0.05)
+    df = ipo.listings(days, False, CACHE, progress=lambda m, f: progress(m, 0.1 + f * 1.2))
+    progress("Reading IPO news", 0.85)
+    news = ipo.ipo_news(False, CACHE)
+    progress("Done", 1.0)
+    return {"days": days, "listings": clean(df.to_dict("records")),
+            "news": [{**clean(h), "label": h.label} for h in news]}
 
 
 def run_stock(ticker: str, settings: dict, progress) -> dict:
@@ -206,6 +222,11 @@ def run_stock(ticker: str, settings: dict, progress) -> dict:
     chain = options.load_chain(ticker, False, CACHE)
     trade = options.recommend(outlook, df, chain)
     plan = None
+    if len(df) < 250:  # a new listing: nothing to backtest, so no verdict
+        trade.action = "NO TRADE"
+        trade.reason = (f"Listed only {len(df)} trading sessions ago. The candlestick rules need about a year of history "
+                        "to be tested, so this page shows the chart and news only.")
+        trade.warnings = []
     if trade.action != "NO TRADE":
         counted = [s for s in outlook.signals if s.get("counted")]
         sig = counted[0] if counted else None
@@ -417,11 +438,14 @@ class Handler(BaseHTTPRequestHandler):
                 entries = _read_json(JOURNAL_FILE, [])
                 return self._send(200, {"entries": entries, "summary": journal_summary(entries)})
             if url.path == "/api/symbols":
-                from .universes import UNIVERSES
+                from .universes import get_universe
 
-                return self._send(200, sorted({t for v in UNIVERSES.values() for t in v}))
+                syms = set(get_universe("nse_all", True)) | set(get_universe("sp500", True))
+                return self._send(200, sorted(syms))
             if url.path == "/api/track":
                 return self._send(200, {"job": start_job("track", run_track, load_settings(), int(q.get("replay", 0) or 0))})
+            if url.path == "/api/ipo":
+                return self._send(200, {"job": start_job("ipo", run_ipo, max(7, min(int(q.get("days", 90)), 730)))})
             if url.path == "/api/stock":
                 return self._send(200, {"job": start_job("stock", run_stock, q.get("ticker", ""), load_settings())})
             return self._send(404, {"error": "not found"})

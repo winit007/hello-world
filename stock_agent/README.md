@@ -234,6 +234,51 @@ mode, not real money, unless a future lab run shows a positive result on untouch
 The *success rate* on each pick is this trade-based win rate (blended with the universe rate for small
 samples), compared with the same trade started on an ordinary day.
 
+## Which stocks it scans
+
+Pick the list in *Settings* (app) or with `--universe` (command line):
+
+| List | Stocks | Notes |
+|---|---|---|
+| `nifty50` | 50 | default |
+| `nifty100` | 100 | |
+| `fno` | about 215 | every NSE stock with options, so every pick can be an option order |
+| `nse_all` | about 2,300 | every NSE stock in the main segment; first scan downloads 10 years for all of them (about 7 minutes), later scans only fetch the newest days |
+| `sp500` | about 500 | US |
+| `us` | 30 | US mega caps |
+
+The lists come from NSE's own files (and a public S&P 500 file), refreshed once a day, with dated copies
+bundled for offline use. Prices are downloaded in batches and cached; only the last few months are
+fetched for stocks already in the cache, and a full history is reloaded when a split or bonus has
+re-adjusted it. Stocks trading less than about ₹2 crore a day ($5 million in the US) are skipped as
+thinly traded. Picks on stocks without options get a share order instead (shares to buy, cost, stop,
+targets); bearish picks without options are marked as not tradable, since delivery shares cannot be shorted.
+
+```bash
+python -m stock_agent screen --universe fno --brief --capital 200000 --risk 2
+python -m stock_agent screen --universe nse_all --brief
+```
+
+## The news behind each pick
+
+Each pick lists what the last 14 days of headlines say about that trade: how many headlines, how many
+support or go against it, the main themes, and the strongest ones with their date, source, score and a
+link. News only moves a pick's score by up to ±0.10 (and removes picks it strongly contradicts); the
+candlestick backtest chooses the candidates.
+
+## New IPOs
+
+```bash
+python -m stock_agent ipo --days 90
+```
+
+The app's *New IPOs* page lists stocks first listed on NSE in the last 30, 90 or 365 days with their
+listing price (first day's open), day-one move, latest price, change since listing and distance from
+their high, plus the latest IPO news (upcoming issues, subscriptions, allotments, listings). The list comes
+from NSE's equity file, so it also includes a few demergers and relistings. New listings have too little
+history for the candlestick backtest, so they never appear in the picks and their stock page shows the
+chart and news without a verdict.
+
 ## The call / put verdict
 
 `trade` (and the *Options trade* section of `research`) works like this:
@@ -289,7 +334,9 @@ stock_agent/
   report.py     outlook scoring and markdown report
   options.py    call/put verdict: expiry & strike selection, breakeven odds, Black-Scholes IV
   screener.py   top-N picks across a universe: shrunk success rate + news tilt + recency check
-  universes.py  built-in Nifty 50 and US mega-cap lists
+  universes.py  stock lists from NSE files (Nifty 50/100, F&O, all NSE) and the S&P 500; recent listings
+  lists/        dated copies of those lists for offline use
+  ipo.py        new listings since their IPO, and IPO news
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)

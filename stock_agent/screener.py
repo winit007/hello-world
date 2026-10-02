@@ -23,7 +23,7 @@ import pandas as pd
 from .backtest import evaluate_rules, pool_rules
 from .tradetest import allowed_mask, load_strategy, pooled_stats, trade_outcomes, trade_stats
 from .data import DEFAULT_CACHE, load_prices
-from .news import load_news, summarize
+from .news import digest, load_news, recent as recent_news, summarize
 from .patterns import BULLISH, PATTERN_BY_NAME, detect_all
 
 
@@ -49,6 +49,10 @@ class Pick:
     recent_n: int = 0             # signals in the most recent `recent_bars`
     recent_win_rate: float = float("nan")
     plan: object = None           # sizing.TradePlan once sized
+    news_summary: str = ""        # what the recent headlines say about this trade
+    news_items: list = field(default_factory=list)  # the headlines that mattered, with date and link
+    news_effect: float = 0.0      # how much the news moved the score
+    avg_r: float = float("nan")   # average result on the stock itself, in multiples of the stop distance
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -66,22 +70,34 @@ def _trend(close: pd.Series) -> str:
 
 
 def load_universe(tickers, period, interval, offline, cache_dir, log=print, progress=None) -> dict[str, pd.DataFrame]:
-    done = [0]
+    """Prices for many tickers: one batched refresh of the cache, then read everything from disk."""
+    from .data import _cache_path, read_cached, refresh_many
 
-    def one(t):
+    if not offline:
+        failed = refresh_many(list(tickers), period, interval, cache_dir, progress=progress)
+        if failed:
+            log(f"[screen] no fresh data for {len(failed)} symbol(s): {', '.join(failed[:8])}{' ...' if len(failed) > 8 else ''}")
+    out = {}
+    for t in tickers:
+        path = _cache_path(cache_dir, t, period, interval)
+        if not path.exists():
+            continue
         try:
-            df = load_prices(t, period, interval, offline, cache_dir)
-            out = t, df if len(df) >= 250 else None
+            df = read_cached(path)
         except Exception as exc:
             log(f"[screen] skip {t}: {exc}")
-            out = t, None
-        done[0] += 1
-        if progress:
-            progress(f"Loading prices {done[0]}/{len(tickers)}", 0.6 * done[0] / len(tickers))
-        return out
+            continue
+        if len(df) >= 250:
+            out[t] = df
+    if progress:
+        progress(f"Loaded {len(out)} of {len(tickers)} stocks", 0.6)
+    return out
 
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        return {t: df for t, df in ex.map(one, tickers) if df is not None}
+
+def liquid(df: pd.DataFrame, min_turnover: float) -> bool:
+    """Median daily traded value over the last 60 days (price x volume) at least `min_turnover`."""
+    tail = df.tail(60)
+    return float((tail["Close"] * tail["Volume"]).median()) >= min_turnover
 
 
 def screen(
@@ -107,6 +123,8 @@ def screen(
     prices: dict | None = None,
     use_chain: bool = True,
     outcomes: dict | None = None,
+    min_turnover: float | None = None,
+    news_limit: int | None = None,
 ) -> tuple[list[Pick], list[Pick], dict]:
     """Return (top picks, every candidate ranked, stats).
 
@@ -118,8 +136,14 @@ def screen(
     kw = {"cache_dir": cache_dir}
     if prices is None:  # callers replaying past days pass prices already cut off at that day
         prices = load_universe(tickers, period, interval, offline, cache_dir, log, progress)
-    progress("Backtesting candlestick rules", 0.65)
-    log(f"[screen] {len(prices)}/{len(tickers)} stocks loaded; backtesting {horizon}-bar rules ...")
+    loaded = len(prices)
+    # thinly traded stocks: wide spreads and stops that cannot be honoured; drop before any work
+    def _min_turn(t):
+        return min_turnover if min_turnover is not None else (2e7 if t.upper().endswith((".NS", ".BO")) else 5e6)
+    prices = {t: df for t, df in prices.items() if liquid(df, _min_turn(t))}
+    illiquid = loaded - len(prices)
+    progress(f"Backtesting candlestick rules on {len(prices)} liquid stocks", 0.65)
+    log(f"[screen] {loaded}/{len(tickers)} stocks loaded, {len(prices)} liquid; backtesting {horizon}-bar trades ...")
 
     # every past signal replayed as the actual trade (see tradetest.py); computed once per stock
     if outcomes is None:
@@ -164,6 +188,7 @@ def screen(
                 success=(wins + prior_strength * p_rate) / (n + prior_strength), baseline=baseline,
                 avg_return=(sum_ret + prior_strength * p_ret) / (n + prior_strength),
                 trend=_trend(df["Close"]),
+                avg_r=float(st.loc[name, "avg_r"]) if has else float("nan"),
             )
             if pick.edge < min_edge or pick.avg_return <= 0:
                 continue
@@ -187,14 +212,21 @@ def screen(
                     best.notes.append(f"edge faded: {best.recent_win_rate:.0%} in the last {recent_bars // 250}y")
             candidates.append(best)
     log(f"[screen] {len(candidates)} stocks have an active setup with a historical edge; reading news ...")
-    progress(f"Reading news for {len(candidates)} stocks with a setup", 0.75)
+    # news is slow (two feeds per stock): read it only for the strongest candidates
+    n_setups = len(candidates)
+    candidates.sort(key=lambda p: p.success, reverse=True)
+    candidates = candidates[: (news_limit or max(top * 4, 20))]
+    progress(f"Reading news for the {len(candidates)} strongest setups", 0.75)
 
     # ---- news for candidates only
     def news(p: Pick):
         if not news_weight:
             return p, {"count": 0, "mean": 0.0}
         try:
-            s = summarize(load_news(p.ticker, None, offline, **kw))
+            heads = recent_news(load_news(p.ticker, None, offline, **kw), days=14)  # only the last two weeks count
+            s = summarize(heads)
+            d = digest(heads, p.direction == BULLISH)
+            p.news_summary, p.news_items = d["summary"], d["items"]
         except Exception as exc:
             log(f"[screen] news failed for {p.ticker}: {exc}")
             s = {"count": 0, "mean": 0.0}
@@ -208,7 +240,8 @@ def screen(
         p.news_mean, p.news_count = float(s["mean"]), int(s["count"])
         sign = 1 if p.direction == BULLISH else -1
         p.news_aligned = float(np.clip(sign * p.news_mean * 4, -1, 1)) if p.news_count else 0.0
-        p.score = p.success + news_weight * p.news_aligned
+        p.news_effect = news_weight * p.news_aligned
+        p.score = p.success + p.news_effect
         if p.news_aligned <= -0.6:
             p.notes.append("news strongly contradicts the setup; excluded")
             continue
@@ -244,7 +277,8 @@ def screen(
     else:
         picks_override = None
     as_of = max((df.index[-1] for df in prices.values()), default=None)
-    stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked),
+    stats = {"universe": len(tickers), "loaded": loaded, "liquid": len(prices), "illiquid": illiquid,
+             "candidates": n_setups, "eligible": len(ranked),
              "as_of": str(as_of.date()) if as_of is not None else ""}
     progress("Done", 1.0)
     return (picks_override if picks_override is not None else ranked[:top]), ranked, stats
@@ -284,6 +318,16 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
                       f"{money(p.plan.max_loss_total, p.plan.currency)} · premium {p.plan.premium_source} · "
                       f"lot size from {p.plan.lot_source}")
             md.append("")
+    md += ["", "## The news behind each pick", "",
+           "_The candlestick backtest chooses the candidates; news from the last 14 days then moves each score by up "
+           "to ±0.10 and removes picks it strongly contradicts._", ""]
+    for i, p in enumerate(picks, 1):
+        md.append(f"**{i}. {p.ticker}** ({p.side}) · score effect {p.news_effect:+.2f}  ")
+        md.append((p.news_summary or "No recent headlines found.") + "  ")
+        for it in p.news_items:
+            md.append(f"- {it['date'] or 'undated'} · {it['role']} ({it['sentiment']:+.2f}) · "
+                      f"[{it['title']}]({it['link']}) · {it['source']}")
+        md.append("")
     md += ["", "Notes:", ""]
     for p in picks:
         extra = "; ".join(p.notes) if p.notes else "none"
@@ -321,10 +365,19 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
     for i, p in enumerate(picks, 1):
         recent = f", last 3y {p.recent_win_rate:.0%}" if p.recent_n else ""
         news = f" · news {p.news_mean:+.2f}" if p.news_count else ""
-        lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {p.side} @ {p.last_close:.2f} · {p.pattern} ({p.signal_date[5:]}) · "
-                     f"{p.success:.0%} of past trades won (random day {p.baseline:.0%}{recent}), avg {p.avg_return:+.0%} on the option{news}")
+        shares = p.plan is not None and p.plan.instrument == "stock"
+        what = "SHARES" if shares else p.side
+        result = (f"avg {p.avg_r:+.2f}x the stop distance on the shares" if shares and p.avg_r == p.avg_r
+                  else f"avg {p.avg_return:+.0%} on the option")
+        lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {what} @ {p.last_close:.2f} · {p.pattern} ({p.signal_date[5:]}) · "
+                     f"{p.success:.0%} of past trades won (random day {p.baseline:.0%}{recent}), {result}{news}")
         if p.plan is not None:
             lines += p.plan.lines()
+        if p.news_summary:
+            lines.append(f"   NEWS: {p.news_summary} Effect on the score: {p.news_effect:+.2f} of a possible ±{0.10:.2f}.")
+            for it in p.news_items[:3]:
+                title = it["title"] if len(it["title"]) <= 110 else it["title"][:107] + "..."
+                lines.append(f"     · {it['date'] or 'undated'} [{it['role']}, {it['sentiment']:+.2f}] {title} ({it['source']})")
         for n in p.notes:
             lines.append(f"   ! {n}")
     plans = [p.plan for p in picks if p.plan is not None]
@@ -335,7 +388,8 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
 
         lines.append(f"Sized for {money(pl.capital, pl.currency)} capital, {pl.risk_pct:.0%} risk per trade."
                      + (" Premiums are model estimates: check live quotes." if est else ""))
-    lines.append(f"Scanned {stats['loaded']} stocks, {stats['candidates']} with an edge. Not investment advice.")
+    skipped = f" ({stats['illiquid']} skipped as thinly traded)" if stats.get("illiquid") else ""
+    lines.append(f"Scanned {stats['loaded']} stocks{skipped}, {stats['candidates']} with an edge. Not investment advice.")
     v = validation_line()
     if v:
         lines.append(v)

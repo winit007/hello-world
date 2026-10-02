@@ -207,6 +207,7 @@ details.events li { margin: 2px 0; }
       <button role="tab" data-tab="stock">Stock lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="track">Track record</button>
+      <button role="tab" data-tab="ipo">New IPOs</button>
       <button role="tab" data-tab="settings">Settings</button>
       <button role="tab" data-tab="help">How to use</button>
     </nav>
@@ -286,6 +287,22 @@ details.events li { margin: 2px 0; }
     <div id="track"></div>
   </section>
 
+  <!-- ============ NEW IPOS ============ -->
+  <section class="page" id="page-ipo">
+    <div class="head-row">
+      <div>
+        <h1>New IPOs</h1>
+        <p class="sub">Stocks newly listed on NSE and how they have traded since listing day, plus the latest IPO news.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="ipo-days" aria-label="Listed within"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option><option value="365">Last 12 months</option></select>
+        <button class="btn primary" id="ipo-load">Show</button>
+      </div>
+    </div>
+    <div class="progress" id="ipo-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="ipo"></div>
+  </section>
+
   <!-- ============ SETTINGS ============ -->
   <section class="page" id="page-settings">
     <div class="head-row"><div><h1>Settings</h1><p class="sub">Saved on this computer. Every scan and order uses them.</p></div></div>
@@ -301,6 +318,10 @@ details.events li { margin: 2px 0; }
         <div class="field"><label for="s-universe">Stocks to scan</label>
           <select id="s-universe">
             <option value="nifty50">Nifty 50 (India)</option>
+            <option value="nifty100">Nifty 100 (India)</option>
+            <option value="fno">All F&amp;O stocks, about 215 (India)</option>
+            <option value="nse_all">All NSE stocks, about 2,300 (slow first scan)</option>
+            <option value="sp500">S&amp;P 500 (US)</option>
             <option value="us">US mega caps</option>
             <option value="custom">My own list</option>
           </select></div>
@@ -426,13 +447,15 @@ function showTab(name) {
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
   if (name === "track") loadTrack(0);
+  if (name === "ipo" && !window._ipoLoaded) loadIpo();
   if (name === "settings") { fillSettings(); loadKite(); }
   try { sessionStorage.setItem("tab", name); } catch (e) {}
 }
 $$("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
 /* ---------------- shared pieces ---------------- */
-function sidePill(side) {
+function sidePill(side, plan) {
+  if (plan && plan.instrument === "stock") return `<span class="pill call">▲ BUY SHARES</span>`;
   if (side === "CALL") return `<span class="pill call">▲ BUY CALL</span>`;
   if (side === "PUT") return `<span class="pill put">▼ BUY PUT</span>`;
   return `<span class="pill none">NO TRADE</span>`;
@@ -440,6 +463,17 @@ function sidePill(side) {
 function orderBlock(plan, ticker) {
   if (!plan) return "";
   const c = plan.currency;
+  if (plan.instrument === "stock") {
+    return (plan.lots > 0
+      ? `<div class="order"><div class="line1">BUY ${plan.lots} shares · ${esc(bare(plan.ticker))}</div>
+         <div class="line2 num">No options on this stock, so the order is for shares · ~${money(plan.premium, c, 2)} each · total cost <b>${money(plan.cost, c)}</b> · max loss at stop ${money(plan.max_loss_at_stop, c)}</div>`
+      : `<div class="order blocked"><div class="line1">Not affordable at your risk limit</div><div class="line2">One share risks more than your limit.</div>`)
+      + `<div class="levels num">
+      <div class="level stop"><div class="k">Stop</div><div class="v">below ${plan.stop_underlying.toFixed(2)}</div><div class="p">sell all</div></div>
+      <div class="level tgt"><div class="k">Target 1</div><div class="v">${plan.target1_underlying.toFixed(2)}</div><div class="p">sell half</div></div>
+      <div class="level tgt"><div class="k">Target 2</div><div class="v">${plan.target2_underlying.toFixed(2)}</div><div class="p">sell rest</div></div>
+      <div class="level"><div class="k">Exit by</div><div class="v">${fmtDate(plan.time_stop)}</div><div class="p">if nothing hit</div></div></div></div>`;
+  }
   if (plan.lot_size == null) return `<div class="order blocked"><div class="line1">Not tradable in F&amp;O</div><div class="line2">${esc(plan.lot_source)}</div></div>`;
   const head = plan.lots > 0
     ? `<div class="order"><div class="line1">BUY ${plan.lots} lot${plan.lots > 1 ? "s" : ""} · ${esc(plan.contract)}</div>
@@ -456,19 +490,29 @@ function orderBlock(plan, ticker) {
 }
 
 /* ---------------- picks ---------------- */
+function newsBlock(p) {
+  if (!p.news_summary) return "";
+  const items = (p.news_items || []).map(it => `<li><span class="num" style="color:var(--muted)">${fmtDate(it.date)}</span>
+      <span class="pill ${it.role === "supports" ? "call" : it.role === "against" ? "put" : "none"}" style="font-size:11px;padding:0 6px">${esc(it.role)} ${it.sentiment >= 0 ? "+" : ""}${it.sentiment.toFixed(2)}</span>
+      <a href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a> <span style="color:var(--muted)">· ${esc(it.source)}</span></li>`).join("");
+  return `<details class="news-why" style="margin-top:10px"><summary style="cursor:pointer;font-weight:600;font-size:14px">News behind this pick
+      <span class="sub" style="font-weight:400">(score ${p.news_effect >= 0 ? "+" : ""}${(p.news_effect || 0).toFixed(2)})</span></summary>
+    <p style="font-size:13.5px;color:var(--ink-2);margin:6px 0">${esc(p.news_summary)}</p>
+    <ul style="padding-left:16px;margin:0;font-size:13.5px;display:grid;gap:6px">${items}</ul></details>`;
+}
 function renderPicks(res) {
   const box = $("#picks");
   if (!res) { box.innerHTML = `<div class="card empty"><span class="et">No scan yet</span>Press <b>Scan now</b>. The first scan downloads 10 years of prices and takes a minute or two.</div>`; return; }
   const s = res.settings || {}, st = res.stats || {};
-  const c = (s.universe === "us") ? "$" : "₹";
-  $("#picks-sub").innerHTML = `Market data to <b>${fmtDate(st.as_of)}</b> · ${st.loaded} stocks scanned · ${st.candidates} with an active setup · sized for ${money(s.capital, c)} at ${s.risk}% risk · ${s.horizon}-day hold`;
+  const c = ["us", "sp500"].includes(s.universe) ? "$" : "₹";
+  $("#picks-sub").innerHTML = `Market data to <b>${fmtDate(st.as_of)}</b> · ${st.loaded} stocks scanned${st.illiquid ? ` (${st.illiquid} thinly traded skipped)` : ""} · ${st.candidates} with an active setup · sized for ${money(s.capital, c)} at ${s.risk}% risk · ${s.horizon}-day hold`;
   if (!res.picks.length) {
     box.innerHTML = `<div class="card empty"><span class="et">Nothing qualifies today</span>${s.affordable_only ? "No setup with an edge fits your risk limit. Turn off <i>Only trades I can afford</i> to see them anyway, or raise your risk in Settings." : "No stock has an active setup with a historical edge. Sitting out is a valid answer."}</div>`;
     return;
   }
   const blocked = res.picks.filter(p => p.plan && p.plan.lots === 0).length;
   let html = "";
-  if (res.validation_text) html += `<div class="notice ${res.validation && res.validation.test_avg_ret <= 0 ? "error" : ""}"><b>Strategy check:</b> ${esc(res.validation_text)}</div>`;
+  if (res.validation_text) html += `<div class="notice ${res.validation && res.validation.test_avg_ret <= 0 ? "error" : ""}">${esc(res.validation_text)}</div>`;
   if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade. Tick <b>Only trades I can afford</b> to see only tradeable ones.</div>`;
   if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. If today is a trading day, scan again after 3:30 pm IST for fresh picks.</div>`;
   html += `<div class="grid">` + res.picks.map((p, i) => {
@@ -476,7 +520,7 @@ function renderPicks(res) {
     const scale = x => Math.max(0, Math.min(100, x * 100));
     return `<article class="card">
       <div class="pick-top"><span class="rank">${i + 1}</span>
-        <div><div class="ticker">${esc(bare(p.ticker))}</div>${sidePill(p.side)}</div>
+        <div><div class="ticker">${esc(bare(p.ticker))}</div>${sidePill(p.side, p.plan)}</div>
         <div class="price num"><b>${money(p.last_close, c2, 2)}</b><div class="sub" style="font-size:12.5px">trend ${esc(p.trend)}</div></div></div>
       <div class="setup">${esc(p.pattern)} on ${fmtDate(p.signal_date)}</div>
       <div class="meter">
@@ -485,9 +529,10 @@ function renderPicks(res) {
           <div class="fill" style="width:${scale(p.success)}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
       </div>
       <div class="stats num"><span>Past signals <b>${p.n}</b></span><span>Last 3 years <b>${p.recent_n ? pct(p.recent_win_rate) : "–"}</b></span>
-        <span>Avg option return <b>${spct(p.avg_return, 0)}</b></span><span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
+        ${p.plan && p.plan.instrument === "stock" ? `<span>Avg result <b>${p.avg_r == null ? "–" : (p.avg_r >= 0 ? "+" : "") + p.avg_r.toFixed(2) + "× stop"}</b></span>` : `<span>Avg option return <b>${spct(p.avg_return, 0)}</b></span>`}<span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
       ${orderBlock(p.plan, p.ticker)}
       ${warns ? `<div class="warns">${warns}</div>` : ""}
+      ${newsBlock(p)}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
         ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}
         ${kiteable(p.ticker, p.plan) ? `<button class="btn small primary" data-kite="${i}">Place on Kite</button>` : ""}</div>
@@ -580,7 +625,7 @@ async function loadJournal(sync = true) {
 /* ---------------- settings ---------------- */
 function budgetText() {
   const cap = +$("#s-capital").value || 0, r = +$("#s-risk").value || 0;
-  const c = $("#s-universe").value === "us" ? "$" : "₹";
+  const c = ["us", "sp500"].includes($("#s-universe").value) ? "$" : "₹";
   $("#s-budget").innerHTML = `You can lose up to <b>${money(cap * r / 100, c)}</b> on each trade before the stop-loss closes it.`;
   $("#s-custom-wrap").hidden = $("#s-universe").value !== "custom";
 }
@@ -716,6 +761,43 @@ function drawChart(d) {
   $("#hit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
 }
 
+/* ---------------- new IPOs ---------------- */
+async function loadIpo() {
+  window._ipoLoaded = true;
+  const box = $("#ipo");
+  try {
+    const d = await runJob(api("/api/ipo?days=" + $("#ipo-days").value), $("#ipo-progress"));
+    renderIpo(d);
+  } catch (e) { box.innerHTML = `<div class="notice error">Could not load new listings: ${esc(e.message)}</div>`; }
+}
+$("#ipo-load").onclick = loadIpo;
+function renderIpo(d) {
+  const t = d.listings.filter(r => r.status === "trading");
+  const up = t.filter(r => r.since_listing_pct > 0).length;
+  const avg = t.length ? t.reduce((a, r) => a + r.since_listing_pct, 0) / t.length : null;
+  const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
+  $("#ipo").innerHTML = `
+    <div class="tiles">
+      <div class="card tile"><div class="k">New listings</div><div class="v num">${d.listings.length}</div><div class="sub" style="font-size:12.5px">last ${d.days} days</div></div>
+      <div class="card tile"><div class="k">Above listing price</div><div class="v num">${up} of ${t.length}</div></div>
+      <div class="card tile"><div class="k">Average since listing</div><div class="v num ${cls(avg)}">${avg == null ? "–" : spct(avg)}</div></div>
+    </div>
+    <div class="card table-scroll"><h2>Listings</h2>
+      <table class="num"><thead><tr><th>Listed</th><th>Company</th><th class="r">Listing price</th><th class="r">Day 1</th><th class="r">Now</th><th class="r">Since listing</th><th class="r">From high</th><th></th></tr></thead><tbody>
+      ${d.listings.map(r => `<tr><td>${fmtDate(r.listed)}</td><td><b>${esc(r.symbol)}</b>${r.series !== "EQ" ? ` <span class="pill none" style="font-size:11px" title="Trade-to-trade segment: every trade must be delivered">${esc(r.series)}</span>` : ""}<div class="sub" style="font-size:12px">${esc(r.name)}</div></td>
+        ${r.status === "trading" ? `<td class="r">${money(r.listing_open, "₹", 2)}</td><td class="r ${cls(r.day1_pct)}">${spct(r.day1_pct)}</td><td class="r">${money(r.last, "₹", 2)}</td>
+          <td class="r ${cls(r.since_listing_pct)}"><b>${spct(r.since_listing_pct)}</b></td><td class="r ${cls(r.from_high_pct)}">${spct(r.from_high_pct)}</td>
+          <td class="r"><button class="btn small" data-ipo="${esc(r.ticker)}">Details</button></td>`
+          : `<td colspan="6" class="sub">no price data yet</td>`}</tr>`).join("")}
+      </tbody></table>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Listing price is the first day's opening price. The list comes from NSE's equity file, so it also contains a few demergers and relistings. BE means the stock trades in the trade-to-trade segment. New listings have too little history for the candlestick backtest, so they are not in Today's picks.</p></div>
+    <div class="card" style="margin-top:14px"><h2>IPO news</h2>
+      ${d.news.map(h => { const k = h.label === "positive" ? "pos" : h.label === "negative" ? "neg" : "neu";
+        return `<div class="news-item"><span class="s ${k} num">${h.sentiment >= 0 ? "+" : ""}${h.sentiment.toFixed(2)}</span>
+        <div><a href="${esc(h.link)}" target="_blank" rel="noopener noreferrer">${esc(h.title)}</a><div class="meta">${esc(h.source)} · ${fmtDate(h.published)}</div></div></div>`; }).join("") || '<p class="sub">No IPO headlines found.</p>'}</div>`;
+  $$("[data-ipo]", $("#ipo")).forEach(b => b.onclick = () => { showTab("stock"); $("#stock-input").value = b.dataset.ipo; analyse(b.dataset.ipo); });
+}
+
 /* ---------------- track record ---------------- */
 async function loadTrack(replay) {
   const box = $("#track");
@@ -811,7 +893,7 @@ function drawPnl(ev) {
 }
 
 /* ---------------- Zerodha Kite ---------------- */
-function kiteable(ticker, plan) { return /\.(NS|BO)$/i.test(ticker || "") && plan && plan.lots > 0 && KITE.configured; }
+function kiteable(ticker, plan) { return /\.(NS|BO)$/i.test(ticker || "") && plan && plan.instrument !== "stock" && plan.lots > 0 && KITE.configured; }
 async function loadKite() {
   try { KITE = await api("/api/kite/status"); } catch (e) { KITE = {}; }
   $("#k-dot").classList.toggle("on", !!KITE.connected);
