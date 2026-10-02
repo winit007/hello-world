@@ -213,6 +213,7 @@ details.events li { margin: 2px 0; }
 .pp-pv .row span:first-child { color: var(--ink-2); }
 .pp-log { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 13px; }
 .pp-log .t { color: var(--muted); margin-right: 6px; }
+body.static [data-detail], body.static [data-ipo], body.static .live-only { display: none !important; }
 .foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 @media (max-width: 720px) {
   .pp-layout { grid-template-columns: 1fr; }
@@ -236,9 +237,9 @@ details.events li { margin: 2px 0; }
     </span>Stock Agent</div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
-      <button role="tab" data-tab="stock">Lookup</button>
+      <button role="tab" data-tab="stock" class="live-only">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
-      <button role="tab" data-tab="paper">Paper trading</button>
+      <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
       <button role="tab" data-tab="track">Track record</button>
       <button role="tab" data-tab="ipo">New IPOs</button>
       <button role="tab" data-tab="crypto">Crypto</button>
@@ -246,7 +247,7 @@ details.events li { margin: 2px 0; }
       <button role="tab" data-tab="fund">Model fund</button>
       <button role="tab" data-tab="goals">Goals</button>
       <button role="tab" data-tab="rebalance">Rebalance</button>
-      <button role="tab" data-tab="settings">Settings</button>
+      <button role="tab" data-tab="settings" class="live-only">Settings</button>
       <button role="tab" data-tab="help">Help</button>
     </nav>
     <button class="icon-btn" id="theme" title="Switch light / dark" aria-label="Switch light or dark theme">
@@ -256,6 +257,7 @@ details.events li { margin: 2px 0; }
 </header>
 
 <main>
+  <div class="notice" id="static-banner" hidden></div>
   <!-- ============ PICKS ============ -->
   <section class="page active" id="page-picks">
     <div class="head-row">
@@ -264,7 +266,7 @@ details.events li { margin: 2px 0; }
         <p class="sub" id="picks-sub">Scan the market to find today's best candlestick setups.</p>
       </div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <label class="switch" title="Only show stocks where at least one lot fits your risk limit">
+        <label class="switch live-only" title="Only show stocks where at least one lot fits your risk limit">
           <input type="checkbox" id="afford"> Only trades I can afford
         </label>
         <button class="btn primary" id="scan">Scan now</button>
@@ -368,7 +370,7 @@ details.events li { margin: 2px 0; }
         <h1>Track record</h1>
         <p class="sub">What the picks would have made if you had taken every one, day by day.</p>
       </div>
-      <button class="btn" id="track-replay" title="Rebuild the picks of the last 10 market days from prices">Rebuild last 10 days</button>
+      <button class="btn live-only" id="track-replay" title="Rebuild the picks of the last 10 market days from prices">Rebuild last 10 days</button>
     </div>
     <div class="notice">Rules used: buy at the next morning's open, sell half at Target 1 and the rest at Target 2, sell everything
       as soon as the stock trades through the stop, and sell what is left on the exit date. Option prices are
@@ -423,9 +425,9 @@ details.events li { margin: 2px 0; }
       <div><h1>Model fund</h1>
         <p class="sub">A rules-based stock portfolio built like a systematic fund house's factor fund: momentum plus low volatility, equal weight, at most 5 stocks per industry.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select style="width:auto" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
-        <select style="width:auto" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
-        <select style="width:auto" id="f-rebal" aria-label="Rebalance"><option value="Q" selected>Quarterly</option><option value="M">Monthly</option></select>
+        <select style="width:auto" class="live-only" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
+        <select style="width:auto" class="live-only" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
+        <select style="width:auto" class="live-only" id="f-rebal" aria-label="Rebalance"><option value="Q" selected>Quarterly</option><option value="M">Monthly</option></select>
         <button class="btn primary" id="f-run">Build fund</button>
       </div>
     </div>
@@ -587,7 +589,8 @@ details.events li { margin: 2px 0; }
         <ol><li><b>Crypto</b> and <b>Commodities</b> use the same candlestick engine on coins (daily) and gold, silver, crude, gas and copper (15-minute). Each shows its own strategy check at the top.</li>
         <li><b>Goals</b> turns a target amount and date into a monthly investment and a mix of equity, debt and gold, with the chance of getting there.</li>
         <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li>
-        <li><b>On your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
+        <li><b>Phone app, no PC needed</b>: open <a href="https://winit007.github.io/hello-world/" target="_blank" rel="noopener">winit007.github.io/hello-world</a> in Chrome and tap <b>Install app</b>. It shows the evening run's results; Goals, Rebalance and My trades work on the phone.</li>
+        <li><b>This PC app on your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
       <div class="card"><h2>Trade checklist</h2>
         <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live Kite orders are refused until all pass.</p>
         <ol><li><b>Proven edge</b>: has this setup made money on data it wasn't tuned on, after costs?</li>
@@ -626,8 +629,10 @@ const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
 const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "–";
 let SETTINGS = {}, KITE = {};
 const TOKEN = document.querySelector('meta[name="agent-token"]').content;
+const STATIC = (document.querySelector('meta[name="static-site"]') || {}).content === "1";
 
 async function api(path, opts = {}) {
+  if (STATIC) return staticApi(path, opts);
   const r = await fetch(path, { headers: { "Content-Type": "application/json", "X-Agent-Token": TOKEN }, ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined });
   const j = await r.json();
@@ -635,7 +640,9 @@ async function api(path, opts = {}) {
   return j;
 }
 async function runJob(startPromise, box) {
-  const { job } = await startPromise;
+  const started = await startPromise;
+  if (STATIC) return started.__result;
+  const { job } = started;
   box.hidden = false;
   const fill = $(".fill", box), msg = $(".msg", box);
   while (true) {
@@ -662,11 +669,14 @@ $("#theme").onclick = () => {
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
 function showTab(name) {
+  if (STATIC && ["stock", "paper", "settings"].includes(name)) name = "picks";
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
+  if (STATIC && ["crypto", "commodities"].includes(name) && !$("#" + name).innerHTML.trim()) $(`[data-market-scan="${name}"]`).click();
+  if (STATIC && name === "fund" && !window._lastFund) $("#f-run").click();
   if (name === "ipo" && !window._ipoLoaded) loadIpo();
   if (name === "goals") loadGoal();
   if (name === "rebalance") loadPortfolio();
@@ -748,8 +758,8 @@ function renderPicks(res) {
   const blocked = res.picks.filter(p => p.plan && p.plan.lots === 0).length;
   let html = "";
   if (res.validation_text) html += `<div class="notice ${res.validation && res.validation.test_avg_ret <= 0 ? "error" : ""}">${esc(res.validation_text)}</div>`;
-  if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade. Tick <b>Only trades I can afford</b> to see only tradeable ones.</div>`;
-  if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. If today is a trading day, scan again after 3:30 pm IST for fresh picks.</div>`;
+  if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade.${STATIC ? " The phone version is sized for ₹2,00,000 at 2% risk; these need a bigger budget or a wider stop." : " Tick <b>Only trades I can afford</b> to see only tradeable ones."}</div>`;
+  if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. ${STATIC ? "The evening run refreshes them after 4:15 pm IST on weekdays." : "If today is a trading day, scan again after 3:30 pm IST for fresh picks."}</div>`;
   html += `<div class="grid">` + res.picks.map((p, i) => {
     const c2 = cur(p.ticker), warns = (p.notes || []).map(n => `<span class="pill warn">⚠ ${esc(n)}</span>`).join("");
     const scale = x => Math.max(0, Math.min(100, x * 100));
@@ -1689,7 +1699,7 @@ setInterval(() => {
 ppSetup();
 
 function paperable(ticker, plan) {
-  return !!plan && /\.NS$/i.test(ticker || "") && (plan.instrument === "stock" || plan.lot_size != null);
+  return !STATIC && !!plan && /\.NS$/i.test(ticker || "") && (plan.instrument === "stock" || plan.lot_size != null);
 }
 function ppFill(o) {
   showTab("paper");
@@ -1717,8 +1727,218 @@ function paperFromMarket(res, r) {
   ppFill({ instrument: "commodity", product: "intraday", symbol: r.symbol, side: p.side === "SELL" ? "sell" : "buy", qty: Math.max(p.lots || 0, 1), stop: p.stop, target: p.target1, note: r.setup || "" });
 }
 
+/* ---------------- phone version (static site) ----------------
+   Served from GitHub Pages: scans come from data/*.json written by the evening run, Goals and Rebalance are
+   computed here, My trades is kept on this phone. Same formulas as planner.py and rebalance.py. */
+const _dataCache = {};
+function pubData(name) {
+  if (!_dataCache[name]) _dataCache[name] = fetch("data/" + name + ".json", { cache: "no-cache" }).then(r => {
+    if (!r.ok) throw new Error("This part was not published in the last evening run");
+    return r.json();
+  }).catch(e => { delete _dataCache[name]; throw e; });
+  return _dataCache[name];
+}
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sa-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("sa-" + k, JSON.stringify(v)); } catch (e) {} },
+};
+const today = () => new Date().toISOString().slice(0, 10);
+
+async function staticApi(path, opts) {
+  const method = (opts.method || "GET").toUpperCase(), body = opts.body || {};
+  const u = new URL(path, location.href), p = u.pathname.replace(/^.*\/api\//, "/api/"), q = u.searchParams;
+  const done = async x => ({ __result: await x });
+  if (p === "/api/settings") {
+    const meta = await pubData("meta").catch(() => ({ settings: {} }));
+    if (method === "POST") store.set("settings", { ...store.get("settings", {}), ...body });
+    return { capital: 200000, risk: 2, horizon: 5, top: 5, universe: "fno", ...meta.settings, ...store.get("settings", {}) };
+  }
+  if (p === "/api/last-screen") return pubData("screen").catch(() => null);
+  if (p === "/api/screen") { delete _dataCache.screen; return done(pubData("screen")); }
+  if (p === "/api/track") return done(pubData("track"));
+  if (p === "/api/markets") return done(pubData(q.get("market") === "commodities" ? "commodities" : "crypto"));
+  if (p === "/api/fund") return done(pubData("fund"));
+  if (p === "/api/ipo") {
+    const days = +q.get("days") || 90, d = await pubData("ipo"), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    return { __result: { ...d, days, listings: d.listings.filter(r => String(r.listed) >= from) } };
+  }
+  if (p === "/api/goal") {
+    if (method === "GET") return store.get("goal", null);
+    const r = goalPlan(body, await pubData("goal_stats")); store.set("goal", r.goal); return { __result: r };
+  }
+  if (p === "/api/portfolio") return store.get("portfolio", null);
+  if (p === "/api/rebalance") {
+    store.set("portfolio", { holdings: body.holdings, target: body.target, band: body.band, new_money: body.new_money });
+    return { __result: rebalancePlan(body, await pubData("prices").catch(() => ({}))) };
+  }
+  if (p.startsWith("/api/journal")) return journalLocal(method, p, body);
+  if (p === "/api/kite/status") return {};
+  if (p === "/api/symbols") return [];
+  throw new Error("This needs the PC app");
+}
+
+/* ---- journal kept on the phone (same rules as the PC app, without Kite) */
+function journalLocal(method, path, body) {
+  const entries = store.get("journal", []), parts = path.replace(/^\/|\/$/g, "").split("/");
+  if (method === "POST" && parts.length === 2) {
+    const e = {}; ["ticker", "contract", "side", "lots", "lot_size", "entry_premium", "stop", "target1", "target2", "time_exit", "pattern", "notes"].forEach(k => e[k] = body[k] ?? null);
+    entries.unshift({ ...e, id: Math.random().toString(16).slice(2, 10), opened: today(), status: "open", exit_premium: null, closed: null, pnl: null });
+  } else if (parts.length === 3) {
+    const e = entries.find(x => x.id === parts[2]);
+    if (!e) throw new Error("trade not found");
+    if (method === "DELETE") entries.splice(entries.indexOf(e), 1);
+    else {
+      ["entry_premium", "lots", "notes", "exit_premium"].forEach(k => { if (k in body) e[k] = body[k]; });
+      if (body.exit_premium != null && body.exit_premium !== "") {
+        e.status = "closed"; e.closed = today();
+        e.pnl = Math.round((+e.exit_premium - (+e.entry_premium || 0)) * (+e.lot_size || 0) * (+e.lots || 0) * 100) / 100;
+      }
+    }
+  }
+  store.set("journal", entries);
+  const closed = entries.filter(e => e.status === "closed" && e.pnl != null), wins = closed.filter(e => e.pnl > 0);
+  return { entries, summary: { open: entries.filter(e => e.status === "open").length, closed: closed.length, wins: wins.length,
+    win_rate: closed.length ? wins.length / closed.length : null, pnl: Math.round(closed.reduce((a, e) => a + e.pnl, 0) * 100) / 100 } };
+}
+
+/* ---- goal planner (port of planner.py) */
+const G_PROFILES = { conservative: 0.35, balanced: 0.60, aggressive: 0.80 };
+const G_INSTRUMENTS = {
+  equity: "Nifty 50 index fund or ETF (low cost, broad market)", debt: "short-duration debt fund, PPF or fixed deposits",
+  gold: "gold ETF or sovereign gold bonds", crypto: "Bitcoin (and Ethereum) on an FIU-registered Indian exchange; 30% tax on gains, 1% TDS on sales",
+};
+const r2 = x => Math.round(x * 100) / 100;
+function goalAllocation(years, profile, crypto) {
+  let eq = G_PROFILES[profile] ?? 0.60;
+  if (years < 3) eq = Math.min(eq, 0.15); else if (years < 5) eq = Math.min(eq, 0.40); else if (years >= 12) eq = Math.min(eq + 0.10, 0.85);
+  const gold = years >= 3 ? 0.10 : 0.05, mix = { equity: r2(eq), gold, debt: r2(1 - eq - gold) };
+  let c = years >= 5 ? Math.min(Math.max(+crypto || 0, 0), 0.10) : 0;
+  if (c > 0) { c = Math.min(c, mix.equity); mix.equity = r2(mix.equity - c); mix.crypto = r2(c); }
+  return mix;
+}
+function rng32(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function goalSimulate(goal, mix, stats, sip, paths = 5000, seed = 7) {
+  const months = Math.round(goal.years * 12), keys = ["equity", "gold", "debt"].concat(mix.crypto > 0 ? ["crypto"] : []), n = keys.length;
+  const vol = keys.map(k => stats[k].vol), mu = keys.map(k => stats[k].expected), pairs = stats.corr || { "equity-gold": stats.corr_equity_gold };
+  const cov = keys.map((a, i) => keys.map((b, j) => { const c = i === j ? 1 : (pairs[[a, b].sort().join("-")] ?? 0); return vol[i] * vol[j] * c / 12; }));
+  const drift = keys.map((k, i) => Math.log1p(mu[i]) / 12 - cov[i][i] / 2);
+  const L = keys.map(() => new Array(n).fill(0));                           // Cholesky factor of the monthly covariance
+  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
+    let s = cov[i][j]; for (let k = 0; k < j; k++) s -= L[i][k] * L[j][k];
+    L[i][j] = i === j ? Math.sqrt(Math.max(s, 1e-12)) : s / L[j][j];
+  }
+  const w = keys.map(k => mix[k] || 0), rand = rng32(seed), e = new Array(n), out = [];
+  const marks = []; for (let t = 0; t < months; t++) if ((t + 1) % 12 === 0 || t === months - 1) marks.push(t);
+  out.push(new Float64Array(paths).fill(+goal.current)); marks.forEach(() => out.push(new Float64Array(paths)));
+  for (let p = 0; p < paths; p++) {
+    let value = +goal.current, m = 1;
+    for (let t = 0; t < months; t++) {
+      for (let i = 0; i < n; i += 2) {                                         // Box-Muller, two normals per draw
+        const u = 1 - rand(), v = rand(), r = Math.sqrt(-2 * Math.log(u));
+        e[i] = r * Math.cos(2 * Math.PI * v); if (i + 1 < n) e[i + 1] = r * Math.sin(2 * Math.PI * v);
+      }
+      let port = 0;
+      for (let i = 0; i < n; i++) { let z = drift[i]; for (let k = 0; k <= i; k++) z += L[i][k] * e[k]; port += w[i] * Math.expm1(z); }
+      value = (value + sip * (1 + goal.step_up) ** Math.floor(t / 12)) * (1 + port);
+      if (t === marks[m - 1]) out[m++][p] = value;
+    }
+  }
+  return out;                                                                  // out[year][path]
+}
+function pctile(arr, q) {
+  const s = Float64Array.from(arr).sort(), pos = (s.length - 1) * q / 100, lo = Math.floor(pos);
+  return lo + 1 < s.length ? s[lo] + (s[lo + 1] - s[lo]) * (pos - lo) : s[lo];
+}
+const share = (arr, target) => { let c = 0; for (const v of arr) if (v >= target) c++; return c / arr.length; };
+function goalPlan(body, stats) {
+  const goal = { name: "My goal", target_today: 2000000, years: 10, current: 0, monthly: 10000, step_up: 0.05, inflation: 0.06, profile: "balanced", crypto: 0 };
+  for (const k in goal) if (k in body) goal[k] = ["name", "profile"].includes(k) ? String(body[k]) : +body[k];
+  if (!(goal.years >= 0.5 && goal.years <= 50)) throw new Error("Years must be between 0.5 and 50");
+  const mix = goalAllocation(goal.years, goal.profile, goal.crypto), target = goal.target_today * (1 + goal.inflation) ** goal.years;
+  const sims = goalSimulate(goal, mix, stats, goal.monthly), final = sims[sims.length - 1];
+  const probFor = sip => { const s = goalSimulate(goal, mix, stats, sip, 2000); return share(s[s.length - 1], target); };
+  let lo = 0, hi = Math.max(goal.monthly, 1000);
+  while (probFor(hi) < 0.75 && hi < 1e8) hi *= 2;
+  for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (probFor(mid) < 0.75) lo = mid; else hi = mid; }
+  let invested = goal.current; for (let y = 0; y < Math.ceil(goal.years); y++) invested += goal.monthly * 12 * (1 + goal.step_up) ** y;
+  let compare = null; const notes = [];
+  if (mix.crypto) {
+    const plain = goalAllocation(goal.years, goal.profile, 0), s = goalSimulate(goal, plain, stats, goal.monthly), alt = s[s.length - 1];
+    compare = { mix: plain, probability: share(alt, target), median: pctile(alt, 50), p10: pctile(alt, 10), p90: pctile(alt, 90) };
+  }
+  if (goal.crypto && !mix.crypto) notes.push("Crypto left out: the goal is under 5 years away, too short to recover from a crypto crash (it has fallen 70%+ from its peak).");
+  else if (goal.crypto > 0.10) notes.push("Crypto capped at 10% of the plan.");
+  return { compare_without_crypto: compare, notes, goal, target_future: target, mix,
+    expected_return: Object.keys(mix).reduce((a, k) => a + mix[k] * stats[k].expected, 0),
+    probability: share(final, target), median: pctile(final, 50), p10: pctile(final, 10), p90: pctile(final, 90),
+    needed_monthly_75: Math.ceil(hi / 100) * 100, invested,
+    bands: sims.map((s, y) => ({ year: y, p10: pctile(s, 10), p50: pctile(s, 50), p90: pctile(s, 90) })), stats,
+    instruments: Object.fromEntries(Object.keys(mix).map(k => [k, G_INSTRUMENTS[k]])),
+    monthly_split: Object.fromEntries(Object.entries(mix).map(([k, v]) => [k, Math.round(goal.monthly * v)])) };
+}
+
+/* ---- rebalancer (port of rebalance.py), priced from the evening's closing prices */
+const RB_CLASSES = ["equity", "debt", "gold", "crypto", "cash", "other"];
+function rebalancePlan(body, prices) {
+  const fx = prices["USDINR=X"] || 95, indian = s => /\.(NS|BO)$/.test(s);
+  const holdings = (body.holdings || []).filter(h => h.name || h.symbol || h.value).map(h => {
+    const sym = (h.symbol || "").trim().toUpperCase() || null, qty = h.quantity === "" || h.quantity == null ? null : +h.quantity;
+    let cls = String(h.asset_class || "other").toLowerCase(); if (!RB_CLASSES.includes(cls)) cls = "other";
+    const row = { name: h.name || sym || "holding", asset_class: cls, symbol: sym, quantity: qty, price: null, value: h.value === "" || h.value == null ? null : +h.value, note: "" };
+    if (sym && qty) {
+      const px = prices[sym];
+      if (px != null) { const inr = indian(sym) ? px : px * fx; row.price = r2(inr); row.value = r2(inr * qty); }
+      else row.note = "price not in the phone's price list; enter its value instead";
+    }
+    row.value = +row.value || 0; return row;
+  });
+  let target = Object.fromEntries(Object.entries(body.target || {}).filter(([, v]) => +v > 0).map(([k, v]) => [k, +v]));
+  if (!Object.keys(target).length) throw new Error("Set a target mix that adds up to 100%");
+  const band = (+body.band || 5) / 100, newMoney = +body.new_money || 0, total = holdings.reduce((a, h) => a + h.value, 0);
+  const tsum = Object.values(target).reduce((a, v) => a + v, 0) || 1; target = Object.fromEntries(Object.entries(target).map(([k, v]) => [k, v / tsum]));
+  const classes = [...new Set([...Object.keys(target), ...holdings.map(h => h.asset_class)])].sort((a, b) => (RB_CLASSES.indexOf(a) + 1 || 99) - (RB_CLASSES.indexOf(b) + 1 || 99));
+  const rows = classes.map(c => { const v = holdings.filter(h => h.asset_class === c).reduce((a, h) => a + h.value, 0), wt = total ? v / total : 0, t = target[c] || 0;
+    return { asset_class: c, value: v, weight: wt, target: t, drift: wt - t, target_value: t * total, trade: t * total - v }; });
+  const maxDrift = Math.max(0, ...rows.map(r => Math.abs(r.drift))), needed = maxDrift > band, sells = [];
+  rows.forEach(r => { if (needed && r.trade < 0 && r.value > 0) holdings.forEach(h => { if (h.asset_class === r.asset_class && h.value > 0) {
+    const amt = -r.trade * h.value / r.value; let qty = null;
+    if (h.price) { qty = amt / h.price; qty = indian(h.symbol || "") ? Math.round(qty) : Math.round(qty * 1e6) / 1e6; }
+    sells.push({ name: h.name, asset_class: h.asset_class, amount: r2(amt), quantity: qty }); } }); });
+  const buys = rows.filter(r => needed && r.trade > 0).map(r => ({ asset_class: r.asset_class, amount: r2(r.trade) }));
+  let split = {};
+  if (newMoney > 0) {
+    const after = total + newMoney, gaps = Object.fromEntries(rows.map(r => [r.asset_class, Math.max((target[r.asset_class] || 0) * after - r.value, 0)]));
+    const gapSum = Object.values(gaps).reduce((a, v) => a + v, 0);
+    if (gapSum <= newMoney) { for (const [c, g] of Object.entries(gaps)) if (g > 0) split[c] = g; const rest = newMoney - gapSum; for (const [c, t] of Object.entries(target)) split[c] = (split[c] || 0) + rest * t; }
+    else for (const [c, g] of Object.entries(gaps)) if (g > 0) split[c] = newMoney * g / gapSum;
+    split = Object.fromEntries(Object.entries(split).filter(([, v]) => v > 0.5).map(([c, v]) => [c, r2(v)]));
+  }
+  const p0 = x => (x >= 0 ? "+" : "") + Math.round(x * 100) + "%";
+  let verdict;
+  if (!total) verdict = "Add your holdings to see a recommendation.";
+  else if (needed) { const worst = rows.reduce((a, r) => Math.abs(r.drift) > Math.abs(a.drift) ? r : a);
+    verdict = `Rebalance: ${worst.asset_class} is ${p0(worst.drift)} off target (more than the ${Math.round(band * 100)}% band). Selling may attract capital-gains tax and charges; if new money is coming, the 'new money only' split fixes the drift without selling.`; }
+  else verdict = `No rebalance needed: every class is within ${Math.round(band * 100)}% of target.`;
+  return { total, rows, max_drift: maxDrift, needed, band, sells, buys, new_money: newMoney, new_split: split, verdict, target, holdings };
+}
+
+async function staticBoot() {
+  document.body.classList.add("static");
+  $$(".live-only").forEach(el => { el.hidden = true; });
+  $("#scan").textContent = "Reload"; $("#f-run").textContent = "Show fund";
+  $$("[data-market-scan]").forEach(b => { b.textContent = "Show latest"; });
+  const ban = $("#static-banner"); ban.hidden = false;
+  try {
+    const m = await pubData("meta"), t = new Date(m.generated);
+    const errs = Object.keys(m.errors || {});
+    ban.innerHTML = `<b>Phone version</b> · results from the evening run on ${t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Live scans, stock lookup, paper trading and Kite orders need the PC app.${errs.length ? ` <span style="color:var(--warn-text)">Not updated this time: ${esc(errs.join(", "))}.</span>` : ""}`;
+  } catch (e) { ban.innerHTML = `<b>Phone version</b> · no results published yet, or you are offline with nothing saved.`; }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
 /* ---------------- boot ---------------- */
 (async () => {
+  if (STATIC) await staticBoot();
   SETTINGS = await api("/api/settings");
   await loadKite();
   $("#afford").checked = !!SETTINGS.affordable_only;

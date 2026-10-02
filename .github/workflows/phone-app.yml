@@ -1,0 +1,59 @@
+# Builds the phone app every weekday evening and hosts it on GitHub Pages:
+#   https://<owner>.github.io/<repo>/
+# It runs the same scans as the PC app (F&O picks with news, track record, crypto, commodities,
+# model fund, new IPOs) and publishes the results; nothing personal is stored or published.
+name: Phone app
+
+on:
+  schedule:
+    - cron: "45 10 * * 1-5"      # 4:15 pm IST, after the NSE close
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["stock_agent/**", ".github/workflows/phone-app.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      STOCK_AGENT_HOME: ${{ github.workspace }}/.agent_home
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements.txt && python -m pip install --no-deps .
+      # price cache and the pick ledger carry over between runs, so each evening only downloads new days
+      - uses: actions/cache@v4
+        with:
+          path: .agent_home
+          key: agent-home-${{ github.run_id }}
+          restore-keys: agent-home-
+      - name: Run tonight's scans
+        run: python -m stock_agent publish --out _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

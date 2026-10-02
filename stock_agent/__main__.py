@@ -378,6 +378,11 @@ def main(argv: list[str] | None = None) -> int:
     ap_.set_defaults(func=lambda a: (__import__("stock_agent.app", fromlist=["serve"]).serve(
         a.port, not a.no_browser, a.phone, a.tunnel, a.cloudflared), 0)[1])
 
+    pb = sub.add_parser("publish", help="build the phone app (static site + tonight's results) into a folder")
+    pb.add_argument("--out", default="_site")
+    pb.add_argument("--only", nargs="*", help="publish only these parts: screen track crypto commodities fund ipo prices")
+    pb.set_defaults(func=lambda a: __import__("stock_agent.publish", fromlist=["main"]).main(a.out, a.only))
+
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
     sh.add_argument("--phone", action="store_true", help="a launcher that also serves your phone")
     sh.add_argument("--tunnel", action="store_true", help="a launcher with a secure link for any network")

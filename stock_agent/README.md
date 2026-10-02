@@ -53,7 +53,19 @@ a phone-sized window.
 
 ## On your Android phone
 
-**Easiest, works on Wi-Fi and mobile data (no firewall or router changes):**
+**Phone app, no PC needed:** open **https://winit007.github.io/hello-world/** in Chrome and tap
+**⋮ > Install app** (or *Add to Home screen*). Every weekday at 4:15 pm IST, GitHub Actions
+(`.github/workflows/phone-app.yml`) runs `python -m stock_agent publish`: the F&O picks with their news, the track
+record, crypto, commodities, the model fund and new IPOs, sized for ₹2,00,000 at 2% risk. It then hosts the
+results with the app on GitHub Pages. The app keeps the last results for when you are offline.
+*Goals* and *Rebalance* are calculated on the phone, and your goal, holdings and *My trades* stay on the
+phone. Live scans, stock lookup, paper trading and Kite orders need the PC app. The site is public, so
+anyone with the link sees the same picks; nothing personal is published.
+
+One-time setup in the GitHub repository: **Settings > Pages > Build and deployment > Source: GitHub
+Actions**. Then **Actions > Phone app > Run workflow** for the first build (about 15 to 30 minutes).
+
+**The PC app on your phone, works on Wi-Fi and mobile data (no firewall or router changes):**
 
 ```bat
 winget install --id Cloudflare.cloudflared      :: once
@@ -459,6 +471,7 @@ stock_agent/
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)
   lab.py        rule-variant search with a train/test split; validation.json holds the latest check
+  publish.py    phone app: static site + the evening's results as data files (GitHub Pages)
   paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days
   kite.py       Zerodha Kite Connect: login, contract lookup, one-click LIMIT buy + GTT stop/target
