@@ -55,18 +55,18 @@ def load_nse_lots(offline: bool = False, cache_dir: Path = DEFAULT_CACHE) -> tup
     """Return ({symbol: {"OCT-26": 700, ...}}, source description). Refreshed at most once a day."""
     cached = cache_dir / "nse_lots.csv"
     if cached.exists() and date.fromtimestamp(cached.stat().st_mtime) == date.today():
-        return _parse(cached.read_text()), "NSE (cached today)"
+        return _parse(cached.read_text(encoding="utf-8")), "NSE (cached today)"
     if not offline:
         try:
             text = _download()
             cached.parent.mkdir(parents=True, exist_ok=True)
-            cached.write_text(text)
+            cached.write_text(text, encoding="utf-8")
             return _parse(text), "NSE (live)"
         except Exception as exc:
             print(f"[lots] {exc}; using fallback")
     if cached.exists():
-        return _parse(cached.read_text()), f"NSE (cached {date.fromtimestamp(cached.stat().st_mtime)})"
-    return _parse(SNAPSHOT.read_text()), "bundled snapshot (Sep 2026), verify with your broker"
+        return _parse(cached.read_text(encoding="utf-8")), f"NSE (cached {date.fromtimestamp(cached.stat().st_mtime)})"
+    return _parse(SNAPSHOT.read_text(encoding="utf-8")), "bundled snapshot (Sep 2026), verify with your broker"
 
 
 def lot_size(ticker: str, expiry: date | None = None, offline: bool = False, cache_dir: Path = DEFAULT_CACHE) -> tuple[int | None, str]:

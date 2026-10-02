@@ -88,7 +88,7 @@ def _themes_for(title: str) -> str:
 def resolve_company(ticker: str, offline: bool = False, cache_dir: Path = DEFAULT_CACHE) -> str:
     """Company name for the news search: Yahoo's long name when reachable, else the bare symbol."""
     path = cache_dir / "names.json"
-    names = json.loads(path.read_text()) if path.exists() else {}
+    names = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     key = ticker.upper()
     if key in names:
         return names[key]
@@ -110,7 +110,7 @@ def resolve_company(ticker: str, offline: bool = False, cache_dir: Path = DEFAUL
         name = bare
     names[key] = name
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(names, indent=1))
+    path.write_text(json.dumps(names, indent=1), encoding="utf-8")
     return name
 
 
@@ -169,12 +169,12 @@ def load_news(ticker: str, company: str | None = None, offline: bool = False, ca
             headlines = score(fetch_headlines(ticker, company))
             if headlines:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps([asdict(h) for h in headlines], indent=1))
+                path.write_text(json.dumps([asdict(h) for h in headlines], indent=1), encoding="utf-8")
                 return headlines
         except Exception as exc:  # pragma: no cover
             print(f"[news] online fetch failed ({exc}); trying cache")
     if path.exists():
-        return [Headline(**d) for d in json.loads(path.read_text())]
+        return [Headline(**d) for d in json.loads(path.read_text(encoding="utf-8"))]
     return []
 
 

@@ -98,7 +98,7 @@ def cmd_trade(args) -> int:
 def cmd_screen(args) -> int:
     tickers = list(args.tickers or [])
     if args.universe_file:
-        tickers += [l.strip() for l in args.universe_file.read_text().splitlines() if l.strip() and not l.startswith("#")]
+        tickers += [l.strip() for l in args.universe_file.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
     if not tickers:
         tickers = UNIVERSES[args.universe]
     picks, ranked, stats = screener.screen(
@@ -114,7 +114,7 @@ def cmd_screen(args) -> int:
         print(md)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(md)
+        args.out.write_text(md, encoding="utf-8")
         print(f"[screen] written to {args.out}")
     return 0
 
@@ -145,13 +145,19 @@ def cmd_research(args) -> int:
             trade = options.recommend(outlook, df, chain, args.min_confidence, args.lot_size)
             md = md.replace("## Best rules", options.render_markdown(trade) + "\n\n## Best rules", 1)
         path = args.out / f"{t.upper()}_{outlook.as_of.date()}.md"
-        path.write_text(md)
+        path.write_text(md, encoding="utf-8")
         print(md)
         print(f"[research] report written to {path}")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows consoles and pipes often default to cp1252, which cannot print ₹, · or —.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(prog="stock_agent", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 

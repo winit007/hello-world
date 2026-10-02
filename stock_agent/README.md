@@ -12,15 +12,20 @@ narrative step uses a local model through [Ollama](https://ollama.com); nothing 
 
 ## Install
 
-As an app with its own `stock-agent` command (needs Python 3.10+):
+As an app (needs Python 3.10+; Git is not required):
 
 ```bash
-pip install "git+https://github.com/winit007/hello-world.git@ccr-d382c6bc-vzy6y0"
-stock-agent screen --brief
+pip install https://github.com/winit007/hello-world/archive/refs/heads/ccr-d382c6bc-vzy6y0.zip
+python -m stock_agent screen --brief --capital 200000 --risk 2
 ```
 
+The install also creates a `stock-agent` command, but on Windows with Python from the Microsoft Store
+its folder is not on PATH, so `python -m stock_agent` is the reliable way to run it. To update later,
+run the same `pip install` line with `--force-reinstall --no-deps` added. Reports and caches are written
+to the folder you run it from (`reports\` and `.cache\`).
+
 Or from a clone: `pip install -r requirements.txt` and use `python -m stock_agent ...`.
-Every `python -m stock_agent` example below also works as `stock-agent`.
+Every `python -m stock_agent` example below also works as `stock-agent` when its folder is on PATH.
 
 ## Use
 

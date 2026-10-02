@@ -128,12 +128,12 @@ def load_chain(ticker: str, offline: bool = False, cache_dir: Path = DEFAULT_CAC
         try:
             out = provider(ticker, max_expiries)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(out))
+            path.write_text(json.dumps(out), encoding="utf-8")
             return out
         except Exception as exc:  # no options on this listing, blocked, or network trouble
             print(f"[options] chain fetch failed for {ticker} ({exc}); trying cache")
     if path.exists():
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     return {}
 
 

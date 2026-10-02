@@ -194,14 +194,16 @@ def screen(
                                            p.signal_date, chain, capital, risk_pct, offline=offline, cache_dir=cache_dir)
             except Exception as exc:
                 log(f"[screen] sizing failed for {p.ticker}: {exc}")
-    stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked)}
+    as_of = max((df.index[-1] for df in prices.values()), default=None)
+    stats = {"universe": len(tickers), "loaded": len(prices), "candidates": len(candidates), "eligible": len(ranked),
+             "as_of": str(as_of.date()) if as_of is not None else ""}
     return ranked[:top], ranked, stats
 
 
 def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon: int, top: int) -> str:
-    as_of = max((p.signal_date for p in ranked), default="")
+    as_of = stats.get("as_of") or max((p.signal_date for p in ranked), default="")
     md = [f"# Top {top} setups", "",
-          f"*Signals up to {as_of} · {stats['loaded']} stocks scanned · {stats['candidates']} with an active "
+          f"*Market data to {as_of} · {stats['loaded']} stocks scanned · {stats['candidates']} with an active "
           f"setup that has a historical edge · holding period {horizon} trading days*", ""]
     if not picks:
         md.append("_No stock has an active candlestick setup with a historical edge right now. That is a valid "
@@ -244,15 +246,15 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
 
 def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, universe: str = "") -> str:
     """Short plain-text version for a phone notification or email."""
-    as_of = max((p.signal_date for p in picks), default="today")
-    head = f"Top {top} {universe} setups · signals to {as_of} · {horizon}-day hold".replace("  ", " ")
+    as_of = stats.get("as_of") or max((p.signal_date for p in picks), default="today")
+    head = f"Top {top} {universe} setups · data to {as_of} · {horizon}-day hold".replace("  ", " ")
     if not picks:
         return head + "\nNo stock has an active setup with a historical edge today. Sit out."
     lines = [head]
     for i, p in enumerate(picks, 1):
         recent = f", 3y {p.recent_win_rate:.0%}" if p.recent_n else ""
         news = f" · news {p.news_mean:+.2f}" if p.news_count else ""
-        lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {p.side} @ {p.last_close:.2f} · {p.pattern} · "
+        lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {p.side} @ {p.last_close:.2f} · {p.pattern} ({p.signal_date[5:]}) · "
                      f"{p.success:.0%} success (base {p.baseline:.0%}{recent}){news}")
         if p.plan is not None:
             lines += p.plan.lines()

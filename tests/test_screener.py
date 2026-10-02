@@ -26,6 +26,7 @@ class ScreenTests(unittest.TestCase):
             picks, ranked, stats = screener.screen(list(frames), lookback=30, top=5, min_edge=-1.0,
                                                    cache_dir=Path(d), log=lambda *a: None)
         self.assertEqual(stats["loaded"], 12)
+        self.assertEqual(stats["as_of"], str(frames["S0"].index[-1].date()))
         self.assertLessEqual(len(picks), 5)
         self.assertEqual(picks, ranked[:5])
         scores = [p.score for p in ranked]
