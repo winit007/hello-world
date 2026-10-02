@@ -37,6 +37,7 @@ class AppTests(unittest.TestCase):
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method or ("POST" if data else "GET"),
                                      headers={"Content-Type": "application/json"})
+        req.add_header("X-Agent-Token", self.app.SESSION_TOKEN)
         with urllib.request.urlopen(req) as r:
             raw = r.read()
             return json.loads(raw) if r.headers.get("Content-Type", "").startswith("application/json") else raw

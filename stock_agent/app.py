@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import secrets
 import sys
 import threading
 import time
@@ -37,6 +38,19 @@ DEFAULT_SETTINGS = {
 
 _lock = threading.Lock()
 _jobs: dict[str, dict] = {}
+# Per-run secret embedded in the page. Every request that changes something must carry it, so another
+# website open in the same browser cannot drive this local server (and never your Kite account).
+SESSION_TOKEN = secrets.token_urlsafe(24)
+_kite = None
+
+
+def kite_client():
+    global _kite
+    if _kite is None:
+        from .kite import Kite
+
+        _kite = Kite(HOME)
+    return _kite
 
 
 # --------------------------------------------------------------------------- storage helpers
@@ -193,6 +207,24 @@ def run_stock(ticker: str, settings: dict, progress) -> dict:
 
 
 # --------------------------------------------------------------------------- journal
+def _apply_kite(e: dict) -> None:
+    """Close a journal entry once Kite reports that the whole position has been sold."""
+    k = e.get("kite")
+    if not k:
+        return
+    filled = int(k.get("filled_qty") or 0)
+    if k.get("avg_price"):
+        e["entry_premium"] = k["avg_price"]
+    exited = sum(int(x["qty"]) for x in k.get("exits", []))
+    if filled and exited >= filled and e.get("status") != "closed":
+        value = sum(float(x["price"]) * int(x["qty"]) for x in k["exits"])
+        e["exit_premium"] = round(value / exited, 2)
+        e["pnl"] = round(value - float(k["avg_price"]) * exited, 2)
+        e["status"], e["closed"] = "closed", date.today().isoformat()
+    elif k.get("buy_status") in ("REJECTED", "CANCELLED"):
+        e["status"], e["pnl"], e["closed"] = "cancelled", 0.0, date.today().isoformat()
+
+
 def journal_summary(entries: list[dict]) -> dict:
     closed = [e for e in entries if e.get("status") == "closed" and e.get("pnl") is not None]
     wins = [e for e in closed if e["pnl"] > 0]
@@ -207,7 +239,7 @@ def journal_op(method: str, path: str, body: dict) -> dict:
         parts = path.strip("/").split("/")
         if method == "POST" and len(parts) == 2:  # add
             e = {k: body.get(k) for k in ("ticker", "contract", "side", "lots", "lot_size", "entry_premium",
-                                          "stop", "target1", "target2", "time_exit", "pattern", "notes")}
+                                          "stop", "target1", "target2", "time_exit", "pattern", "notes", "kite")}
             e.update(id=uuid.uuid4().hex[:8], opened=date.today().isoformat(), status="open",
                      exit_premium=None, closed=None, pnl=None)
             entries.insert(0, e)
@@ -225,8 +257,60 @@ def journal_op(method: str, path: str, body: dict) -> dict:
                     e["status"], e["closed"] = "closed", date.today().isoformat()
                     e["pnl"] = round((float(e["exit_premium"]) - float(e["entry_premium"] or 0))
                                      * float(e["lot_size"] or 0) * float(e["lots"] or 0), 2)
+        for e in entries:
+            _apply_kite(e)
         _write_json(JOURNAL_FILE, entries)
         return {"entries": entries, "summary": journal_summary(entries)}
+
+
+def kite_place(body: dict) -> dict:
+    from . import kite as K
+
+    st = load_settings()
+    # never trust a preview computed in the browser: rebuild it here from the plan
+    pv = K.preview(kite_client(), CACHE, body["ticker"], body["plan"], float(st["capital"]), float(st["risk"]) / 100,
+                   float(body["limit"]) if body.get("limit") else None)
+    rec = K.place(kite_client(), pv)
+    plan = body["plan"]
+    entry = {"ticker": body["ticker"], "contract": pv["tradingsymbol"], "side": pv["side"], "lots": pv["lots"],
+             "lot_size": pv["lot_size"], "entry_premium": rec.get("avg_price") or pv["limit"],
+             "stop": plan["stop_underlying"], "target1": plan["target1_underlying"], "target2": plan["target2_underlying"],
+             "time_exit": plan.get("time_stop"), "pattern": body.get("pattern"),
+             "notes": "Kite practice" if rec["practice"] else "Kite live", "kite": rec}
+    return journal_op("POST", "/api/journal", entry)
+
+
+def kite_sync() -> dict:
+    from . import kite as K
+
+    with _lock:
+        entries = _read_json(JOURNAL_FILE, [])
+    errors = []
+    for e in entries:
+        if e.get("kite") and e.get("status") == "open" and not e["kite"].get("practice"):
+            try:
+                K.sync_one(kite_client(), e["kite"])
+            except K.KiteError as exc:
+                errors.append(f"{e['contract']}: {exc}")
+            _apply_kite(e)
+    with _lock:
+        _write_json(JOURNAL_FILE, entries)
+    return {"entries": entries, "summary": journal_summary(entries), "errors": errors}
+
+
+def kite_exit(trade_id: str, price) -> dict:
+    from . import kite as K
+
+    with _lock:
+        entries = _read_json(JOURNAL_FILE, [])
+    e = next((x for x in entries if x["id"] == trade_id), None)
+    if not e or not e.get("kite"):
+        raise KeyError("Kite trade not found")
+    K.exit_now(kite_client(), e["kite"], float(price) if price not in (None, "") else None)
+    _apply_kite(e)
+    with _lock:
+        _write_json(JOURNAL_FILE, entries)
+    return {"entries": entries, "summary": journal_summary(entries)}
 
 
 # --------------------------------------------------------------------------- HTTP
@@ -245,6 +329,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _host_ok(self) -> bool:
+        host = (self.headers.get("Host") or "").split(":")[0]
+        return host in ("127.0.0.1", "localhost")  # blocks DNS-rebinding attacks
+
+    def _token_ok(self) -> bool:
+        return secrets.compare_digest(self.headers.get("X-Agent-Token") or "", SESSION_TOKEN)
+
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}") if n else {}
@@ -252,9 +343,33 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
+        if not self._host_ok():
+            return self._send(403, {"error": "forbidden host"})
         try:
             if url.path in ("/", "/index.html"):
-                return self._send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
+                html = (WEB / "index.html").read_text(encoding="utf-8").replace("__AGENT_TOKEN__", SESSION_TOKEN)
+                return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+            if url.path == "/kite/callback":
+                from .kite import KiteError
+
+                try:
+                    if q.get("status") != "success" or not q.get("request_token"):
+                        raise KiteError("Kite login was cancelled")
+                    st = kite_client().complete_login(q["request_token"])
+                    msg = f"Connected to Kite as {st.get('user') or 'you'}. You can close this tab and go back to the app."
+                except Exception as exc:
+                    msg = f"Kite login failed: {exc}"
+                page = (f"<!doctype html><meta charset=utf-8><title>Kite login</title><body style='font:16px system-ui;"
+                        f"padding:40px'><p>{msg.replace('<', '&lt;')}</p><p><a href='/'>Back to Stock Agent</a></p>")
+                return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            if url.path.startswith("/api/") and not self._token_ok():
+                return self._send(403, {"error": "missing app token; reload the page"})
+            if url.path == "/api/kite/status":
+                st = kite_client().status()
+                st["redirect_url"] = f"http://127.0.0.1:{self.server.server_address[1]}/kite/callback"
+                return self._send(200, st)
+            if url.path == "/api/kite/login":
+                return self._send(200, {"url": kite_client().login_url()})
             if url.path == "/api/settings":
                 return self._send(200, load_settings())
             if url.path == "/api/last-screen":
@@ -282,8 +397,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
+        if not (self._host_ok() and self._token_ok()):
+            return self._send(403, {"error": "missing app token; reload the page"})
         try:
             body = self._body()
+            if url.path.startswith("/api/kite/"):
+                from . import kite as K
+
+                try:
+                    if url.path == "/api/kite/config":
+                        return self._send(200, kite_client().update_config(body.get("api_key"), body.get("api_secret"),
+                                                                          body.get("practice")))
+                    if url.path == "/api/kite/logout":
+                        return self._send(200, kite_client().logout())
+                    if url.path == "/api/kite/preview":
+                        st = load_settings()
+                        return self._send(200, K.preview(kite_client(), CACHE, body["ticker"], body["plan"],
+                                                         float(st["capital"]), float(st["risk"]) / 100,
+                                                         float(body["limit"]) if body.get("limit") else None))
+                    if url.path == "/api/kite/place":
+                        return self._send(200, kite_place(body))
+                    if url.path == "/api/kite/sync":
+                        return self._send(200, kite_sync())
+                    if url.path.startswith("/api/kite/exit/"):
+                        return self._send(200, kite_exit(url.path.rsplit("/", 1)[-1], body.get("price")))
+                except K.KiteError as exc:
+                    return self._send(400, {"error": str(exc)})
             if url.path == "/api/settings":
                 s = load_settings()
                 for k, v in body.items():
@@ -304,6 +443,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
 
     def do_DELETE(self):
+        if not (self._host_ok() and self._token_ok()):
+            return self._send(403, {"error": "missing app token; reload the page"})
         try:
             return self._send(200, journal_op("DELETE", urlparse(self.path).path, {}))
         except Exception as exc:

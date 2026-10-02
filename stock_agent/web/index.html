@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="agent-token" content="__AGENT_TOKEN__">
 <title>Stock Agent</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 6v20M16 9v17M23 4v18' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -170,6 +171,17 @@ ul.reasons li { margin: 3px 0; }
 dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 20px; width: min(440px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
+.kite-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--muted); }
+.dot.on { background: var(--up); }
+.copy { font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; user-select: all; }
+.confirm-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; margin: 10px 0; }
+.confirm-grid .k { color: var(--ink-2); }
+.blocker { background: var(--down-soft); color: var(--down-text); border-radius: 9px; padding: 8px 10px; font-size: 13.5px; margin-top: 6px; font-weight: 600; }
+.banner-practice { background: var(--accent-soft); border-radius: 9px; padding: 8px 10px; font-size: 13.5px; margin-bottom: 8px; }
+.banner-live { background: var(--down-soft); color: var(--down-text); border-radius: 9px; padding: 8px 10px; font-size: 13.5px; margin-bottom: 8px; font-weight: 700; }
+details.events { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
+details.events li { margin: 2px 0; }
 .foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 @media (max-width: 720px) {
   .bar { gap: 10px; }
@@ -287,6 +299,33 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
       </div>
       <div><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" style="display:inline;margin-left:8px"></span></div>
     </form>
+
+    <div class="card form" id="kite-card" style="margin-top:16px">
+      <div class="kite-row"><h2 style="margin:0">Zerodha Kite</h2><span class="dot" id="k-dot"></span><span id="k-state" class="sub"></span></div>
+      <div class="sub" style="font-size:14px">Lets you place a pick on your Kite account with one click. Every order is shown to you first;
+        the stop-loss and target are set in Kite as a GTT order only after your buy is filled.</div>
+      <details><summary style="cursor:pointer;font-weight:600">One-time setup (about 5 minutes)</summary>
+        <ol style="font-size:14px;padding-left:20px">
+          <li>Go to <a href="https://developers.kite.trade" target="_blank" rel="noopener">developers.kite.trade</a>, sign up and create an app (check Zerodha's current pricing; live quotes need the paid Connect plan).</li>
+          <li>Set the app's <b>Redirect URL</b> to <span class="copy" id="k-redirect">http://127.0.0.1:8765/kite/callback</span></li>
+          <li>Copy the <b>API key</b> and <b>API secret</b> into the boxes below and save.</li>
+          <li>Each morning press <b>Log in to Kite</b>. Kite access expires every day at 6 am; that is Zerodha's rule.</li>
+          <li>If Kite rejects orders mentioning an IP address, register your IP in the Kite developer console (SEBI rule for API orders).</li>
+        </ol></details>
+      <div class="two">
+        <div class="field"><label for="k-key">API key</label><input type="text" id="k-key" autocomplete="off"></div>
+        <div class="field"><label for="k-secret">API secret</label><input type="text" id="k-secret" autocomplete="off" placeholder="leave blank to keep the saved one"></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="k-practice" checked> Practice mode: check everything with Kite but never place real orders</label>
+      <div class="notice warn" id="k-live-warn" hidden>Practice mode is <b>off</b>. "Place on Kite" will send real orders with real money after you confirm.</div>
+      <div class="actions" style="margin-top:0">
+        <button type="button" class="btn" id="k-save">Save Kite settings</button>
+        <button type="button" class="btn primary" id="k-login">Log in to Kite</button>
+        <button type="button" class="btn" id="k-logout">Log out</button>
+      </div>
+      <div class="sub" id="k-msg" style="font-size:13.5px"></div>
+      <div class="hint" style="font-size:12.5px;color:var(--muted)">Your key and secret are stored only on this computer, in the .stock_agent folder in your user folder.</div>
+    </div>
   </section>
 
   <!-- ============ HELP ============ -->
@@ -328,10 +367,11 @@ const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
 const money = (x, c = "₹", d = 0) => x == null ? "–" : c + Number(x).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
 const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "–";
-let SETTINGS = {};
+let SETTINGS = {}, KITE = {};
+const TOKEN = document.querySelector('meta[name="agent-token"]').content;
 
 async function api(path, opts = {}) {
-  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts,
+  const r = await fetch(path, { headers: { "Content-Type": "application/json", "X-Agent-Token": TOKEN }, ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
@@ -365,7 +405,7 @@ function showTab(name) {
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
-  if (name === "settings") fillSettings();
+  if (name === "settings") { fillSettings(); loadKite(); }
   try { sessionStorage.setItem("tab", name); } catch (e) {}
 }
 $$("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -427,12 +467,14 @@ function renderPicks(res) {
       ${orderBlock(p.plan, p.ticker)}
       ${warns ? `<div class="warns">${warns}</div>` : ""}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
-        ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}</div>
+        ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}
+        ${kiteable(p.ticker, p.plan) ? `<button class="btn small primary" data-kite="${i}">Place on Kite</button>` : ""}</div>
     </article>`;
   }).join("") + `</div>`;
   box.innerHTML = html;
   $$("[data-detail]", box).forEach(b => b.onclick = () => { showTab("stock"); $("#stock-input").value = b.dataset.detail; analyse(b.dataset.detail); });
   $$("[data-log]", box).forEach(b => b.onclick = () => logTrade(res.picks[+b.dataset.log]));
+  $$("[data-kite]", box).forEach(b => b.onclick = () => kiteOrder(res.picks[+b.dataset.kite].ticker, res.picks[+b.dataset.kite].plan, res.picks[+b.dataset.kite].pattern));
 }
 $("#scan").onclick = async () => {
   const btn = $("#scan"); btn.disabled = true; btn.textContent = "Scanning…";
@@ -464,8 +506,12 @@ function logTrade(p) {
     showTab("journal");
   };
 }
-async function loadJournal() {
-  const { entries, summary } = await api("/api/journal");
+async function loadJournal(sync = true) {
+  let { entries, summary } = await api("/api/journal");
+  if (sync && entries.some(e => e.kite && !e.kite.practice && e.status === "open") && KITE.connected) {
+    try { const r = await api("/api/kite/sync", { method: "POST", body: {} }); entries = r.entries; summary = r.summary;
+      if (r.errors && r.errors.length) $("#journal").insertAdjacentHTML("beforebegin", ""); } catch (e) {}
+  }
   $("#j-tiles").innerHTML = [
     ["Open trades", summary.open], ["Closed trades", summary.closed],
     ["Win rate", summary.win_rate == null ? "–" : pct(summary.win_rate)],
@@ -478,21 +524,34 @@ async function loadJournal() {
     entries.map(e => {
       const c = cur(e.ticker);
       const open = e.status === "open";
-      return `<tr><td>${fmtDate(e.opened)}</td><td><b>${esc(e.contract)}</b><div class="sub" style="font-size:12px">${esc(e.pattern || "")}${e.notes ? " · " + esc(e.notes) : ""}</div></td>
+      const k = e.kite;
+      const badge = k ? `<span class="pill ${k.practice ? "none" : "warn"}" style="margin-left:6px">${k.practice ? "Kite practice" : "Kite live"}</span>` : "";
+      const events = k && k.events && k.events.length ? `<details class="events"><summary>Kite activity</summary><ul>${k.events.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : "";
+      return `<tr><td>${fmtDate(e.opened)}</td><td><b>${esc(e.contract)}</b>${badge}<div class="sub" style="font-size:12px">${esc(e.pattern || "")}${e.notes ? " · " + esc(e.notes) : ""}</div>${events}</td>
         <td class="r">${e.lots}</td><td class="r">${money(e.entry_premium, c, 2)}</td>
         <td class="r">${(+e.stop).toFixed(2)} / ${(+e.target1).toFixed(2)} / ${(+e.target2).toFixed(2)}</td><td>${fmtDate(e.time_exit)}</td>
         <td class="r">${open ? `<input type="number" step="0.05" placeholder="premium" style="width:100px" data-exit="${e.id}">` : money(e.exit_premium, c, 2)}</td>
-        <td class="r">${open ? "open" : `<span class="chg ${e.pnl >= 0 ? "up" : "down"}">${money(e.pnl, c)}</span>`}</td>
-        <td class="r" style="white-space:nowrap">${open ? `<button class="btn small" data-close="${e.id}">Close</button> ` : ""}<button class="btn small" data-del="${e.id}" title="Delete">✕</button></td></tr>`;
+        <td class="r">${open ? (k && !k.practice && k.buy_status !== "COMPLETE" ? esc((k.buy_status || "").toLowerCase() || "open") : "open") : e.status === "cancelled" ? "cancelled" : `<span class="chg ${e.pnl >= 0 ? "up" : "down"}">${money(e.pnl, c)}</span>`}</td>
+        <td class="r" style="white-space:nowrap">${open && k ? `<button class="btn small" data-kexit="${e.id}">Exit now</button> ` : open ? `<button class="btn small" data-close="${e.id}">Close</button> ` : ""}<button class="btn small" data-del="${e.id}" title="Delete">✕</button></td></tr>`;
     }).join("") + `</tbody></table></div>`;
   $$("[data-close]", box).forEach(b => b.onclick = async () => {
     const v = $(`[data-exit="${b.dataset.close}"]`, box).value;
     if (!v) { $(`[data-exit="${b.dataset.close}"]`, box).focus(); return; }
     await api("/api/journal/" + b.dataset.close, { method: "POST", body: { exit_premium: +v } }); loadJournal();
   });
+  $$("[data-kexit]", box).forEach(b => b.onclick = async () => {
+    const e = entries.find(x => x.id === b.dataset.kexit);
+    const typed = $(`[data-exit="${e.id}"]`, box).value;
+    const msg = e.kite.practice ? "Record a practice exit" + (typed ? " at " + typed : " at the buy price") + "?"
+      : "Cancel the stop/target GTTs and SELL the whole position on Kite" + (typed ? " at " + typed : " at the best bid") + "?";
+    if (!confirm(msg)) return;
+    try { await api("/api/kite/exit/" + e.id, { method: "POST", body: { price: typed || null } }); }
+    catch (err) { alert(err.message); }
+    loadJournal();
+  });
   $$("[data-del]", box).forEach(b => b.onclick = async () => {
     if (!confirm("Delete this trade from your journal?")) return;
-    await fetch("/api/journal/" + b.dataset.del, { method: "DELETE" }); loadJournal();
+    await api("/api/journal/" + b.dataset.del, { method: "DELETE" }); loadJournal();
   });
 }
 
@@ -541,6 +600,7 @@ function renderStock(d) {
       </div>
       ${t.action === "NO TRADE" ? `<p style="margin:12px 0 0;color:var(--ink-2);font-size:14px">${esc(t.reason)}</p>` : ""}
       ${d.plan ? `<div style="margin-top:12px">${orderBlock(d.plan, d.ticker)}</div>` : ""}
+      ${kiteable(d.ticker, d.plan) ? `<div class="actions"><button class="btn primary" id="stock-kite">Place on Kite</button></div>` : ""}
       ${(t.warnings || []).length ? `<div class="warns">${t.warnings.map(w => `<span class="pill warn">⚠ ${esc(w)}</span>`).join("")}</div>` : ""}
     </div>
     <div class="cols">
@@ -563,6 +623,7 @@ function renderStock(d) {
           <div><a href="${esc(h.link)}" target="_blank" rel="noopener noreferrer">${esc(h.title)}</a><div class="meta">${esc(h.source)} · ${fmtDate(h.published)}</div></div></div>`; }).join("") || '<p class="sub">No headlines found.</p>'}</div>
     </div>`;
   drawChart(d);
+  const kb = $("#stock-kite"); if (kb) kb.onclick = () => kiteOrder(d.ticker, d.plan, (d.signals.find(x => x.counted) || {}).pattern);
 }
 
 /* candlestick chart: hollow up / filled down, pattern markers, crosshair tooltip */
@@ -633,11 +694,75 @@ function drawChart(d) {
   $("#hit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
 }
 
+/* ---------------- Zerodha Kite ---------------- */
+function kiteable(ticker, plan) { return /\.(NS|BO)$/i.test(ticker || "") && plan && plan.lots > 0 && KITE.configured; }
+async function loadKite() {
+  try { KITE = await api("/api/kite/status"); } catch (e) { KITE = {}; }
+  $("#k-dot").classList.toggle("on", !!KITE.connected);
+  $("#k-state").textContent = !KITE.configured ? "not set up" : KITE.connected ? `logged in${KITE.user ? " as " + KITE.user : ""}` : "set up, not logged in today";
+  $("#k-key").value = KITE.api_key || ""; $("#k-secret").value = "";
+  $("#k-secret").placeholder = KITE.has_secret ? "saved (leave blank to keep)" : "paste your API secret";
+  $("#k-practice").checked = KITE.practice !== false; $("#k-live-warn").hidden = KITE.practice !== false;
+  if (KITE.redirect_url) $("#k-redirect").textContent = KITE.redirect_url;
+}
+$("#k-practice").onchange = () => { $("#k-live-warn").hidden = $("#k-practice").checked; };
+$("#k-save").onclick = async () => {
+  if (!$("#k-practice").checked && !confirm("Turn practice mode off? Confirmed orders will then use real money.")) { $("#k-practice").checked = true; $("#k-live-warn").hidden = true; return; }
+  try { await api("/api/kite/config", { method: "POST", body: { api_key: $("#k-key").value, api_secret: $("#k-secret").value || null, practice: $("#k-practice").checked } });
+    $("#k-msg").textContent = "Saved."; } catch (e) { $("#k-msg").textContent = e.message; }
+  loadKite();
+};
+$("#k-login").onclick = async () => {
+  try { const { url } = await api("/api/kite/login"); window.open(url, "_blank", "noopener");
+    $("#k-msg").textContent = "Finish the login in the new tab, then come back here."; 
+    const t = setInterval(async () => { await loadKite(); if (KITE.connected) { clearInterval(t); $("#k-msg").textContent = "Connected."; } }, 3000);
+    setTimeout(() => clearInterval(t), 180000);
+  } catch (e) { $("#k-msg").textContent = e.message; }
+};
+$("#k-logout").onclick = async () => { await api("/api/kite/logout", { method: "POST", body: {} }); loadKite(); };
+
+async function kiteOrder(ticker, plan, pattern, limit) {
+  if (!KITE.connected) { alert("Log in to Kite first: Settings → Zerodha Kite → Log in to Kite."); showTab("settings"); return; }
+  const dlg = $("#dlg"), f = $("#dlg-form");
+  f.innerHTML = `<h2>Checking with Kite…</h2><p class="sub">Looking up the contract and live price.</p>`; if (!dlg.open) dlg.showModal();
+  let pv;
+  try { pv = await api("/api/kite/preview", { method: "POST", body: { ticker, plan, limit } }); }
+  catch (e) { f.innerHTML = `<h2>Can't place this trade</h2><div class="blocker">${esc(e.message)}</div><div class="actions"><button class="btn" value="cancel">Close</button></div>`; dlg.onclose = null; return; }
+  const live = pv.live, blocked = pv.blockers.length > 0;
+  const legs = pv.gtt_legs.map(l => `<div>${l.lots} lot${l.lots > 1 ? "s" : ""}: stop ₹${l.stop.toFixed(2)} or ${l.label} ₹${l.target.toFixed(2)}</div>`).join("");
+  f.innerHTML = `<h2>${pv.practice ? "Practice order" : "Confirm order on Kite"}</h2>
+    <div class="${pv.practice ? "banner-practice" : "banner-live"}">${pv.practice ? "Practice mode: nothing will be sent to Kite." : "LIVE: this sends a real order with real money."}</div>
+    <div class="confirm-grid num">
+      <span class="k">Buy</span><b>${pv.lots} lot${pv.lots === 1 ? "" : "s"} · ${pv.qty} qty · ${esc(pv.tradingsymbol)}</b>
+      <span class="k">Live price</span><span>${live ? `bid ₹${live.bid.toFixed(2)} · ask ₹${live.ask.toFixed(2)} · last ₹${live.ltp.toFixed(2)}` : "not available on your Kite plan"}</span>
+      <span class="k">Limit price</span><span><input type="number" step="0.05" name="limit" value="${pv.limit}" style="width:110px"> <button class="btn small" value="recalc">Recalculate</button></span>
+      <span class="k">Total cost</span><b>₹${Number(pv.cost).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</b>
+      <span class="k">Max loss at stop</span><span>₹${Number(pv.max_loss_at_stop).toLocaleString("en-IN", { maximumFractionDigits: 0 })} (limit ₹${Number(pv.budget).toLocaleString("en-IN")})</span>
+      <span class="k">Funds available</span><span>${pv.funds == null ? "unknown" : "₹" + Number(pv.funds).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+      <span class="k">After fill, GTT</span><span>${legs || "–"}</span>
+      <span class="k">Exit by</span><span>${fmtDate(pv.time_exit)} if nothing is hit (sell it yourself, or use Exit now)</span>
+    </div>
+    ${pv.warnings.map(w => `<div class="pill warn" style="margin:3px 0">⚠ ${esc(w)}</div>`).join("")}
+    ${pv.blockers.map(b => `<div class="blocker">${esc(b)}</div>`).join("")}
+    ${!pv.practice && !blocked ? `<label class="switch" style="margin-top:10px"><input type="checkbox" name="sure"> I have checked this order in Kite and want to buy</label>` : ""}
+    <div class="actions"><button class="btn primary" value="ok" ${blocked ? "disabled" : ""}>${pv.practice ? "Run practice order" : "Buy on Kite"}</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>`;
+  dlg.onclose = async () => {
+    const lim = +f.limit.value;
+    if (dlg.returnValue === "recalc") return kiteOrder(ticker, plan, pattern, lim);
+    if (dlg.returnValue !== "ok") return;
+    if (!pv.practice && !(f.sure && f.sure.checked)) { alert("Tick the confirmation box to place a live order."); return kiteOrder(ticker, plan, pattern, lim); }
+    f.innerHTML = `<h2>${pv.practice ? "Running practice order…" : "Placing order on Kite…"}</h2><p class="sub">Waiting for the fill, then setting stop and target.</p>`; dlg.showModal(); dlg.onclose = null;
+    try { await api("/api/kite/place", { method: "POST", body: { ticker, plan, pattern, limit: lim } }); dlg.close(); showTab("journal"); }
+    catch (e) { f.innerHTML = `<h2>Order not placed</h2><div class="blocker">${esc(e.message)}</div><div class="actions"><button class="btn" value="cancel">Close</button></div>`; }
+  };
+}
+
 let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => window._lastStock && drawChart(window._lastStock), 150); });
 
 /* ---------------- boot ---------------- */
 (async () => {
   SETTINGS = await api("/api/settings");
+  await loadKite();
   $("#afford").checked = !!SETTINGS.affordable_only;
   renderPicks(await api("/api/last-screen"));
   api("/api/symbols").then(list => { $("#symbols").innerHTML = list.map(s => `<option value="${esc(s)}">`).join(""); });
