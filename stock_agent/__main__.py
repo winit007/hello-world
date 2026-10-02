@@ -218,7 +218,8 @@ def cmd_goal(args) -> int:
     from . import planner
 
     g = planner.Goal(name=args.name, target_today=args.target, years=args.years, current=args.current,
-                     monthly=args.monthly, step_up=args.step_up / 100, inflation=args.inflation / 100, profile=args.profile)
+                     monthly=args.monthly, step_up=args.step_up / 100, inflation=args.inflation / 100, profile=args.profile,
+                     crypto=args.crypto / 100)
     print(planner.render_text(planner.plan(g, args.offline, args.cache_dir)))
     return 0
 
@@ -368,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     gp.add_argument("--step-up", type=float, default=5, help="yearly increase of the monthly amount, %%")
     gp.add_argument("--inflation", type=float, default=6)
     gp.add_argument("--profile", choices=["conservative", "balanced", "aggressive"], default="balanced")
+    gp.add_argument("--crypto", type=float, default=0, help="share in crypto, %% of the plan (0-10, goals of 5+ years)")
     gp.add_argument("--offline", action="store_true")
     gp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
     gp.set_defaults(func=cmd_goal)

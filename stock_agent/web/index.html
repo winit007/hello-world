@@ -360,6 +360,9 @@ details.events li { margin: 2px 0; }
         </div>
         <div class="field"><label for="g-profile">Comfort with ups and downs</label>
           <select id="g-profile"><option value="conservative">Low: protect my money</option><option value="balanced" selected>Medium: balanced</option><option value="aggressive">High: I can sit through big falls</option></select></div>
+        <div class="field"><label for="g-crypto">Crypto share (% of the plan, 0 to 10)</label>
+          <input type="number" id="g-crypto" min="0" max="10" step="1" value="0">
+          <span class="hint">Taken out of equity, only for goals 5+ years away. Bitcoin has fallen over 70% from its peak, and gains are taxed at 30%.</span></div>
         <div><button class="btn primary">Plan my goal</button></div>
       </form>
       <div>
@@ -923,11 +926,13 @@ async function loadGoal() {
   if (!g) return;
   $("#g-name").value = g.name; $("#g-target").value = g.target_today; $("#g-years").value = g.years; $("#g-current").value = g.current;
   $("#g-monthly").value = g.monthly; $("#g-step").value = Math.round(g.step_up * 100); $("#g-infl").value = +(g.inflation * 100).toFixed(1); $("#g-profile").value = g.profile;
+  $("#g-crypto").value = Math.round((g.crypto || 0) * 100);
 }
 $("#goal-form").onsubmit = async ev => {
   ev.preventDefault();
   const body = { name: $("#g-name").value, target_today: +$("#g-target").value, years: +$("#g-years").value, current: +$("#g-current").value,
-    monthly: +$("#g-monthly").value, step_up: +$("#g-step").value / 100, inflation: +$("#g-infl").value / 100, profile: $("#g-profile").value };
+    monthly: +$("#g-monthly").value, step_up: +$("#g-step").value / 100, inflation: +$("#g-infl").value / 100, profile: $("#g-profile").value,
+    crypto: Math.min(Math.max(+$("#g-crypto").value || 0, 0), 10) / 100 };
   try { const p = await runJob(api("/api/goal", { method: "POST", body }), $("#goal-progress")); window._lastGoal = p; renderGoal(p); }
   catch (e) { $("#goal").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
 };
@@ -945,6 +950,14 @@ function renderGoal(p) {
       <div class="card tile"><div class="k">Chance of reaching it</div><div class="v num ${good ? "chg up" : "chg down"}">${pct(p.probability)}</div><div class="sub" style="font-size:12.5px">with ${money(g.monthly)} a month</div></div>
       <div class="card tile"><div class="k">Monthly for a 75% chance</div><div class="v num">${money(p.needed_monthly_75)}</div><div class="sub" style="font-size:12.5px">rising ${(g.step_up * 100).toFixed(0)}% a year</div></div>
     </div>
+    ${(p.notes || []).map(n => `<div class="notice warn">${esc(n)}</div>`).join("")}
+    ${p.compare_without_crypto ? (() => { const c = p.compare_without_crypto, d = p.probability - c.probability;
+      return `<div class="card" style="margin-bottom:14px"><h2>With crypto vs without</h2>
+        <div class="table-scroll"><table class="num"><thead><tr><th></th><th class="r">Chance</th><th class="r">Bad case</th><th class="r">Middle</th><th class="r">Good case</th></tr></thead><tbody>
+        <tr><td><b>With ${pct(p.mix.crypto)} crypto</b></td><td class="r"><b>${pct(p.probability)}</b></td><td class="r">${money(p.p10)}</td><td class="r">${money(p.median)}</td><td class="r">${money(p.p90)}</td></tr>
+        <tr><td>Without crypto</td><td class="r">${pct(c.probability)}</td><td class="r">${money(c.p10)}</td><td class="r">${money(c.median)}</td><td class="r">${money(c.p90)}</td></tr></tbody></table></div>
+        <p class="sub" style="font-size:13px;margin-top:8px">${d < 0 ? `Crypto lowers your chance by ${Math.round(-d * 100)} points: it widens both the good and the bad outcomes, and after 30% tax its planning return is no higher than equity's.` : `Crypto raises your chance by ${Math.round(d * 100)} points, but also widens the bad case.`}
+        Bitcoin's planning return is capped at ${(p.stats.crypto.expected * 100).toFixed(1)}% a year after tax, although it grew ${(p.stats.crypto.hist_cagr * 100).toFixed(0)}% a year over the last ${p.stats.crypto.years} years: that pace is not a safe basis for a plan.</p></div>`; })() : ""}
     <div class="card"><h2>Suggested mix</h2>${mixBar(p.mix)}
       <p style="font-size:14px;margin:8px 0">Expected about <b>${(p.expected_return * 100).toFixed(1)}% a year</b>. Each month: ${Object.entries(p.monthly_split).map(([k, v]) => `${k} <b>${money(v)}</b>`).join(" · ")}.</p>
       <ul class="reasons">${Object.entries(p.instruments).map(([k, v]) => `<li><b>${k}</b>: ${esc(v)}</li>`).join("")}</ul></div>
@@ -952,7 +965,7 @@ function renderGoal(p) {
       <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--accent)"></i>Middle outcome</span>
         <span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>8 in 10 outcomes fall in this band</span>
         <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--ink-2)"></i>Goal</span></div>
-      <p class="sub" style="font-size:12.5px;margin-top:8px">5,000 simulated futures using ${p.stats.equity.years} years of Nifty 50 ETF and gold ETF history (equity ${(p.stats.equity.hist_cagr * 100).toFixed(1)}% and gold ${(p.stats.gold.hist_cagr * 100).toFixed(1)}% a year in that period, capped at ${(p.stats.equity.expected * 100).toFixed(1)}% and ${(p.stats.gold.expected * 100).toFixed(1)}% for planning; debt assumed 7%). You would put in ${money(p.invested)} in total. A plan, not a promise or personal advice.</p></div>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">5,000 simulated futures using ${p.stats.equity.years} years of Nifty 50 ETF and gold ETF history (equity ${(p.stats.equity.hist_cagr * 100).toFixed(1)}% and gold ${(p.stats.gold.hist_cagr * 100).toFixed(1)}% a year in that period, capped at ${(p.stats.equity.expected * 100).toFixed(1)}% and ${(p.stats.gold.expected * 100).toFixed(1)}% for planning; debt assumed 7%${p.mix.crypto ? `; Bitcoin in rupees ${(p.stats.crypto.hist_cagr * 100).toFixed(0)}% a year with ${(p.stats.crypto.vol * 100).toFixed(0)}% volatility, planned at ${(p.stats.crypto.expected * 100).toFixed(1)}% after 30% tax` : ""}). You would put in ${money(p.invested)} in total. A plan, not a promise or personal advice.</p></div>
     <div class="actions"><button class="btn" id="goal-to-rb">Use this mix in Rebalance</button></div>`;
   drawFan(p);
   $("#goal-to-rb").onclick = () => { window._targetFromGoal = p.mix; showTab("rebalance"); applyTarget(p.mix); };

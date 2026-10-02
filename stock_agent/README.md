@@ -324,6 +324,14 @@ debt and gold (more equity for longer goals and higher risk comfort), simulates 
 years of Nifty 50 ETF and gold ETF history (returns capped at 12% and 9% a year for planning; debt assumed
 7%), and reports the chance of reaching the goal and the monthly amount for a 75% chance.
 
+An optional crypto share (`--crypto 5`, or *Crypto share* in the app; at most 10%, only for goals five or
+more years away) is taken out of equity and simulated from Bitcoin's price in rupees (BTC-INR): its 74%
+volatility, its -73% worst fall and its correlation with stocks and gold. Its 68% a year over the last
+decade is not used as a plan; the planning return is capped at 15% and reduced by the 30% tax on crypto
+gains (10.5%). The result is shown next to the same plan without crypto. For a 12-year goal with ₹15,000
+a month, 10% in crypto lowered the chance of success from 68% to 62%, widened both the good and the bad
+case, and raised the monthly amount for a 75% chance from ₹16,000 to ₹16,900.
+
 *Rebalance* prices what you own (symbol and quantity, or a value for FDs and funds), compares it with the
 target mix and, when any type has drifted more than the band (5 points by default), lists what to sell
 and buy. It also shows how to place new money so that nothing has to be sold. Selling can attract

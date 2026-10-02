@@ -59,3 +59,27 @@ class RebalanceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CryptoGoalTests(unittest.TestCase):
+    STATS = {**STATS, "crypto": {"expected": 0.105, "vol": 0.74, "hist_cagr": 0.68, "years": 10, "proxy": "BTC-INR"},
+             "corr": {"equity-gold": 0.0, "crypto-equity": 0.2, "crypto-gold": 0.0}}
+
+    def test_crypto_share_rules(self):
+        mix = planner.allocation(12, "balanced", 0.10)
+        self.assertEqual(mix["crypto"], 0.10)
+        self.assertAlmostEqual(sum(mix.values()), 1.0, places=6)
+        self.assertEqual(mix["equity"], planner.allocation(12, "balanced")["equity"] - 0.10)
+        self.assertEqual(planner.allocation(12, "balanced", 0.5)["crypto"], planner.CRYPTO_MAX)   # capped
+        self.assertNotIn("crypto", planner.allocation(3, "aggressive", 0.10))                    # too short
+
+    def test_plan_reports_comparison(self):
+        g = planner.Goal(target_today=1_000_000, years=10, monthly=6000, crypto=0.10)
+        p = planner.plan(g, stats=self.STATS)
+        c = p["compare_without_crypto"]
+        self.assertIsNotNone(c)
+        self.assertNotIn("crypto", c["mix"])
+        self.assertGreater(p["p90"] - p["p10"], c["p90"] - c["p10"])   # crypto widens the range of outcomes
+        short = planner.plan(planner.Goal(target_today=500_000, years=3, monthly=10000, crypto=0.10), stats=self.STATS)
+        self.assertIsNone(short["compare_without_crypto"])
+        self.assertTrue(short["notes"])
