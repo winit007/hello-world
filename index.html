@@ -1,18 +1,182 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <title>my-first-website</title>
-  <LINK href="styles.css" rel="stylesheet" type="text/css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e7c86">
+  <meta name="description" content="Book a dental appointment, call the clinic, or leave a review. Mobile-only patient page.">
+  <title>BrightSmile Dental</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
 
-<img src="https://octodex.github.com/images/daftpunktocat-thomas.gif" id="octocat" alt="octocat-gif" />
+<!-- Shown only on tablets and desktops -->
+<div class="desktop-gate" role="dialog" aria-label="Mobile only">
+  <div class="gate-card">
+    <div class="gate-icon">📱</div>
+    <h1>This page is built for phones</h1>
+    <p>Open this link on your mobile device to book, call, or leave a review.</p>
+    <p class="gate-url" id="gate-url"></p>
+  </div>
+</div>
 
-<!-- Change this code here by copy and pasting your template on line 15 -->
-<p>Welcome to your first GitHub Pages website!</p>
+<main class="app">
 
+  <!-- Header -->
+  <header class="hero">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🦷</span>
+      <div>
+        <h1 id="practice-name">BrightSmile Dental</h1>
+        <p class="tagline" id="practice-tagline">Gentle, modern dentistry for the whole family</p>
+      </div>
+    </div>
+    <div class="rating" id="rating-pill" aria-label="Google rating">
+      <span class="stars" aria-hidden="true">★★★★★</span>
+      <span id="rating-text">4.9 · 312 Google reviews</span>
+    </div>
+    <p class="open-status" id="open-status"></p>
+  </header>
+
+  <!-- Primary actions -->
+  <section class="actions" aria-label="Quick actions">
+    <a class="btn btn-primary" id="call-btn" href="#">
+      <span class="btn-icon" aria-hidden="true">📞</span>
+      <span>Call now</span>
+    </a>
+    <a class="btn" href="#book">
+      <span class="btn-icon" aria-hidden="true">📅</span>
+      <span>Book appointment</span>
+    </a>
+    <a class="btn" id="whatsapp-btn" href="#">
+      <span class="btn-icon" aria-hidden="true">💬</span>
+      <span>WhatsApp us</span>
+    </a>
+    <a class="btn" id="directions-btn" href="#">
+      <span class="btn-icon" aria-hidden="true">📍</span>
+      <span>Directions</span>
+    </a>
+  </section>
+
+  <!-- Offer -->
+  <section class="card offer" id="offer-card">
+    <p class="offer-badge">New patient offer</p>
+    <h2 id="offer-title">Exam, X-rays &amp; cleaning</h2>
+    <p id="offer-text">Mention this page when you book. Valid for first-time patients only.</p>
+    <a class="link" href="#book">Claim offer →</a>
+  </section>
+
+  <!-- Services -->
+  <section class="card" aria-labelledby="services-heading">
+    <h2 id="services-heading">Services</h2>
+    <ul class="chips" id="services-list"></ul>
+  </section>
+
+  <!-- Booking -->
+  <section class="card" id="book" aria-labelledby="book-heading">
+    <h2 id="book-heading">Request an appointment</h2>
+    <p class="muted">We text you back within one business hour to confirm.</p>
+
+    <form id="book-form" novalidate>
+      <label>
+        <span>Your name</span>
+        <input type="text" name="name" autocomplete="name" required placeholder="Jane Doe">
+      </label>
+
+      <label>
+        <span>Mobile number</span>
+        <input type="tel" name="phone" autocomplete="tel" inputmode="tel" required placeholder="+1 555 123 4567">
+      </label>
+
+      <label>
+        <span>Service</span>
+        <select name="service" id="service-select" required></select>
+      </label>
+
+      <div class="row">
+        <label>
+          <span>Preferred date</span>
+          <input type="date" name="date" required>
+        </label>
+        <label>
+          <span>Time</span>
+          <select name="time" required>
+            <option value="Morning">Morning</option>
+            <option value="Afternoon">Afternoon</option>
+            <option value="Evening">Evening</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        <span>Anything we should know? <em>(optional)</em></span>
+        <textarea name="notes" rows="2" placeholder="Tooth pain, insurance, new patient…"></textarea>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" name="newPatient" checked>
+        <span>I am a new patient</span>
+      </label>
+
+      <p class="error" id="form-error" role="alert" hidden></p>
+
+      <button type="submit" class="btn btn-primary btn-block">
+        <span class="btn-icon" aria-hidden="true">✉️</span>
+        <span>Send request by text</span>
+      </button>
+      <p class="muted tiny">Opens your messaging app with the details pre-filled. No data is sent until you tap send.</p>
+    </form>
+
+    <div class="success" id="book-success" hidden>
+      <div class="success-icon" aria-hidden="true">✅</div>
+      <h3>Request ready to send</h3>
+      <p>If your messaging app didn't open, tap below.</p>
+      <a class="btn btn-primary btn-block" id="resend-btn" href="#">Open messaging app</a>
+      <button type="button" class="link-btn" id="reset-btn">Start over</button>
+    </div>
+  </section>
+
+  <!-- Reviews -->
+  <section class="card review" id="review" aria-labelledby="review-heading">
+    <h2 id="review-heading">Been in recently?</h2>
+    <p class="muted">Reviews help neighbours find us. It takes about 30 seconds.</p>
+    <a class="btn btn-google btn-block" id="review-btn" href="#" target="_blank" rel="noopener">
+      <span class="btn-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.5 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.8 6C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.2 0 11.6-2 15.4-5.6l-7.5-5.8c-2.1 1.4-4.8 2.2-7.9 2.2-6.3 0-11.7-4-13.6-9.7l-7.8 6C6.5 42.6 14.6 48 24 48z"/></svg>
+      </span>
+      <span>Leave a Google review</span>
+    </a>
+    <button type="button" class="link-btn" id="feedback-toggle">Something we could do better? Tell us privately</button>
+
+    <form id="feedback-form" hidden>
+      <label>
+        <span>Your feedback</span>
+        <textarea name="feedback" rows="3" required placeholder="Tell us what happened…"></textarea>
+      </label>
+      <button type="submit" class="btn btn-block">Send to the practice manager</button>
+    </form>
+  </section>
+
+  <!-- Hours and location -->
+  <section class="card" aria-labelledby="hours-heading">
+    <h2 id="hours-heading">Hours &amp; location</h2>
+    <address id="address"></address>
+    <table class="hours" id="hours-table"></table>
+  </section>
+
+  <footer class="foot">
+    <p id="footer-text"></p>
+  </footer>
+</main>
+
+<!-- Sticky bottom bar -->
+<nav class="tabbar" aria-label="Primary">
+  <a href="#" id="tab-call"><span aria-hidden="true">📞</span>Call</a>
+  <a href="#book"><span aria-hidden="true">📅</span>Book</a>
+  <a href="#review"><span aria-hidden="true">⭐</span>Review</a>
+  <a href="#" id="tab-map"><span aria-hidden="true">📍</span>Map</a>
+</nav>
+
+<script src="app.js"></script>
 </body>
 </html>
