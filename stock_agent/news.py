@@ -204,7 +204,7 @@ def recent(headlines: list[Headline], days: int = 14) -> list[Headline]:
     return [h for h in headlines if not h.published or h.published >= cutoff]
 
 
-def digest(headlines: list[Headline], bullish: bool, max_items: int = 4) -> dict:
+def digest(headlines: list[Headline], bullish: bool | None, max_items: int = 4) -> dict:
     """What the news says about one trade: a one-paragraph summary plus the headlines that mattered.
 
     Headlines are scored for the trade's direction: a positive headline supports a CALL, a negative one a
@@ -213,6 +213,17 @@ def digest(headlines: list[Headline], bullish: bool, max_items: int = 4) -> dict
     if not headlines:
         return {"summary": "No recent headlines found; news did not affect this pick.", "items": []}
     s = summarize(headlines)
+    if bullish is None:  # no trade to judge against: just say how the news reads
+        dated = sorted(h.published for h in headlines if h.published)
+        tone = "positive" if s["mean"] > 0.05 else "negative" if s["mean"] < -0.05 else "mixed"
+        themes = ", ".join(list(s["themes"])[:3])
+        top = sorted(headlines, key=lambda h: abs(h.sentiment), reverse=True)[:max_items]
+        top.sort(key=lambda h: h.published or "", reverse=True)
+        return {"summary": (f"{s['count']} headlines" + (f" from {dated[0]} to {dated[-1]}" if dated else "") +
+                            f": {s['positive']} positive, {s['negative']} negative"
+                            f"{'; themes: ' + themes if themes else ''}. Overall {tone} (average {s['mean']:+.2f})."),
+                "items": [{"date": h.published, "title": h.title, "source": h.source, "link": h.link,
+                           "sentiment": round(h.sentiment, 2), "role": h.label, "themes": h.themes} for h in top]}
     sign = 1 if bullish else -1
     dated = sorted(h.published for h in headlines if h.published)
     span = f" from {dated[0]} to {dated[-1]}" if dated else ""

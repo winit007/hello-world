@@ -151,6 +151,8 @@ class _Sim:
         a, entry_ref = self.atr[i], self.c[i]
         lo, hi = self.l[i - candles + 1: i + 1].min(), self.h[i - candles + 1: i + 1].max()
         stop, t1, _, dist = levels(entry_ref, lo, hi, a, bull, self.st)
+        if not dist > 0 or not entry_ref > 0:  # flat or broken price history: no meaningful trade
+            return None
         j = i + 1
         base = {"i": i, "j": j, "bull": bull, "dist": dist, "ref": entry_ref, "spot_in": self.o[j]}
         if (self.o[j] <= stop) if bull else (self.o[j] >= stop):
@@ -172,17 +174,23 @@ class _Sim:
         d, spot = (self.dates[p["t"]], p["s_exit"]) if at_exit else (self.dates[p["j"]], p["spot_in"])
         return max(bs_price(spot, strike, max((expiry - d).days, 0.5) / 365, self.sigma[p["i"]], kind, self.r), 0.05)
 
-    def trade(self, i: int, bull: bool, candles: int):
-        """Return (exit_index, option_return, r_multiple, skipped) for a signal on bar i, or None."""
+    def trade(self, i: int, bull: bool, candles: int, instrument: str = "option", cost: float = 0.0):
+        """Return (exit_index, return, r_multiple, skipped) for a signal on bar i, or None.
+
+        instrument "option": return on the option premium. "spot": return on the price itself (coins,
+        commodities, shares), net of `cost` (round trip, as a fraction of the position).
+        """
         p = self.path(i, bull, candles)
         if p is None:
             return None
         if p["skipped"]:
             return (p["j"], 0.0, 0.0, True)
+        move = (p["s_exit"] - p["spot_in"]) if bull else (p["spot_in"] - p["s_exit"])
+        if instrument == "spot":
+            return (p["t"], move / p["spot_in"] - cost, move / p["dist"], False)
         kind, k = ("call" if bull else "put"), _strike(p["ref"])
         entry, exit_ = self.value(p, k, kind, False), self.value(p, k, kind, True)
-        move = (p["s_exit"] - p["spot_in"]) if bull else (p["spot_in"] - p["s_exit"])
-        return (p["t"], exit_ / entry - 1, move / p["dist"], False)
+        return (p["t"], exit_ / entry - 1 - cost, move / p["dist"], False)
 
 
 def allowed_mask(df: pd.DataFrame, bull: bool, st: Strategy, regime: pd.Series | None) -> np.ndarray:
@@ -200,7 +208,8 @@ def allowed_mask(df: pd.DataFrame, bull: bool, st: Strategy, regime: pd.Series |
 
 def trade_outcomes(df: pd.DataFrame, ticker: str, horizon: int | None = None, use_context: bool = True,
                    baseline_step: int = 3, strategy: Strategy | None = None,
-                   regime: pd.Series | None = None) -> pd.DataFrame:
+                   regime: pd.Series | None = None, instrument: str = "option", cost: float = 0.0,
+                   directions: tuple = ("bullish", "bearish")) -> pd.DataFrame:
     """One row per signal (and per baseline trade) with its exit date and option return."""
     st = strategy or load_strategy()
     if horizon and horizon != st.horizon:
@@ -213,16 +222,18 @@ def trade_outcomes(df: pd.DataFrame, ticker: str, horizon: int | None = None, us
     for pat in PATTERNS:
         if st.patterns and pat.name not in st.patterns:
             continue
+        if pat.direction not in directions:
+            continue
         bull = pat.direction == BULLISH
         for i in np.flatnonzero(sig[pat.name].to_numpy() & allow[bull]):
-            res = sim.trade(int(i), bull, pat.candles)
+            res = sim.trade(int(i), bull, pat.candles, instrument, cost)
             if res:
                 rows.append((pat.name, pat.direction, sim.dates[i], sim.dates[res[0]], res[1], res[2], res[3]))
     for i in range(60, len(df) - 1, baseline_step) if baseline_step else ():
         for bull, name in ((True, "_baseline_bullish"), (False, "_baseline_bearish")):
-            if not allow[bull][i]:
+            if not allow[bull][i] or (BULLISH if bull else "bearish") not in directions:
                 continue
-            res = sim.trade(i, bull, 1)
+            res = sim.trade(i, bull, 1, instrument, cost)
             if res:
                 rows.append((name, BULLISH if bull else "bearish", sim.dates[i], sim.dates[res[0]], res[1], res[2], res[3]))
     out = pd.DataFrame(rows, columns=["pattern", "direction", "signal", "exit", "ret", "r", "skipped"])

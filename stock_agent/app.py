@@ -30,6 +30,8 @@ CACHE = HOME / "cache"
 SETTINGS_FILE = HOME / "settings.json"
 JOURNAL_FILE = HOME / "journal.json"
 LEDGER_FILE = HOME / "track.json"
+GOAL_FILE = HOME / "goal.json"
+PORTFOLIO_FILE = HOME / "portfolio.json"
 WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
@@ -187,6 +189,50 @@ def run_track(settings: dict, replay_days: int, progress) -> dict:
         x.pop("daily_values", None)
     progress("Done", 1.0)
     return ev
+
+
+def run_market(market: str, settings: dict, progress) -> dict:
+    from . import markets
+
+    res = markets.scan(market, float(settings["capital"]), float(settings["risk"]) / 100, False, CACHE,
+                       progress=progress)
+    return {**res, "rows": [clean(r) for r in res["rows"]], "check_text": markets.check_line(res)}
+
+
+def run_goal(body: dict, progress) -> dict:
+    from . import planner
+
+    fields = planner.Goal.__dataclass_fields__
+    g = planner.Goal(**{k: (str(v) if k in ("name", "profile") else float(v)) for k, v in body.items() if k in fields})
+    if not (0.5 <= g.years <= 50):
+        raise ValueError("Years must be between 0.5 and 50")
+    progress("Reading ten years of Nifty and gold prices", 0.2)
+    stats = planner.market_stats(False, CACHE)
+    progress("Simulating 5,000 market paths", 0.5)
+    p = planner.plan(g, stats=stats)
+    _write_json(GOAL_FILE, clean(p["goal"]))
+    progress("Done", 1.0)
+    return clean(p)
+
+
+def run_rebalance(body: dict, progress) -> dict:
+    from . import rebalance as R
+
+    rows = [R.Holding(name=str(h.get("name") or ""), asset_class=str(h.get("asset_class") or "other"),
+                      value=float(h["value"]) if h.get("value") not in (None, "") else None,
+                      symbol=(str(h.get("symbol")).strip() or None) if h.get("symbol") else None,
+                      quantity=float(h["quantity"]) if h.get("quantity") not in (None, "") else None)
+            for h in body.get("holdings", []) if any(h.get(k) for k in ("name", "symbol", "value"))]
+    target = {k: float(v) for k, v in (body.get("target") or {}).items() if float(v or 0) > 0}
+    if not target:
+        raise ValueError("Set a target mix that adds up to 100%")
+    progress("Fetching today's prices", 0.3)
+    priced = R.price_holdings(rows, False, CACHE)
+    rec = R.recommend(priced, target, float(body.get("band", 5)) / 100, float(body.get("new_money") or 0))
+    _write_json(PORTFOLIO_FILE, {"holdings": body.get("holdings", []), "target": body.get("target"),
+                                 "band": body.get("band", 5), "new_money": body.get("new_money", 0)})
+    progress("Done", 1.0)
+    return clean({**rec, "holdings": priced})
 
 
 def run_ipo(days: int, progress) -> dict:
@@ -444,6 +490,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, sorted(syms))
             if url.path == "/api/track":
                 return self._send(200, {"job": start_job("track", run_track, load_settings(), int(q.get("replay", 0) or 0))})
+            if url.path == "/api/markets":
+                market = q.get("market", "crypto")
+                if market not in ("crypto", "commodities"):
+                    return self._send(400, {"error": "unknown market"})
+                return self._send(200, {"job": start_job("market", run_market, market, load_settings())})
+            if url.path == "/api/goal":
+                return self._send(200, _read_json(GOAL_FILE, None))
+            if url.path == "/api/portfolio":
+                return self._send(200, _read_json(PORTFOLIO_FILE, None))
             if url.path == "/api/ipo":
                 return self._send(200, {"job": start_job("ipo", run_ipo, max(7, min(int(q.get("days", 90)), 730)))})
             if url.path == "/api/stock":
@@ -493,6 +548,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, s)
             if url.path == "/api/screen":
                 return self._send(200, {"job": start_job("screen", run_screen, {**load_settings(), **body})})
+            if url.path == "/api/goal":
+                return self._send(200, {"job": start_job("goal", run_goal, body)})
+            if url.path == "/api/rebalance":
+                return self._send(200, {"job": start_job("rebalance", run_rebalance, body)})
             if url.path.startswith("/api/journal"):
                 return self._send(200, journal_op("POST", url.path, body))
             return self._send(404, {"error": "not found"})

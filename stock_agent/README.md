@@ -279,6 +279,39 @@ from NSE's equity file, so it also includes a few demergers and relistings. New 
 history for the candlestick backtest, so they never appear in the picks and their stock page shows the
 chart and news without a verdict.
 
+## Crypto and intraday commodities
+
+```bash
+python -m stock_agent crypto --capital 200000 --risk 2
+python -m stock_agent commodities --capital 200000 --risk 2
+```
+
+The *Crypto* and *Commodities* tabs run the same candlestick trade engine on 14 large coins (daily
+candles, 10 years, buy-only) and on gold, silver, crude oil, Brent, natural gas, copper and platinum
+(15-minute candles for the last 60 days, long or short, exit within 2 hours). Each card shows the setup,
+how often it won as a plain trade after costs (0.5% for crypto, 0.05% for commodities) against random
+entries, and a sized plan: coins for crypto, MCX mini-contract lots for commodities, with stop and
+targets. Each tab opens with its own out-of-sample strategy check. On the data available in October 2026
+neither showed an edge (crypto 44% won, -0.43% per trade; commodities 40% won, -0.05% per trade).
+Commodity prices are the US futures; MCX follows them in rupees with import duty, so levels are approximate.
+
+## Long-term goals and rebalancing
+
+```bash
+python -m stock_agent goal --target 2500000 --years 12 --current 200000 --monthly 15000
+python -m stock_agent rebalance holdings.csv --target equity=70,debt=20,gold=10 --new-money 50000
+```
+
+*Goals* turns an amount needed (in today's money), a date and a monthly investment into a mix of equity,
+debt and gold (more equity for longer goals and higher risk comfort), simulates 5,000 futures from ten
+years of Nifty 50 ETF and gold ETF history (returns capped at 12% and 9% a year for planning; debt assumed
+7%), and reports the chance of reaching the goal and the monthly amount for a 75% chance.
+
+*Rebalance* prices what you own (symbol and quantity, or a value for FDs and funds), compares it with the
+target mix and, when any type has drifted more than the band (5 points by default), lists what to sell
+and buy. It also shows how to place new money so that nothing has to be sold. Selling can attract
+capital-gains tax; the new-money route avoids it.
+
 ## The call / put verdict
 
 `trade` (and the *Options trade* section of `research`) works like this:
@@ -337,6 +370,9 @@ stock_agent/
   universes.py  stock lists from NSE files (Nifty 50/100, F&O, all NSE) and the S&P 500; recent listings
   lists/        dated copies of those lists for offline use
   ipo.py        new listings since their IPO, and IPO news
+  markets.py    crypto (daily) and intraday commodity (15-minute) scans with MCX lot sizing
+  planner.py    long-term goal planner (allocation, Monte Carlo, required monthly investment)
+  rebalance.py  current vs target mix, full rebalance and new-money-only trades
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)

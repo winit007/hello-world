@@ -205,6 +205,49 @@ def cmd_ipo(args) -> int:
     return 0
 
 
+def cmd_market(args) -> int:
+    """Crypto (daily) or intraday commodity (15-minute) setups with sizing and a strategy check."""
+    from . import markets
+
+    res = markets.scan(args.market, args.capital, args.risk / 100, args.offline, args.cache_dir)
+    print(markets.render_text(res))
+    return 0
+
+
+def cmd_goal(args) -> int:
+    from . import planner
+
+    g = planner.Goal(name=args.name, target_today=args.target, years=args.years, current=args.current,
+                     monthly=args.monthly, step_up=args.step_up / 100, inflation=args.inflation / 100, profile=args.profile)
+    print(planner.render_text(planner.plan(g, args.offline, args.cache_dir)))
+    return 0
+
+
+def cmd_rebalance(args) -> int:
+    """Holdings from a CSV with columns name,asset_class,symbol,quantity,value (symbol/quantity or value)."""
+    import csv
+
+    from . import rebalance as R
+    from .sizing import money
+
+    with open(args.file, newline="", encoding="utf-8") as f:
+        rows = [R.Holding(name=r.get("name", ""), asset_class=r.get("asset_class", "other"),
+                          value=float(r["value"]) if r.get("value") else None, symbol=r.get("symbol") or None,
+                          quantity=float(r["quantity"]) if r.get("quantity") else None) for r in csv.DictReader(f)]
+    target = dict(part.split("=") for part in args.target.split(","))
+    rec = R.recommend(R.price_holdings(rows, args.offline, args.cache_dir), {k: float(v) for k, v in target.items()},
+                      args.band / 100, args.new_money)
+    print(rec["verdict"])
+    for r in rec["rows"]:
+        print(f"  {r['asset_class']:<7} {money(r['value'], '₹'):>14}  now {r['weight']:>4.0%}  target {r['target']:>4.0%}  "
+              f"{'buy' if r['trade'] >= 0 else 'sell'} {money(abs(r['trade']), '₹')}")
+    for sl in rec["sells"]:
+        print(f"  sell {money(sl['amount'], '₹')} of {sl['name']}" + (f" ({sl['quantity']} units)" if sl["quantity"] else ""))
+    if rec["new_split"]:
+        print("  new money: " + ", ".join(f"{k} {money(v, '₹')}" for k, v in rec["new_split"].items()))
+    return 0
+
+
 def cmd_research(args) -> int:
     horizons = [int(h) for h in args.horizons.split(",")]
     if args.horizon not in horizons:
@@ -304,6 +347,37 @@ def main(argv: list[str] | None = None) -> int:
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
     sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut()}"
                                           " - double-click it to open the app."), 0)[1])
+
+    for mk, helptext in (("crypto", "Bitcoin and other coins: setups, sizing in coins, strategy check"),
+                         ("commodities", "intraday gold, silver, crude, gas, copper on 15-minute candles")):
+        mp = sub.add_parser(mk, help=helptext)
+        mp.add_argument("--capital", type=float, default=200000)
+        mp.add_argument("--risk", type=float, default=2.0)
+        mp.add_argument("--offline", action="store_true")
+        mp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+        mp.set_defaults(func=cmd_market, market=mk)
+
+    gp = sub.add_parser("goal", help="long-term goal planner: monthly investment, mix and chance of success")
+    gp.add_argument("--name", default="My goal")
+    gp.add_argument("--target", type=float, required=True, help="amount needed, in today's rupees")
+    gp.add_argument("--years", type=float, required=True)
+    gp.add_argument("--current", type=float, default=0)
+    gp.add_argument("--monthly", type=float, default=10000)
+    gp.add_argument("--step-up", type=float, default=5, help="yearly increase of the monthly amount, %%")
+    gp.add_argument("--inflation", type=float, default=6)
+    gp.add_argument("--profile", choices=["conservative", "balanced", "aggressive"], default="balanced")
+    gp.add_argument("--offline", action="store_true")
+    gp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    gp.set_defaults(func=cmd_goal)
+
+    rp = sub.add_parser("rebalance", help="compare holdings with a target mix and list the trades")
+    rp.add_argument("file", help="CSV with name,asset_class,symbol,quantity,value")
+    rp.add_argument("--target", default="equity=60,debt=30,gold=10", help="e.g. equity=60,debt=30,gold=10")
+    rp.add_argument("--band", type=float, default=5)
+    rp.add_argument("--new-money", type=float, default=0)
+    rp.add_argument("--offline", action="store_true")
+    rp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    rp.set_defaults(func=cmd_rebalance)
 
     ip = sub.add_parser("ipo", help="new NSE listings since their IPO, and IPO news")
     ip.add_argument("--days", type=int, default=90, help="listed within this many days (default 90)")

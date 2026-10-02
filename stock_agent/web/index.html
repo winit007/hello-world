@@ -57,7 +57,8 @@ header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srg
 .bar { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; margin-right: auto; }
 .brand .logo { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
-nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; overflow-x: auto; max-width: 100%; }
+nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; overflow-x: auto; max-width: 100%;
+  order: 3; flex-basis: 100%; scrollbar-width: thin; }
 nav.tabs button { border: 0; background: transparent; padding: 7px 14px; border-radius: 9px; cursor: pointer; color: var(--ink-2); white-space: nowrap; }
 nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
 .icon-btn { border: 1px solid var(--ring); background: var(--surface); border-radius: 10px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; }
@@ -203,13 +204,17 @@ details.events li { margin: 2px 0; }
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M3 2v12M8 4v10M13 1v9"/><path d="M1.5 6h3M6.5 7h3M11.5 4h3"/></svg>
     </span>Stock Agent</div>
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="picks" aria-selected="true">Today's picks</button>
-      <button role="tab" data-tab="stock">Stock lookup</button>
+      <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
+      <button role="tab" data-tab="stock">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="track">Track record</button>
       <button role="tab" data-tab="ipo">New IPOs</button>
+      <button role="tab" data-tab="crypto">Crypto</button>
+      <button role="tab" data-tab="commodities">Commodities</button>
+      <button role="tab" data-tab="goals">Goals</button>
+      <button role="tab" data-tab="rebalance">Rebalance</button>
       <button role="tab" data-tab="settings">Settings</button>
-      <button role="tab" data-tab="help">How to use</button>
+      <button role="tab" data-tab="help">Help</button>
     </nav>
     <button class="icon-btn" id="theme" title="Switch light / dark" aria-label="Switch light or dark theme">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -303,6 +308,91 @@ details.events li { margin: 2px 0; }
     <div id="ipo"></div>
   </section>
 
+  <!-- ============ CRYPTO ============ -->
+  <section class="page" id="page-crypto">
+    <div class="head-row">
+      <div><h1>Crypto</h1>
+        <p class="sub">Bitcoin, Ethereum and other large coins on daily candles. Buy-only setups (spot), sized in coins for your risk limit.</p></div>
+      <button class="btn primary" data-market-scan="crypto">Scan crypto</button>
+    </div>
+    <div class="notice">Prices are in US dollars (Yahoo Finance); rupee amounts use today's USD/INR rate. Indian exchanges also charge fees, and crypto gains are taxed at 30% with 1% TDS on sales.</div>
+    <div class="progress" id="crypto-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="crypto"></div>
+  </section>
+
+  <!-- ============ COMMODITIES ============ -->
+  <section class="page" id="page-commodities">
+    <div class="head-row">
+      <div><h1>Intraday commodities</h1>
+        <p class="sub">Gold, silver, crude oil, natural gas and copper on 15-minute candles. Trades exit within 2 hours; long or short.</p></div>
+      <button class="btn primary" data-market-scan="commodities">Scan commodities</button>
+    </div>
+    <div class="notice">Prices are the US futures on Yahoo (COMEX and NYMEX). MCX contracts follow them in rupees with import duty, so stops and targets are approximate on MCX: check the MCX chart before trading. Lots are MCX mini contracts.</div>
+    <div class="progress" id="commodities-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="commodities"></div>
+  </section>
+
+  <!-- ============ GOALS ============ -->
+  <section class="page" id="page-goals">
+    <div class="head-row"><div><h1>Long-term goals</h1>
+      <p class="sub">How much to invest each month, in what mix, and the chance of reaching your goal, simulated from ten years of Nifty and gold history.</p></div></div>
+    <div class="cols" style="grid-template-columns: minmax(280px, 1fr) 2fr; margin-top:0">
+      <form class="card form" id="goal-form" style="max-width:none;align-self:start;align-content:start">
+        <div class="field"><label for="g-name">Goal</label><input type="text" id="g-name" value="My goal"></div>
+        <div class="two">
+          <div class="field"><label for="g-target">Amount needed (today's ₹)</label><input type="number" id="g-target" min="1000" step="1000" value="2000000"></div>
+          <div class="field"><label for="g-years">In how many years</label><input type="number" id="g-years" min="1" max="50" step="1" value="10"></div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="g-current">Saved already (₹)</label><input type="number" id="g-current" min="0" step="1000" value="0"></div>
+          <div class="field"><label for="g-monthly">Monthly investment (₹)</label><input type="number" id="g-monthly" min="0" step="500" value="10000"></div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="g-step">Raise it each year by (%)</label><input type="number" id="g-step" min="0" max="30" step="1" value="5"></div>
+          <div class="field"><label for="g-infl">Inflation (%)</label><input type="number" id="g-infl" min="0" max="15" step="0.5" value="6"></div>
+        </div>
+        <div class="field"><label for="g-profile">Comfort with ups and downs</label>
+          <select id="g-profile"><option value="conservative">Low: protect my money</option><option value="balanced" selected>Medium: balanced</option><option value="aggressive">High: I can sit through big falls</option></select></div>
+        <div><button class="btn primary">Plan my goal</button></div>
+      </form>
+      <div>
+        <div class="progress" id="goal-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+        <div id="goal"><div class="card empty"><span class="et">Fill in your goal</span>and press <b>Plan my goal</b>.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ REBALANCE ============ -->
+  <section class="page" id="page-rebalance">
+    <div class="head-row"><div><h1>Rebalance</h1>
+      <p class="sub">Enter what you own. You get your current mix against your target, and exactly what to buy or sell to get back on track.</p></div></div>
+    <div class="card">
+      <h2>What you own</h2>
+      <div class="table-scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Yahoo symbol <span class="sub" style="font-weight:400">(optional)</span></th><th class="r">Quantity</th><th class="r">or value (₹)</th><th></th></tr></thead>
+        <tbody id="rb-rows"></tbody></table></div>
+      <div class="actions"><button type="button" class="btn small" id="rb-add">+ Add holding</button></div>
+      <p class="sub" style="font-size:12.5px">With a symbol and quantity the value uses today's price (e.g. NIFTYBEES.NS, RELIANCE.NS, GOLDBEES.NS, BTC-USD). For FDs, PPF or funds without a symbol, type the value.</p>
+    </div>
+    <div class="card form" style="margin-top:14px;max-width:none">
+      <h2 style="margin:0">Target mix</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
+        <div class="field"><label>Equity %</label><input type="number" class="rb-t" data-k="equity" value="60" min="0" max="100"></div>
+        <div class="field"><label>Debt %</label><input type="number" class="rb-t" data-k="debt" value="30" min="0" max="100"></div>
+        <div class="field"><label>Gold %</label><input type="number" class="rb-t" data-k="gold" value="10" min="0" max="100"></div>
+        <div class="field"><label>Crypto %</label><input type="number" class="rb-t" data-k="crypto" value="0" min="0" max="100"></div>
+        <div class="field"><label>Cash %</label><input type="number" class="rb-t" data-k="cash" value="0" min="0" max="100"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label for="rb-band">Rebalance when a type drifts by more than (%)</label><input type="number" id="rb-band" value="5" min="1" max="25"></div>
+        <div class="field"><label for="rb-new">New money you will add (₹, optional)</label><input type="number" id="rb-new" value="0" min="0" step="1000"></div>
+      </div>
+      <div class="actions" style="margin-top:0"><button type="button" class="btn primary" id="rb-go">Check my mix</button>
+        <button type="button" class="btn" id="rb-from-goal">Use my goal's mix</button><span class="sub" id="rb-sum" style="align-self:center"></span></div>
+    </div>
+    <div class="progress" id="rb-progress" hidden style="margin-top:14px"><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="rebalance" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ SETTINGS ============ -->
   <section class="page" id="page-settings">
     <div class="head-row"><div><h1>Settings</h1><p class="sub">Saved on this computer. Every scan and order uses them.</p></div></div>
@@ -384,6 +474,10 @@ details.events li { margin: 2px 0; }
         <li>Stock trades through the stop: sell everything at once, don't wait for the close. Target 1: sell half. Target 2: sell the rest.</li>
         <li>Nothing hit by <b>Exit by</b>: sell anyway, because options lose value daily.</li>
         <li>Close the trade in <b>My trades</b> to track your win rate.</li></ol></div>
+      <div class="card"><h2>The other tabs</h2>
+        <ol><li><b>Crypto</b> and <b>Commodities</b> use the same candlestick engine on coins (daily) and gold, silver, crude, gas and copper (15-minute). Each shows its own strategy check at the top.</li>
+        <li><b>Goals</b> turns a target amount and date into a monthly investment and a mix of equity, debt and gold, with the chance of getting there.</li>
+        <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li></ol></div>
       <div class="card"><h2>Stay safe</h2>
         <ol><li>Take one or two picks, not all five. They often move together.</li>
         <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
@@ -441,6 +535,7 @@ $("#theme").onclick = () => {
   try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) {}
   if (window._lastStock) drawChart(window._lastStock);
   if (window._lastTrack) drawPnl(window._lastTrack);
+  if (window._lastGoal) drawFan(window._lastGoal);
 };
 function showTab(name) {
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
@@ -448,6 +543,8 @@ function showTab(name) {
   if (name === "journal") loadJournal();
   if (name === "track") loadTrack(0);
   if (name === "ipo" && !window._ipoLoaded) loadIpo();
+  if (name === "goals") loadGoal();
+  if (name === "rebalance") loadPortfolio();
   if (name === "settings") { fillSettings(); loadKite(); }
   try { sessionStorage.setItem("tab", name); } catch (e) {}
 }
@@ -490,13 +587,13 @@ function orderBlock(plan, ticker) {
 }
 
 /* ---------------- picks ---------------- */
-function newsBlock(p) {
+function newsBlock(p, title = "News behind this pick") {
   if (!p.news_summary) return "";
   const items = (p.news_items || []).map(it => `<li><span class="num" style="color:var(--muted)">${fmtDate(it.date)}</span>
       <span class="pill ${it.role === "supports" ? "call" : it.role === "against" ? "put" : "none"}" style="font-size:11px;padding:0 6px">${esc(it.role)} ${it.sentiment >= 0 ? "+" : ""}${it.sentiment.toFixed(2)}</span>
       <a href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a> <span style="color:var(--muted)">· ${esc(it.source)}</span></li>`).join("");
-  return `<details class="news-why" style="margin-top:10px"><summary style="cursor:pointer;font-weight:600;font-size:14px">News behind this pick
-      <span class="sub" style="font-weight:400">(score ${p.news_effect >= 0 ? "+" : ""}${(p.news_effect || 0).toFixed(2)})</span></summary>
+  const score = p.news_effect == null ? "" : `<span class="sub" style="font-weight:400">(score ${p.news_effect >= 0 ? "+" : ""}${p.news_effect.toFixed(2)})</span>`;
+  return `<details class="news-why" style="margin-top:10px"><summary style="cursor:pointer;font-weight:600;font-size:14px">${title} ${score}</summary>
     <p style="font-size:13.5px;color:var(--ink-2);margin:6px 0">${esc(p.news_summary)}</p>
     <ul style="padding-left:16px;margin:0;font-size:13.5px;display:grid;gap:6px">${items}</ul></details>`;
 }
@@ -761,6 +858,192 @@ function drawChart(d) {
   $("#hit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
 }
 
+/* ---------------- crypto & commodities ---------------- */
+const pxj = x => x == null ? "–" : Math.abs(x) >= 100 ? x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  : Math.abs(x) >= 1 ? x.toFixed(3) : Math.abs(x) >= 0.01 ? x.toFixed(5) : x.toFixed(8);
+$$("[data-market-scan]").forEach(b => b.onclick = () => loadMarket(b.dataset.marketScan));
+async function loadMarket(market) {
+  const btn = $(`[data-market-scan="${market}"]`); btn.disabled = true;
+  try { renderMarket(await runJob(api("/api/markets?market=" + market), $("#" + market + "-progress")), $("#" + market)); }
+  catch (e) { $("#" + market).innerHTML = `<div class="notice error">Scan failed: ${esc(e.message)}</div>`; }
+  btn.disabled = false;
+}
+function renderMarket(res, box) {
+  const crypto = res.market === "crypto";
+  const chg = v => v == null ? "–" : `<span class="${v >= 0 ? "chg up" : "chg down"}">${spct(v)}</span>`;
+  let html = res.check_text ? `<div class="notice ${res.check && res.check.avg_ret <= 0 ? "error" : ""}">${esc(res.check_text)}</div>` : "";
+  html += `<div class="grid">` + res.rows.map(r => {
+    const p = r.plan;
+    let order = `<div class="order"><div class="line2">No active setup on the last ${crypto ? "two days" : "two 15-minute bars"}.</div></div>`;
+    if (p) {
+      const size = p.units != null ? `${p.units.toFixed(p.units >= 1 ? 4 : 6)} coins · ≈${money(p.value_inr)}`
+        : p.contract ? (p.lots > 0 ? `${p.lots} lot${p.lots > 1 ? "s" : ""} of ${esc(p.contract)} (${esc(p.lot_desc)})` : `0 lots: one lot of ${esc(p.contract)} risks ${money(p.risk_per_lot_inr)}, above your ${money(p.budget_inr)} limit`)
+        : esc(p.note || "");
+      order = `<div class="order ${p.lots === 0 ? "blocked" : ""}"><div class="line1">${p.side} · ${size}</div>
+        <div class="line2 num">entry ≈ $${pxj(p.entry)} · max loss at stop ≈ ${money(p.max_loss_inr || 0)}</div>
+        <div class="levels num">
+          <div class="level stop"><div class="k">Stop</div><div class="v">${p.side === "BUY" ? "below" : "above"} ${pxj(p.stop)}</div></div>
+          <div class="level tgt"><div class="k">Target 1</div><div class="v">${pxj(p.target1)}</div></div>
+          <div class="level tgt"><div class="k">Target 2</div><div class="v">${pxj(p.target2)}</div></div>
+          <div class="level"><div class="k">Exit after</div><div class="v">${crypto ? res.horizon + " days" : (res.horizon * 15 / 60) + " hours"}</div></div></div></div>`;
+    }
+    const meter = r.setup ? `<div class="setup">${esc(r.setup)} · ${esc(r.signal_time || "")}</div>
+      <div class="meter"><div class="meter-row"><span>Past trades won</span><span><b class="num">${pct(r.win_rate)}</b> vs ${pct(r.baseline)} at random</span></div>
+      <div class="track"><div class="fill" style="width:${Math.round((r.win_rate || 0) * 100)}%"></div><div class="basemark" style="left:${Math.round((r.baseline || 0) * 100)}%"></div></div></div>
+      <div class="stats num"><span>Past signals <b>${r.n}</b></span><span>Avg result <b>${spct(r.avg_ret, 2)}</b></span></div>` : "";
+    const news = r.news_summary ? newsBlock({ news_summary: r.news_summary, news_items: r.news_items, news_effect: null }, r.setup ? "News behind this setup" : "News") : "";
+    return `<article class="card">
+      <div class="pick-top"><div><div class="ticker">${esc(r.name)}</div><span class="sub" style="font-size:12.5px">${esc(r.symbol)}</span></div>
+        <div class="price num"><b>$${pxj(r.last)}</b><div class="sub" style="font-size:12.5px">${crypto ? "day" : "1 day"} ${chg(r.change_day)} · ${crypto ? "week" : "1 week"} ${chg(r.change_week)}</div></div></div>
+      ${r.setup ? `<div style="margin-top:6px">${r.direction === "bullish" ? '<span class="pill call">▲ BUY setup</span>' : '<span class="pill put">▼ SELL setup</span>'}</div>` : ""}
+      ${meter}${order}
+      ${(r.notes || []).map(n => `<div class="warns"><span class="pill warn">⚠ ${esc(n)}</span></div>`).join("")}
+      ${news}</article>`;
+  }).join("") + `</div><p class="sub" style="font-size:12.5px;margin-top:10px">USD/INR ${res.usd_inr.toFixed(2)} · costs assumed ${(res.cost * 100).toFixed(2)}% per round trip · not investment advice</p>`;
+  box.innerHTML = html;
+}
+
+/* ---------------- goals ---------------- */
+async function loadGoal() {
+  if (window._goalLoaded) return; window._goalLoaded = true;
+  const g = await api("/api/goal");
+  if (!g) return;
+  $("#g-name").value = g.name; $("#g-target").value = g.target_today; $("#g-years").value = g.years; $("#g-current").value = g.current;
+  $("#g-monthly").value = g.monthly; $("#g-step").value = Math.round(g.step_up * 100); $("#g-infl").value = +(g.inflation * 100).toFixed(1); $("#g-profile").value = g.profile;
+}
+$("#goal-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const body = { name: $("#g-name").value, target_today: +$("#g-target").value, years: +$("#g-years").value, current: +$("#g-current").value,
+    monthly: +$("#g-monthly").value, step_up: +$("#g-step").value / 100, inflation: +$("#g-infl").value / 100, profile: $("#g-profile").value };
+  try { const p = await runJob(api("/api/goal", { method: "POST", body }), $("#goal-progress")); window._lastGoal = p; renderGoal(p); }
+  catch (e) { $("#goal").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+};
+const MIXCOL = { equity: "--accent", debt: "--ink-2", gold: "--warn", crypto: "--down", cash: "--muted", other: "--axis" };
+function mixBar(mix) {
+  return `<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;margin:8px 0">${Object.entries(mix).filter(([, v]) => v > 0)
+    .map(([k, v]) => `<div title="${k} ${pct(v)}" style="flex:${v};background:var(${MIXCOL[k] || "--axis"})"></div>`).join("")}</div>
+    <div class="legend">${Object.entries(mix).filter(([, v]) => v > 0).map(([k, v]) => `<span><i class="sw" style="background:var(${MIXCOL[k] || "--axis"})"></i>${k} ${pct(v)}</span>`).join("")}</div>`;
+}
+function renderGoal(p) {
+  const g = p.goal, good = p.probability >= 0.75;
+  $("#goal").innerHTML = `
+    <div class="tiles">
+      <div class="card tile"><div class="k">Needed in ${g.years} years</div><div class="v num">${money(p.target_future)}</div><div class="sub" style="font-size:12.5px">${money(g.target_today)} today + ${(g.inflation * 100).toFixed(1)}% inflation</div></div>
+      <div class="card tile"><div class="k">Chance of reaching it</div><div class="v num ${good ? "chg up" : "chg down"}">${pct(p.probability)}</div><div class="sub" style="font-size:12.5px">with ${money(g.monthly)} a month</div></div>
+      <div class="card tile"><div class="k">Monthly for a 75% chance</div><div class="v num">${money(p.needed_monthly_75)}</div><div class="sub" style="font-size:12.5px">rising ${(g.step_up * 100).toFixed(0)}% a year</div></div>
+    </div>
+    <div class="card"><h2>Suggested mix</h2>${mixBar(p.mix)}
+      <p style="font-size:14px;margin:8px 0">Expected about <b>${(p.expected_return * 100).toFixed(1)}% a year</b>. Each month: ${Object.entries(p.monthly_split).map(([k, v]) => `${k} <b>${money(v)}</b>`).join(" · ")}.</p>
+      <ul class="reasons">${Object.entries(p.instruments).map(([k, v]) => `<li><b>${k}</b>: ${esc(v)}</li>`).join("")}</ul></div>
+    <div class="card" style="margin-top:14px"><h2>How your money could grow</h2><div class="chart-wrap" id="fan"></div>
+      <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--accent)"></i>Middle outcome</span>
+        <span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>8 in 10 outcomes fall in this band</span>
+        <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--ink-2)"></i>Goal</span></div>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">5,000 simulated futures using ${p.stats.equity.years} years of Nifty 50 ETF and gold ETF history (equity ${(p.stats.equity.hist_cagr * 100).toFixed(1)}% and gold ${(p.stats.gold.hist_cagr * 100).toFixed(1)}% a year in that period, capped at ${(p.stats.equity.expected * 100).toFixed(1)}% and ${(p.stats.gold.expected * 100).toFixed(1)}% for planning; debt assumed 7%). You would put in ${money(p.invested)} in total. A plan, not a promise or personal advice.</p></div>
+    <div class="actions"><button class="btn" id="goal-to-rb">Use this mix in Rebalance</button></div>`;
+  drawFan(p);
+  $("#goal-to-rb").onclick = () => { window._targetFromGoal = p.mix; showTab("rebalance"); applyTarget(p.mix); };
+}
+function drawFan(p) {
+  const wrap = $("#fan"); if (!wrap) return;
+  const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const b = p.bands, W = Math.max(320, Math.round(wrap.clientWidth || 700)), H = 260, m = { l: 8, r: 78, t: 14, b: 26 };
+  const hi = Math.max(p.target_future, ...b.map(x => x.p90)) * 1.05;
+  const X = i => m.l + (W - m.l - m.r) * i / Math.max(b.length - 1, 1), Y = val => m.t + (H - m.t - m.b) * (1 - val / hi);
+  const step = (() => { const raw = hi / 4, p10 = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(s => s * p10).find(s => s >= raw); })();
+  let g = "";
+  for (let y = 0; y <= hi; y += step) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="${v(y === 0 ? "--axis" : "--grid")}"/>
+    <text x="${W - m.r + 6}" y="${Y(y) + 4}" font-size="11" fill="${v("--muted")}" class="num">${money(y)}</text>`;
+  const every = Math.max(1, Math.ceil(b.length * 46 / (W - m.l - m.r)));
+  b.forEach((x, i) => { if (i % every === 0 || i === b.length - 1) g += `<text x="${X(i)}" y="${H - 8}" font-size="11" fill="${v("--muted")}" text-anchor="${i === 0 ? "start" : i === b.length - 1 ? "end" : "middle"}">${x.year === 0 ? "now" : "yr " + x.year}</text>`; });
+  const band = b.map((x, i) => `${i ? "L" : "M"}${X(i)} ${Y(x.p90)}`).join(" ") + " " + b.slice().reverse().map((x, k) => `L${X(b.length - 1 - k)} ${Y(x.p10)}`).join(" ") + "Z";
+  const mid = b.map((x, i) => `${i ? "L" : "M"}${X(i)} ${Y(x.p50)}`).join(" ");
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Projected value of the goal portfolio: middle outcome and 10 to 90 percent range">
+    <rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}
+    <path d="${band}" fill="${v("--accent-soft")}" stroke="none"/>
+    <line x1="${m.l}" x2="${W - m.r}" y1="${Y(p.target_future)}" y2="${Y(p.target_future)}" stroke="${v("--ink-2")}" stroke-dasharray="6 4" stroke-width="1.5"/>
+    <text x="${m.l + 4}" y="${Y(p.target_future) - 5}" font-size="11.5" font-weight="700" fill="${v("--ink-2")}" paint-order="stroke" stroke="${v("--chart")}" stroke-width="3">Goal ${money(p.target_future)}</text>
+    <path d="${mid}" fill="none" stroke="${v("--accent")}" stroke-width="2"/>
+    <rect id="fhit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = $("svg", wrap), tip = $(".tip", wrap);
+  $("#fhit", wrap).addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(b.length - 1, Math.round((sx - m.l) / ((W - m.l - m.r) / Math.max(b.length - 1, 1)))));
+    const x = b[i];
+    tip.innerHTML = `<div class="t">${x.year === 0 ? "Now" : "After " + x.year + " year" + (x.year > 1 ? "s" : "")}</div>
+      <div class="r num"><span>Good case</span><b>${money(x.p90)}</b></div><div class="r num"><span>Middle</span><b>${money(x.p50)}</b></div><div class="r num"><span>Bad case</span><b>${money(x.p10)}</b></div>`;
+    tip.style.display = "block"; const pxl = X(i) * r.width / W;
+    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, pxl > r.width / 2 ? pxl - tip.offsetWidth - 12 : pxl + 12)) + "px"; tip.style.top = "10px";
+  });
+  $("#fhit", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; });
+}
+
+/* ---------------- rebalance ---------------- */
+const CLASSES = ["equity", "debt", "gold", "crypto", "cash", "other"];
+function rbRow(h = {}) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><input type="text" data-f="name" value="${esc(h.name || "")}" placeholder="e.g. Nifty ETF"></td>
+    <td><select data-f="asset_class">${CLASSES.map(c => `<option ${c === (h.asset_class || "equity") ? "selected" : ""}>${c}</option>`).join("")}</select></td>
+    <td><input type="text" data-f="symbol" value="${esc(h.symbol || "")}" placeholder="optional"></td>
+    <td class="r"><input type="number" data-f="quantity" value="${h.quantity ?? ""}" step="any" style="width:110px"></td>
+    <td class="r"><input type="number" data-f="value" value="${h.value ?? ""}" step="any" style="width:130px"></td>
+    <td><button type="button" class="btn small" title="Remove">✕</button></td>`;
+  $("button", tr).onclick = () => tr.remove();
+  $("#rb-rows").appendChild(tr);
+}
+$("#rb-add").onclick = () => rbRow();
+function applyTarget(mix) { $$(".rb-t").forEach(i => { i.value = Math.round((mix[i.dataset.k] || 0) * 100); }); rbSum(); }
+function rbSum() { const t = $$(".rb-t").reduce((a, i) => a + (+i.value || 0), 0); $("#rb-sum").textContent = `Target adds up to ${t}%` + (t !== 100 ? " (should be 100%)" : ""); }
+$$(".rb-t").forEach(i => i.addEventListener("input", rbSum));
+$("#rb-from-goal").onclick = async () => {
+  const g = window._lastGoal ? window._lastGoal.mix : null;
+  if (g) return applyTarget(g);
+  const saved = await api("/api/goal");
+  if (!saved) { alert("Plan a goal first on the Goals tab."); return; }
+  const r = await runJob(api("/api/goal", { method: "POST", body: saved }), $("#rb-progress")); window._lastGoal = r; applyTarget(r.mix);
+};
+async function loadPortfolio() {
+  if (window._pfLoaded) return; window._pfLoaded = true;
+  const pf = await api("/api/portfolio");
+  $("#rb-rows").innerHTML = "";
+  if (pf && pf.holdings && pf.holdings.length) {
+    pf.holdings.forEach(h => rbRow(h));
+    if (pf.target) $$(".rb-t").forEach(i => { i.value = pf.target[i.dataset.k] ?? 0; });
+    $("#rb-band").value = pf.band ?? 5; $("#rb-new").value = pf.new_money ?? 0;
+  } else { rbRow({ name: "Nifty ETF", asset_class: "equity", symbol: "NIFTYBEES.NS" }); rbRow({ name: "Fixed deposit", asset_class: "debt" }); rbRow({ name: "Gold ETF", asset_class: "gold", symbol: "GOLDBEES.NS" }); }
+  if (window._targetFromGoal) applyTarget(window._targetFromGoal);
+  rbSum();
+}
+$("#rb-go").onclick = async () => {
+  const holdings = $$("#rb-rows tr").map(tr => Object.fromEntries($$("[data-f]", tr).map(i => [i.dataset.f, i.value])));
+  const target = Object.fromEntries($$(".rb-t").map(i => [i.dataset.k, +i.value || 0]));
+  try {
+    const r = await runJob(api("/api/rebalance", { method: "POST", body: { holdings, target, band: +$("#rb-band").value, new_money: +$("#rb-new").value } }), $("#rb-progress"));
+    renderRebalance(r);
+  } catch (e) { $("#rebalance").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+};
+function renderRebalance(r) {
+  const cur = Object.fromEntries(r.rows.map(x => [x.asset_class, x.weight]));
+  const qty = s => s.quantity == null ? "" : ` (${s.quantity} units)`;
+  $("#rebalance").innerHTML = `
+    <div class="notice ${r.needed ? "warn" : ""}"><b>${esc(r.verdict)}</b></div>
+    <div class="cols" style="margin-top:0">
+      <div class="card"><h2>Your mix now · total ${money(r.total)}</h2>${mixBar(cur)}<h2 style="margin-top:14px">Target</h2>${mixBar(r.target)}
+        <div class="table-scroll"><table class="num" style="margin-top:10px"><thead><tr><th>Type</th><th class="r">Value</th><th class="r">Now</th><th class="r">Target</th><th class="r">Drift</th><th class="r">To reach target</th></tr></thead><tbody>
+        ${r.rows.map(x => `<tr><td>${esc(x.asset_class)}</td><td class="r">${money(x.value)}</td><td class="r">${pct(x.weight)}</td><td class="r">${pct(x.target)}</td>
+          <td class="r ${Math.abs(x.drift) > r.band ? "chg down" : ""}">${spct(x.drift, 1)}</td><td class="r">${x.trade >= 0 ? "buy " : "sell "}${money(Math.abs(x.trade))}</td></tr>`).join("")}
+        </tbody></table></div></div>
+      <div class="card"><h2>${r.needed ? "Full rebalance" : "No trades needed"}</h2>
+        ${r.needed ? `<ul class="reasons">${r.sells.map(s => `<li>Sell <b>${money(s.amount)}</b> of ${esc(s.name)}${qty(s)}</li>`).join("")}
+          ${r.buys.map(b => `<li>Buy <b>${money(b.amount)}</b> of ${esc(b.asset_class)}</li>`).join("")}</ul>` : `<p class="sub">Everything is within ${pct(r.band)} of target.</p>`}
+        ${r.new_money > 0 ? `<h2 style="margin-top:14px">Or, with your new ${money(r.new_money)} only</h2>
+          <ul class="reasons">${Object.entries(r.new_split).map(([k, v]) => `<li>Put <b>${money(v)}</b> into ${esc(k)}</li>`).join("")}</ul>
+          <p class="sub" style="font-size:12.5px">This sells nothing, so there is no tax or exit charge.</p>` : ""}
+        <h2 style="margin-top:14px">Holdings priced</h2>
+        <ul class="reasons">${r.holdings.map(h => `<li>${esc(h.name)} (${esc(h.asset_class)}): ${money(h.value)}${h.price ? ` · ${h.quantity} × ${money(h.price, "₹", 2)}` : ""}${h.note ? ` · <span class="chg down">${esc(h.note)}</span>` : ""}</li>`).join("")}</ul></div>
+    </div>`;
+}
+
 /* ---------------- new IPOs ---------------- */
 async function loadIpo() {
   window._ipoLoaded = true;
@@ -955,7 +1238,7 @@ async function kiteOrder(ticker, plan, pattern, limit) {
   };
 }
 
-let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); }, 150); });
+let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); if (window._lastGoal) drawFan(window._lastGoal); }, 150); });
 
 /* ---------------- boot ---------------- */
 (async () => {
