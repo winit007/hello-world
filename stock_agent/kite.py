@@ -319,7 +319,19 @@ def preview(kite: Kite, cache_dir: Path, ticker: str, plan: dict, capital: float
     if v and (v.get("test_avg_ret") or 0) <= 0:
         warnings.insert(0, f"This strategy lost money on recent untouched data ({v['test_win_rate']:.0%} of "
                            f"{v['test_trades']:,} trades won, average {v['test_avg_ret']:+.1%}). There is no proven edge.")
+    from . import checklist as C
+
+    spread = ((live["ask"] - live["bid"]) / live["ask"]) if live and live["ask"] and live["bid"] else None
+    rd = C.next_results_date(ticker, cache_dir)
+    texit = date.fromisoformat(plan["time_stop"]) if plan.get("time_stop") else None
+    edge_detail = (f"strategy check {v['test_avg_ret']:+.1%} per trade on unseen data" if v else "no strategy check yet")
+    cl = C.evaluate(edge_ok=bool(v) and (v.get("test_avg_ret") or -1) > 0 and plan.get("setup_edge_ok", True),
+                    edge_detail=edge_detail, stop=plan["stop_underlying"], target=plan["target1_underlying"],
+                    time_exit=plan.get("time_stop"), max_loss=per_lot_risk * max(lots, 0) if lots > 0 else None,
+                    budget=budget, affordable=lots > 0, spread_pct=spread, results_date=rd, results_known=True,
+                    exit_date=texit, intraday=False)
     return {
+        "checklist": cl,
         "ticker": ticker, "tradingsymbol": c["tradingsymbol"], "expiry": c["expiry"], "strike": c["strike"],
         "lot_size": lot, "lots": max(lots, 0), "qty": max(lots, 0) * lot, "limit": limit, "cost": cost,
         "max_loss_at_stop": per_lot_risk * max(lots, 0), "budget": budget, "funds": funds, "live": live,
@@ -329,10 +341,22 @@ def preview(kite: Kite, cache_dir: Path, ticker: str, plan: dict, capital: float
     }
 
 
-def place(kite: Kite, pv: dict, wait_seconds: float = 20) -> dict:
-    """Send the BUY (or simulate it in practice mode), wait briefly for a fill, then set the GTTs."""
+def place(kite: Kite, pv: dict, wait_seconds: float = 20, confirmed: list | None = None) -> dict:
+    """Send the BUY (or simulate it in practice mode), wait briefly for a fill, then set the GTTs.
+
+    Live orders also need the six-point checklist: every automatic item must pass and every item only
+    the trader can answer must be in `confirmed`. Practice orders are allowed either way.
+    """
     if pv["blockers"]:
         raise KiteError("; ".join(pv["blockers"]))
+    cl = pv.get("checklist")
+    if cl and not pv["practice"]:
+        failed = [i["title"] for i in cl["items"] if i["status"] == "fail"]
+        unticked = [i["title"] for i in cl["items"] if i["status"] == "check" and i["id"] not in (confirmed or [])]
+        if failed:
+            raise KiteError("Checklist failed (" + ", ".join(failed) + "): take a trade only if every answer is yes")
+        if unticked:
+            raise KiteError("Tick the checklist items you have checked yourself: " + ", ".join(unticked))
     rec = {"broker": "kite", "practice": pv["practice"], "tradingsymbol": pv["tradingsymbol"], "quantity": pv["qty"],
            "buy_price": pv["limit"], "gtt_legs": pv["gtt_legs"], "gtt_ids": [], "exits": [], "events": []}
     if pv["practice"]:

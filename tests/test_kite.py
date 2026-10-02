@@ -120,9 +120,20 @@ class KiteFlowTests(unittest.TestCase):
         self.k.complete_login("req1")
         self.open_patch = mock.patch.object(K, "market_open", return_value=True)
         self.open_patch.start()
+        # checklist inputs: a positive strategy check and no results date, so no test touches Yahoo
+        from stock_agent import checklist, tradetest
+        self.val_patch = mock.patch.object(tradetest, "load_validation", return_value={
+            "test_avg_ret": 0.01, "test_win_rate": 0.55, "test_trades": 1000})
+        self.ev_patch = mock.patch.object(checklist, "next_results_date", return_value=None)
+        self.val_patch.start(); self.ev_patch.start()
+        real_place = K.place
+        self.place_patch = mock.patch.object(K, "place", side_effect=lambda kite, pv, wait_seconds=20, confirmed=None:
+                                             real_place(kite, pv, wait_seconds, ["liquid", "events"] if confirmed is None else confirmed))
+        self.place_patch.start()
 
     def tearDown(self):
         self.open_patch.stop()
+        self.val_patch.stop(); self.ev_patch.stop(); self.place_patch.stop()
         self.tmp.cleanup()
 
     def pv(self, capital=200000, risk=0.02, **kw):
@@ -225,6 +236,35 @@ class KiteFlowTests(unittest.TestCase):
         self.assertTrue(all(g["status"] == "cancelled" for g in FakeKite.state["gtts"].values()))
         sells = [o["form"] for o in FakeKite.state["orders"].values() if o["form"]["transaction_type"] == "SELL"]
         self.assertEqual(int(sells[0]["quantity"]), rec["filled_qty"])
+
+
+class ChecklistGateTests(KiteFlowTests):
+    """Live orders need every checklist answer to be yes; practice orders do not."""
+
+    def test_live_order_blocked_when_strategy_has_no_edge(self):
+        from stock_agent import tradetest
+        with mock.patch.object(tradetest, "load_validation", return_value={"test_avg_ret": -0.02, "test_win_rate": 0.38, "test_trades": 13000}):
+            pv = self.pv(capital=1_000_000)
+            self.assertEqual(next(i for i in pv["checklist"]["items"] if i["id"] == "edge")["status"], "fail")
+            with self.assertRaises(K.KiteError) as cm:
+                K.place(self.k, pv, confirmed=["liquid", "events"])
+            self.assertIn("Proven edge", str(cm.exception))
+            self.assertEqual(FakeKite.state["orders"], {})
+            self.k.update_config(practice=True)
+            rec = K.place(self.k, self.pv(capital=1_000_000))
+            self.assertTrue(rec["practice"])
+
+    def test_live_order_needs_ticks_for_manual_items(self):
+        pv = self.pv(capital=1_000_000)
+        with self.assertRaises(K.KiteError) as cm:
+            K.place(self.k, pv, confirmed=[])
+        self.assertIn("No big events", str(cm.exception))
+        self.assertEqual(FakeKite.state["orders"], {})
+
+    # run only the two gate tests here; the inherited flow tests already run in KiteFlowTests
+    for _name in [n for n in dir(KiteFlowTests) if n.startswith("test_")]:
+        locals()[_name] = None
+    del _name
 
 
 class AppSecurityTests(unittest.TestCase):

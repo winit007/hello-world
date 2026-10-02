@@ -478,7 +478,8 @@ def kite_place(body: dict) -> dict:
     # never trust a preview computed in the browser: rebuild it here from the plan
     pv = K.preview(kite_client(), CACHE, body["ticker"], body["plan"], float(st["capital"]), float(st["risk"]) / 100,
                    float(body["limit"]) if body.get("limit") else None)
-    rec = K.place(kite_client(), pv)
+    rec = K.place(kite_client(), pv, confirmed=body.get("confirm") or [])
+    rec["checklist"] = pv.get("checklist")
     plan = body["plan"]
     entry = {"ticker": body["ticker"], "contract": pv["tradingsymbol"], "side": pv["side"], "lots": pv["lots"],
              "lot_size": pv["lot_size"], "entry_premium": rec.get("avg_price") or pv["limit"],

@@ -193,6 +193,19 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .banner-live { background: var(--down-soft); color: var(--down-text); border-radius: 9px; padding: 8px 10px; font-size: 13.5px; margin-bottom: 8px; font-weight: 700; }
 details.events { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
 details.events li { margin: 2px 0; }
+.cl { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
+.cl-sum { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; cursor: pointer; font-size: 13px; }
+.cl-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.cl-chip.pass { background: var(--up-soft); color: var(--up-text); }
+.cl-chip.fail { background: var(--down-soft); color: var(--down-text); }
+.cl-chip.check { background: var(--warn-soft); color: var(--warn-text); }
+.cl-chip.na { background: var(--surface-2); color: var(--muted); }
+.cl-verdict { font-size: 13px; font-weight: 700; margin-top: 4px; }
+.cl-verdict.bad { color: var(--down-text); } .cl-verdict.warn { color: var(--warn-text); } .cl-verdict.good { color: var(--up-text); }
+.cl-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 5px; font-size: 13px; }
+.cl-list li { display: grid; grid-template-columns: 22px 1fr; gap: 4px; }
+.cl-list li > .cl-chip { align-self: start; padding: 1px 0; }
+.cl-list .q { color: var(--ink-2); font-size: 12.5px; }
 .foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 @media (max-width: 720px) {
   .bar { gap: 10px; }
@@ -514,6 +527,14 @@ details.events li { margin: 2px 0; }
         <li><b>Goals</b> turns a target amount and date into a monthly investment and a mix of equity, debt and gold, with the chance of getting there.</li>
         <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li>
         <li><b>On your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
+      <div class="card"><h2>Trade checklist</h2>
+        <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live Kite orders are refused until all pass.</p>
+        <ol><li><b>Proven edge</b>: has this setup made money on data it wasn't tuned on, after costs?</li>
+        <li><b>Planned exit</b>: stop-loss, target and time limit known before entering?</li>
+        <li><b>Small risk</b>: loss at the stop within 2% of capital (₹4,000 for ₹2,00,000)?</li>
+        <li><b>Liquid contract</b>: bid-ask spread under about 2% of the price?</li>
+        <li><b>No big events</b>: no results, RBI decision or budget before your exit?</li>
+        <li><b>Intraday timing</b>: not in the first 15 minutes after 9:15, and out before the 3:20 pm square-off?</li></ol></div>
       <div class="card"><h2>Stay safe</h2>
         <ol><li>Take one or two picks, not all five. They often move together.</li>
         <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
@@ -622,6 +643,19 @@ function orderBlock(plan, ticker) {
     </div>${plan.estimated ? `<div class="line2" style="margin-top:8px">Premium is an estimate. Check the live price in your broker app before buying.</div>` : ""}</div>`;
 }
 
+/* ---------------- trade checklist ---------------- */
+const CLMARK = { pass: "✓", fail: "✕", check: "?", na: "–" };
+function checklistBlock(cl, interactive = false) {
+  if (!cl) return "";
+  const vcls = cl.failed ? "bad" : cl.to_check ? "warn" : "good";
+  const chips = cl.items.map(i => `<span class="cl-chip ${i.status}" title="${esc(i.title)}: ${esc(i.detail)}">${CLMARK[i.status]} ${esc(i.title)}</span>`).join("");
+  const list = cl.items.map(i => `<li><span class="cl-chip ${i.status}" style="justify-content:center">${CLMARK[i.status]}</span>
+      <span><b>${esc(i.title)}</b> · ${esc(i.detail)}<div class="q">${esc(i.question)}</div>
+      ${interactive && i.status === "check" ? `<label class="switch" style="margin-top:2px"><input type="checkbox" name="cl_${i.id}" data-cl="${i.id}"> Yes, I have checked this</label>` : ""}</span></li>`).join("");
+  return `<div class="cl"><details ${interactive ? "open" : ""}><summary class="cl-sum" style="list-style:none"><b style="font-size:13px">Trade checklist</b> ${chips}</summary>
+    <ul class="cl-list">${list}</ul></details><div class="cl-verdict ${vcls}">${esc(cl.verdict)}</div></div>`;
+}
+
 /* ---------------- picks ---------------- */
 function newsBlock(p, title = "News behind this pick") {
   if (!p.news_summary) return "";
@@ -665,6 +699,7 @@ function renderPicks(res) {
         ${p.plan && p.plan.instrument === "stock" ? `<span>Avg result <b>${p.avg_r == null ? "–" : (p.avg_r >= 0 ? "+" : "") + p.avg_r.toFixed(2) + "× stop"}</b></span>` : `<span>Avg option return <b>${spct(p.avg_return, 0)}</b></span>`}<span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
       ${orderBlock(p.plan, p.ticker)}
       ${warns ? `<div class="warns">${warns}</div>` : ""}
+      ${checklistBlock(p.checklist)}
       ${newsBlock(p)}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
         ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}
@@ -934,6 +969,7 @@ function renderMarket(res, box) {
       ${r.setup ? `<div style="margin-top:6px">${r.direction === "bullish" ? '<span class="pill call">▲ BUY setup</span>' : '<span class="pill put">▼ SELL setup</span>'}</div>` : ""}
       ${meter}${order}
       ${(r.notes || []).map(n => `<div class="warns"><span class="pill warn">⚠ ${esc(n)}</span></div>`).join("")}
+      ${checklistBlock(r.checklist)}
       ${news}</article>`;
   }).join("") + `</div><p class="sub" style="font-size:12.5px;margin-top:10px">USD/INR ${res.usd_inr.toFixed(2)} · costs assumed ${(res.cost * 100).toFixed(2)}% per round trip · not investment advice</p>`;
   box.innerHTML = html;
@@ -1379,15 +1415,24 @@ async function kiteOrder(ticker, plan, pattern, limit) {
     </div>
     ${pv.warnings.map(w => `<div class="pill warn" style="margin:3px 0">⚠ ${esc(w)}</div>`).join("")}
     ${pv.blockers.map(b => `<div class="blocker">${esc(b)}</div>`).join("")}
+    ${checklistBlock(pv.checklist, true)}
+    ${!pv.practice && pv.checklist && pv.checklist.failed ? `<div class="blocker">Live order not allowed: take a trade only if every checklist answer is yes. Practice mode still works.</div>` : ""}
     ${!pv.practice && !blocked ? `<label class="switch" style="margin-top:10px"><input type="checkbox" name="sure"> I have checked this order in Kite and want to buy</label>` : ""}
-    <div class="actions"><button class="btn primary" value="ok" ${blocked ? "disabled" : ""}>${pv.practice ? "Run practice order" : "Buy on Kite"}</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>`;
+    <div class="actions"><button class="btn primary" value="ok" id="kite-ok" ${blocked || (!pv.practice && pv.checklist && pv.checklist.failed) ? "disabled" : ""}>${pv.practice ? "Run practice order" : "Buy on Kite"}</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>`;
+  if (!pv.practice && pv.checklist && !pv.checklist.failed) {
+    const need = $$("[data-cl]", f), ok = $("#kite-ok", f);
+    const upd = () => { ok.disabled = blocked || need.some(c => !c.checked); };
+    need.forEach(c => c.onchange = upd); upd();
+  }
   dlg.onclose = async () => {
     const lim = +f.limit.value;
+    const ticked = $$("[data-cl]", f).filter(c => c.checked).map(c => c.dataset.cl);
     if (dlg.returnValue === "recalc") return kiteOrder(ticker, plan, pattern, lim);
     if (dlg.returnValue !== "ok") return;
     if (!pv.practice && !(f.sure && f.sure.checked)) { alert("Tick the confirmation box to place a live order."); return kiteOrder(ticker, plan, pattern, lim); }
     f.innerHTML = `<h2>${pv.practice ? "Running practice order…" : "Placing order on Kite…"}</h2><p class="sub">Waiting for the fill, then setting stop and target.</p>`; dlg.showModal(); dlg.onclose = null;
-    try { await api("/api/kite/place", { method: "POST", body: { ticker, plan, pattern, limit: lim } }); dlg.close(); showTab("journal"); }
+    const confirm = ticked;
+    try { await api("/api/kite/place", { method: "POST", body: { ticker, plan, pattern, limit: lim, confirm } }); dlg.close(); showTab("journal"); }
     catch (e) { f.innerHTML = `<h2>Order not placed</h2><div class="blocker">${esc(e.message)}</div><div class="actions"><button class="btn" value="cancel">Close</button></div>`; }
   };
 }

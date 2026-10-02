@@ -53,6 +53,7 @@ class Pick:
     news_items: list = field(default_factory=list)  # the headlines that mattered, with date and link
     news_effect: float = 0.0      # how much the news moved the score
     avg_r: float = float("nan")   # average result on the stock itself, in multiples of the stop distance
+    checklist: dict | None = None  # the six-point trade checklist (see checklist.py)
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -280,8 +281,11 @@ def screen(
     stats = {"universe": len(tickers), "loaded": loaded, "liquid": len(prices), "illiquid": illiquid,
              "candidates": n_setups, "eligible": len(ranked),
              "as_of": str(as_of.date()) if as_of is not None else ""}
+    final = picks_override if picks_override is not None else ranked[:top]
+    if size:
+        attach_checklists(final, min_edge, cache_dir, offline)
     progress("Done", 1.0)
-    return (picks_override if picks_override is not None else ranked[:top]), ranked, stats
+    return final, ranked, stats
 
 
 def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon: int, top: int) -> str:
@@ -342,6 +346,28 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
     return "\n".join(md)
 
 
+def attach_checklists(picks: list[Pick], min_edge: float, cache_dir, offline: bool = False) -> None:
+    from . import checklist as C
+    from .tradetest import load_validation
+
+    v = load_validation() or {}
+    strat_ok = (v.get("test_avg_ret") or -1) > 0
+    for p in picks:
+        if p.plan is None:
+            continue
+        setup_ok = p.edge >= min_edge and p.avg_return > 0
+        detail = (f"strategy check {v.get('test_avg_ret', 0):+.1%} per trade on unseen data; this setup "
+                  f"{p.success:.0%} vs {p.baseline:.0%} on a random day" if v else "no strategy check yet: run the lab")
+        rd = None if offline else C.next_results_date(p.ticker, cache_dir) if p.ticker.upper().endswith((".NS", ".BO")) else None
+        known = not offline and p.ticker.upper().endswith((".NS", ".BO"))
+        pl = p.plan
+        p.checklist = C.evaluate(
+            edge_ok=strat_ok and setup_ok, edge_detail=detail, stop=pl.stop_underlying, target=pl.target1_underlying,
+            time_exit=f"{pl.time_stop:%d %b}", max_loss=pl.max_loss_at_stop if pl.lots > 0 else None,
+            budget=pl.capital * pl.risk_pct, affordable=(pl.lots or 0) > 0 and pl.lot_size is not None,
+            results_date=rd, results_known=known, exit_date=pl.time_stop, intraday=False)
+
+
 def validation_line() -> str:
     """One honest sentence on how the strategy did on recent years it was not tuned on."""
     from .tradetest import load_validation
@@ -373,6 +399,10 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
                      f"{p.success:.0%} of past trades won (random day {p.baseline:.0%}{recent}), {result}{news}")
         if p.plan is not None:
             lines += p.plan.lines()
+        if p.checklist:
+            from .checklist import short_line
+
+            lines.append("   " + short_line(p.checklist))
         if p.news_summary:
             lines.append(f"   NEWS: {p.news_summary} Effect on the score: {p.news_effect:+.2f} of a possible ±{0.10:.2f}.")
             for it in p.news_items[:3]:

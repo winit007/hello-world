@@ -71,6 +71,7 @@ class MarketRow:
     news_summary: str = ""
     news_items: list = field(default_factory=list)
     notes: list = field(default_factory=list)
+    checklist: dict | None = None
 
 
 def _usd_inr(cache_dir) -> float:
@@ -195,6 +196,23 @@ def scan(market: str, capital: float = 200_000, risk_pct: float = 0.02, offline:
 
         with ThreadPoolExecutor(max_workers=6) as ex:
             rows = list(ex.map(news, rows))
+    from . import checklist as C
+
+    strat_ok = bool(check) and check["avg_ret"] > 0
+    for r in rows:
+        if not (r.setup and r.plan):
+            continue
+        p = r.plan
+        sized = (p.get("units") or 0) > 0 or (p.get("lots") or 0) > 0
+        r.checklist = C.evaluate(
+            edge_ok=strat_ok and (r.win_rate - r.baseline) >= 0.02 and r.avg_ret > 0,
+            edge_detail=(f"strategy check {check['avg_ret']:+.2%} per trade on unseen data; this setup "
+                         f"{r.win_rate:.0%} vs {r.baseline:.0%} at random") if check else "no strategy check",
+            stop=p["stop"], target=p["target1"],
+            time_exit=f"{cfg['horizon']} days" if market == "crypto" else f"{cfg['horizon'] * 15 // 60} hours",
+            max_loss=p.get("max_loss_inr") if sized else None, budget=budget_inr, affordable=sized,
+            results_known=False, intraday=market == "commodities", session="mcx",
+            event_note="US inflation data, a Fed decision or an OPEC meeting" if market == "commodities" else "major exchange or regulatory news")
     rows.sort(key=lambda r: (r.setup is None, bool(r.notes), -(r.win_rate or 0)))
     progress("Done", 1.0)
     return {"market": market, "interval": cfg["interval"], "horizon": cfg["horizon"], "rows": rows, "check": check,
