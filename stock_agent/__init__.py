@@ -4,4 +4,4 @@ Pipeline:  prices (cached)  ->  candlestick patterns  ->  backtest every pattern
            news RSS (cached) ->  sentiment            ->  combined outlook + ranked rules
 """
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"

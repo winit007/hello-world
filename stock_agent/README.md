@@ -42,6 +42,7 @@ that appears open while you use it; close it to stop the app. It has five pages:
 | **Today's picks** | Press *Scan now* for the top 5 setups as cards: success rate vs the usual rate, the exact order (contract, lots, cost), stop-loss, two targets and the exit date. Tick *Only trades I can afford* to hide picks that break your risk limit. |
 | **Stock lookup** | Type any symbol (TCS.NS, AAPL) for its verdict, a 6-month candlestick chart with patterns and your stop/targets marked, its best candlestick rules and its latest news. |
 | **Track record** | What every pick would have made if you had taken it: profit or loss for each day, a running total, and the outcome of each pick (target, stop, time exit). *Rebuild last 10 days* fills in history straight away. |
+| **Paper trading** | A practice account with virtual money (your capital from Settings; reset any time). Buy or short NSE shares, buy NSE stock options, trade crypto and MCX commodities at live prices with real lot sizes, slippage and charges. Stop-loss and target close positions automatically, intraday trades square off at 3:20 pm, and it tracks your win rate, P&L, charges and worst drop. *Paper trade* on any card fills in the order. |
 | **My trades** | *Add to my trades* from any pick, then enter the price you sold at to close it. Shows your win rate and total profit or loss. |
 | **Settings** | Capital, risk per trade, which stocks to scan (Nifty 50, US, or your own list), holding period. |
 | **How to use** | The three-step routine: scan in the evening, buy in the morning, manage the exit. |
@@ -198,6 +199,18 @@ $25,000 for US, and `--risk`, default 2% per trade):
 stock-agent screen --capital 300000 --risk 1.5 --brief
 stock-agent trade HINDALCO.NS --capital 300000
 ```
+
+## Paper trading: practise with virtual money
+
+The **Paper trading** tab is a simulated broker account stored in `~/.stock_agent/paper.json`.
+
+* **What you can trade:** NSE shares (delivery, or intraday with 20% margin and shorting), NSE stock options (buy only, priced with Black-Scholes at the volatility fixed when you buy, settled at intrinsic value on expiry), crypto (US-dollar prices converted at the live USD/INR rate) and MCX mini commodity contracts (10% margin, long or short).
+* **Fills:** market orders at the latest Yahoo price plus slippage (0.05% shares, 1% options, 0.1% crypto, 0.02% commodities), and only during market hours: NSE 9:15 am to 3:30 pm, MCX 9 am to 11:30 pm, crypto any time. NSE prices are about 15 minutes delayed.
+* **Charges:** brokerage, STT/CTT, exchange fees, SEBI fee, GST and stamp duty at Indian rates, simplified.
+* **Automatic exits:** each refresh (every minute while the tab is open) walks the 5-minute candles since entry. The first level touched closes the position; when stop and target fall in the same candle, the stop wins. Intraday positions square off at 3:20 pm (MCX 11:15 pm). Positions with an *Exit by* date close after it.
+* **Results:** account value, free cash, total P&L, win rate with average win and loss, charges paid, worst drop from the peak, an account-value chart, closed trades and an activity log.
+
+Option premiums are model prices, not live NSE quotes, so real fills will differ, most of all for far out-of-the-money strikes.
 
 ## Track record: what-if profit and loss
 
@@ -446,6 +459,7 @@ stock_agent/
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)
   lab.py        rule-variant search with a train/test split; validation.json holds the latest check
+  paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days
   kite.py       Zerodha Kite Connect: login, contract lookup, one-click LIMIT buy + GTT stop/target
   app.py        local web app server (standard library only) + desktop shortcut

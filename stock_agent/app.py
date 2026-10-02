@@ -32,6 +32,7 @@ JOURNAL_FILE = HOME / "journal.json"
 LEDGER_FILE = HOME / "track.json"
 GOAL_FILE = HOME / "goal.json"
 PORTFOLIO_FILE = HOME / "portfolio.json"
+PAPER_FILE = HOME / "paper.json"
 WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
@@ -342,6 +343,35 @@ def run_fund(body: dict, settings: dict, progress) -> dict:
     res["curve"] = [{"date": str(d.date()), **{k: float(v) for k, v in row.items()}} for d, row in curve.iterrows()]
     res.pop("log", None)
     return clean(res)
+
+
+_paper_lock = threading.Lock()
+
+
+def paper_account():
+    from .paper import Account
+
+    return Account(PAPER_FILE, start_cash=float(load_settings()["capital"]), cache_dir=CACHE)
+
+
+def run_paper(progress) -> dict:
+    progress("Fetching live prices for your open positions", 0.3)
+    with _paper_lock:
+        return paper_account().state(refresh=True)
+
+
+def paper_op(path: str, body: dict) -> dict:
+    with _paper_lock:
+        acct = paper_account()
+        if path == "/api/paper/preview":
+            return acct.preview(body)
+        if path == "/api/paper/order":
+            return acct.place(body)
+        if path.startswith("/api/paper/close/"):
+            return acct.close(path.rsplit("/", 1)[-1])
+        if path == "/api/paper/reset":
+            return acct.reset(float(body.get("start_cash") or load_settings()["capital"]))
+    raise KeyError(path)
 
 
 def run_ipo(days: int, progress) -> dict:
@@ -667,6 +697,11 @@ class Handler(BaseHTTPRequestHandler):
                 if market not in ("crypto", "commodities"):
                     return self._send(400, {"error": "unknown market"})
                 return self._send(200, {"job": start_job("market", run_market, market, load_settings())})
+            if url.path == "/api/paper":
+                if q.get("refresh") == "0":
+                    with _paper_lock:
+                        return self._send(200, clean(paper_account().state(refresh=False)))
+                return self._send(200, {"job": start_job("paper", run_paper)})
             if url.path == "/api/goal":
                 return self._send(200, _read_json(GOAL_FILE, None))
             if url.path == "/api/portfolio":
@@ -728,6 +763,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"job": start_job("rebalance", run_rebalance, body)})
             if url.path.startswith("/api/journal"):
                 return self._send(200, journal_op("POST", url.path, body))
+            if url.path.startswith("/api/paper/"):
+                from .paper import PaperError
+
+                try:
+                    return self._send(200, clean(paper_op(url.path, body)))
+                except PaperError as exc:
+                    return self._send(400, {"error": str(exc)})
+                except KeyError:
+                    return self._send(404, {"error": "not found"})
             return self._send(404, {"error": "not found"})
         except Exception as exc:
             traceback.print_exc()
