@@ -118,6 +118,21 @@ class TrackerTests(unittest.TestCase):
         self.assertEqual(ev["account"]["trades"], 0)
         self.assertEqual(ev["all"]["wins"], 1)
 
+    def test_reports_render_every_status(self):
+        from stock_agent import tracker
+        rows = [self._rec(), self._rec(as_of="2026-01-06", rank=2),            # entered / waiting
+                self._rec(ticker="GAP.NS", rank=3)]                            # skipped (opens below stop)
+        df = self._df([(100, 100, 100, 100), (100, 103.5, 99.5, 103)])
+        gap = self._df([(100, 100, 100, 100), (95, 96, 94, 95)])
+        ev = tracker.evaluate(rows, {"TEST.NS": df, "GAP.NS": gap})
+        self.assertEqual({x["status"] for x in ev["results"]}, {"open", "waiting", "Skipped"} - {"open"} | {x["status"] for x in ev["results"] if x["ticker"] == "TEST.NS" and x["as_of"] == "2026-01-05"})
+        md, brief = tracker.render_markdown(ev), tracker.render_brief(ev)
+        self.assertIn("not bought", md)
+        self.assertIn("What-if P&L", brief)
+        empty = tracker.evaluate([], {})
+        self.assertIn("no picks", tracker.render_brief(empty))
+        tracker.render_markdown(empty)
+
     def test_ledger_record_replaces_same_day(self):
         import tempfile
         from pathlib import Path

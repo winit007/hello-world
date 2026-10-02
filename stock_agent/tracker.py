@@ -253,9 +253,10 @@ def render_markdown(ev: dict) -> str:
     out += [f"| {_fmt_day(d)} | {money(acc['by_day'][d], c)} | {money(al['by_day'][d], c)} |" for d in ev["days"]]
     out += ["", "| Picked | Stock | Contract | Lots | Bought | Outcome | P&L |", "|---|---|---|---|---|---|---|"]
     for x in sorted(ev["results"], key=lambda x: (x["as_of"], x["rank"]), reverse=True):
-        bought = f"{x['entry_premium']:.2f} on {_fmt_day(x['entry_date'])}" if x["entry_date"] else "tomorrow"
+        bought = (f"{x['entry_premium']:.2f} on {_fmt_day(x['entry_date'])}" if x["entry_premium"] is not None
+                  else "not bought" if x["status"] == "Skipped" else "tomorrow")
         out.append(f"| {_fmt_day(x['as_of'])}{' (replay)' if x.get('replayed') else ''} | {x['ticker'].split('.')[0]} | "
                    f"{x['strike']:g} {'CE' if x['side'] == 'CALL' else 'PE'} | {x['sim_lots']}{'' if x['affordable'] else '*'} | "
-                   f"{bought} | {x['status']} | {money(x['pnl'], c)} |")
+                   f"{bought} | {x['status']} | {'–' if x['status'] in ('waiting', 'Skipped') else money(x['pnl'], c)} |")
     out += ["", "\\* not affordable at your risk limit; counted as 1 lot under All picks only."]
     return "\n".join(out)
