@@ -149,6 +149,42 @@ def cmd_track(args) -> int:
     return 0
 
 
+def cmd_lab(args) -> int:
+    """Search rule variants on older years, judge them on the last few years, and re-check the current strategy."""
+    import json as _json
+
+    import pandas as pd
+
+    from . import lab
+    from .data import download_prices
+    from .tradetest import USER_VALIDATION, load_strategy
+
+    tickers = list(args.tickers or []) or UNIVERSES[args.universe]
+    prices = screener.load_universe(tickers, "10y", "1d", args.offline, args.cache_dir, log=lambda *a: None)
+    index_symbol = "^NSEI" if args.universe == "nifty50" and not args.tickers else "^GSPC"
+    try:
+        idx = download_prices(index_symbol, "10y")
+    except Exception:
+        idx = None
+    print(f"[lab] {len(prices)} stocks; testing on the last {args.test_years:g} years ...")
+    if not args.check_only:
+        res = lab.run(prices, idx, args.test_years, progress=lambda m, f: print(f"[lab] {m}", end="\r"))
+        cols = ["label", "patterns", "train_trades", "train_avg_ret", "test_trades", "test_win_rate", "test_avg_ret",
+                "test_profit_factor", "test_worst_streak"]
+        pd.set_option("display.width", 220)
+        print("\nTop 10 by TRAIN score (their TEST columns are the honest estimate):")
+        print(res[cols].head(10).to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+        print(f"\nVariants positive on the test years: {(res['test_avg_ret'] > 0).mean():.0%}")
+    v = lab.validate(prices, idx, load_strategy(), args.test_years)
+    USER_VALIDATION.parent.mkdir(parents=True, exist_ok=True)
+    USER_VALIDATION.write_text(_json.dumps(v, indent=1), encoding="utf-8")
+    print(f"\nCurrent strategy ({v['strategy']}), {v['test_from']} to {v['test_to']}: {v['test_trades']} trades, "
+          f"{v['test_win_rate']:.1%} won, average {v['test_avg_ret']:+.2%} per option trade, "
+          f"stock-level {v['test_stock_avg_r']:+.3f}R, worst losing streak {v['test_worst_streak']}.")
+    print(screener.validation_line())
+    return 0
+
+
 def cmd_research(args) -> int:
     horizons = [int(h) for h in args.horizons.split(",")]
     if args.horizon not in horizons:
@@ -248,6 +284,15 @@ def main(argv: list[str] | None = None) -> int:
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")
     sh.set_defaults(func=lambda a: (print(f"Created {__import__('stock_agent.app', fromlist=['make_shortcut']).make_shortcut()}"
                                           " - double-click it to open the app."), 0)[1])
+
+    lb = sub.add_parser("lab", help="test rule variants on years they were not tuned on")
+    lb.add_argument("tickers", nargs="*")
+    lb.add_argument("--universe", choices=sorted(UNIVERSES), default="nifty50")
+    lb.add_argument("--test-years", type=float, default=3.0)
+    lb.add_argument("--check-only", action="store_true", help="only re-check the current strategy (fast)")
+    lb.add_argument("--offline", action="store_true")
+    lb.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    lb.set_defaults(func=cmd_lab)
 
     tk = sub.add_parser("track", help="what-if P&L of saved picks, day by day")
     tk.add_argument("tickers", nargs="*", help="universe to replay (default: --universe)")

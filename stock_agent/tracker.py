@@ -191,8 +191,12 @@ def replay(tickers: list[str], days: int, prices: dict[str, pd.DataFrame], ledge
            skip_existing: bool = True) -> int:
     """Rebuild the picks of the last `days` market days from prices alone (no news) and store them."""
     from . import screener
+    from .tradetest import trade_outcomes
 
     have = {r["as_of"] for r in load_ledger(ledger_path)}
+    # trade outcomes never look ahead (each counts only once its exit date has passed), so compute them
+    # once on the full history and let every replayed day filter them by date
+    outcomes = {t: trade_outcomes(df, t, horizon) for t, df in prices.items()}
     calendar = sorted({ts for df in prices.values() for ts in df.index[-(days + 1):]})[-(days + 1):-1]
     done = 0
     for i, day in enumerate(calendar):
@@ -204,7 +208,7 @@ def replay(tickers: list[str], days: int, prices: dict[str, pd.DataFrame], ledge
         cut = {t: df[df.index <= day] for t, df in prices.items() if (df.index <= day).sum() >= 250}
         picks, _, stats = screener.screen(list(cut), horizon=horizon, top=top, news_weight=0.0, capital=capital,
                                           risk_pct=risk_pct, prices=cut, use_chain=False, cache_dir=cache_dir,
-                                          log=lambda *a: None)
+                                          log=lambda *a: None, outcomes={t: outcomes[t] for t in cut})
         record(ledger_path, picks, {**stats, "as_of": key}, replayed=True)
         done += 1
     return done

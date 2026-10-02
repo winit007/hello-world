@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .backtest import evaluate_rules, pool_rules
+from .tradetest import allowed_mask, load_strategy, pooled_stats, trade_outcomes, trade_stats
 from .data import DEFAULT_CACHE, load_prices
 from .news import load_news, summarize
 from .patterns import BULLISH, PATTERN_BY_NAME, detect_all
@@ -105,6 +106,7 @@ def screen(
     progress=None,
     prices: dict | None = None,
     use_chain: bool = True,
+    outcomes: dict | None = None,
 ) -> tuple[list[Pick], list[Pick], dict]:
     """Return (top picks, every candidate ranked, stats).
 
@@ -119,13 +121,24 @@ def screen(
     progress("Backtesting candlestick rules", 0.65)
     log(f"[screen] {len(prices)}/{len(tickers)} stocks loaded; backtesting {horizon}-bar rules ...")
 
-    rules = {t: evaluate_rules(df, horizons=(horizon,), use_context=use_context) for t, df in prices.items()}
-    pooled = pool_rules(rules).set_index("pattern")
+    # every past signal replayed as the actual trade (see tradetest.py); computed once per stock
+    if outcomes is None:
+        outcomes = {t: trade_outcomes(df, t, horizon, use_context) for t, df in prices.items()}
+    stats = {t: trade_stats(outcomes[t], as_of=df.index[-1]) for t, df in prices.items() if t in outcomes}
+    pooled = pooled_stats(stats)
 
     # ---- candidates: best active setup per stock
     candidates: list[Pick] = []
     for t, df in prices.items():
+        if t not in stats:
+            continue
+        st = stats[t].set_index("pattern")
         signals = detect_all(df, use_context=use_context)
+        strat = load_strategy()
+        allow_bull, allow_bear = allowed_mask(df, True, strat, None), allowed_mask(df, False, strat, None)
+        for name in signals.columns:  # a setup against the strategy's trend filter is not a trade
+            ok = allow_bull if PATTERN_BY_NAME[name].direction == BULLISH else allow_bear
+            signals[name] = signals[name].to_numpy() & ok
         recent = signals.tail(lookback)
         active = {}
         for date, row in recent.iterrows():           # newest occurrence of each pattern wins
@@ -133,18 +146,23 @@ def screen(
                 active[name] = date
         best = None
         for name, date in active.items():
-            r = rules[t].set_index("pattern").loc[name]
             if name not in pooled.index or pooled.loc[name, "n"] < 30:
                 continue
-            p_rate = float(pooled.loc[name, "win_rate"])
-            n, wins = int(r["n"]), int(r["wins"])
-            success = (wins + prior_strength * p_rate) / (n + prior_strength)
+            direction = PATTERN_BY_NAME[name].direction
+            p_rate, p_ret = float(pooled.loc[name, "win_rate"]), float(pooled.loc[name, "avg_ret"])
+            has = name in st.index
+            n = int(st.loc[name, "n"]) if has else 0
+            wins = int(st.loc[name, "wins"]) if has else 0
+            sum_ret = float(st.loc[name, "sum_ret"]) if has else 0.0
+            base_row = pooled.loc["_baseline_" + direction] if "_baseline_" + direction in pooled.index else None
+            baseline = (float(st.loc[name, "baseline"]) if has and not pd.isna(st.loc[name, "baseline"])
+                        else float(base_row["win_rate"]) if base_row is not None else 0.5)
             pick = Pick(
-                ticker=t, pattern=name, direction=PATTERN_BY_NAME[name].direction, signal_date=str(date.date()),
+                ticker=t, pattern=name, direction=direction, signal_date=str(date.date()),
                 last_close=float(df["Close"].iloc[-1]), horizon=horizon, n=n,
-                raw_win_rate=float(r["win_rate"]) if n else float("nan"), pooled_win_rate=p_rate,
-                success=success, baseline=float(r["baseline"]),
-                avg_return=float(r["avg_return"]) if n else float(pooled.loc[name, "avg_return"]),
+                raw_win_rate=(wins / n) if n else float("nan"), pooled_win_rate=p_rate,
+                success=(wins + prior_strength * p_rate) / (n + prior_strength), baseline=baseline,
+                avg_return=(sum_ret + prior_strength * p_ret) / (n + prior_strength),
                 trend=_trend(df["Close"]),
             )
             if pick.edge < min_edge or pick.avg_return <= 0:
@@ -159,15 +177,13 @@ def screen(
             log(f"[screen] {t}: skipped, bullish and bearish setups with an edge are both active")
             best = None
         if best:
-            # out-of-sample-ish check: does the setup still work in the most recent years?
-            close = df["Close"].to_numpy()
-            idx = np.flatnonzero(signals[best.pattern].to_numpy())
-            idx = idx[(idx >= len(close) - recent_bars) & (idx + horizon < len(close))]
-            if len(idx):
-                fwd = close[idx + horizon] / close[idx] - 1
-                wins = (fwd > 0) if best.direction == BULLISH else (fwd < 0)
-                best.recent_n, best.recent_win_rate = len(idx), float(wins.mean())
-                if len(idx) >= 5 and best.recent_win_rate < best.baseline:
+            # does the setup still work as a trade in the most recent years?
+            since = df.index[-1] - pd.Timedelta(days=int(recent_bars * 365 / 250))
+            rs = trade_stats(outcomes[t], as_of=df.index[-1], since=since).set_index("pattern")
+            if best.pattern in rs.index:
+                best.recent_n = int(rs.loc[best.pattern, "n"])
+                best.recent_win_rate = float(rs.loc[best.pattern, "win_rate"])
+                if best.recent_n >= 5 and best.recent_win_rate < best.baseline:
                     best.notes.append(f"edge faded: {best.recent_win_rate:.0%} in the last {recent_bars // 250}y")
             candidates.append(best)
     log(f"[screen] {len(candidates)} stocks have an active setup with a historical edge; reading news ...")
@@ -239,6 +255,8 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
     md = [f"# Top {top} setups", "",
           f"*Market data to {as_of} · {stats['loaded']} stocks scanned · {stats['candidates']} with an active "
           f"setup that has a historical edge · holding period {horizon} trading days*", ""]
+    if validation_line():
+        md += [f"> {validation_line()}", ""]
     if not picks:
         md.append("_No stock has an active candlestick setup with a historical edge right now. That is a valid "
                   "answer: sit out, or widen `--lookback`._")
@@ -270,12 +288,27 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
     for p in picks:
         extra = "; ".join(p.notes) if p.notes else "none"
         md.append(f"- **{p.ticker}** close {p.last_close:.2f}, trend {p.trend}: {extra}")
-    md += ["", "*Success rate* is the stock's own win rate for this pattern blended with the universe-wide rate "
-           "(small samples lean on the universe). *Last 3y* repeats the test on recent data only, as a check that "
-           "the edge has not faded. *Avg move* is the average gain in the trade's direction. *Score* adds up to ±0.10 for news that agrees or disagrees "
+    md += ["", "*Success rate* is the share of past signals that made money as the actual trade (buy the option next "
+           "morning, intraday stop, Target 1, time exit), blended with the same pattern's rate across the universe "
+           "(small samples lean on the universe). *Baseline* is the same trade started on an ordinary day. *Avg move* "
+           "is the average return on the option. *Last 3y* repeats the test on recent data only, as a check that "
+           "the edge has not faded. *Score* adds up to ±0.10 for news that agrees or disagrees "
            "with the trade. Run `python -m stock_agent trade <TICKER>` for the strike, expiry and breakeven check.",
            "", "_Statistical screen, not investment advice. A 60% setup still loses 4 times in 10._", ""]
     return "\n".join(md)
+
+
+def validation_line() -> str:
+    """One honest sentence on how the strategy did on recent years it was not tuned on."""
+    from .tradetest import load_validation
+
+    v = load_validation()
+    if not v or v.get("test_avg_ret") is None:
+        return ""
+    verdict = ("No proven edge: treat these as research ideas, not trade signals."
+               if v["test_avg_ret"] <= 0 else "Positive on untouched data, but small: keep risk per trade low.")
+    return (f"Strategy check {v['test_from'][:4]}-{v['test_to'][:4]} ({v['test_trades']:,} past trades, not used for tuning): "
+            f"{v['test_win_rate']:.0%} won, average {v['test_avg_ret']:+.1%} per option trade. {verdict}")
 
 
 def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, universe: str = "") -> str:
@@ -286,10 +319,10 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
         return head + "\nNo stock has an active setup with a historical edge today. Sit out."
     lines = [head]
     for i, p in enumerate(picks, 1):
-        recent = f", 3y {p.recent_win_rate:.0%}" if p.recent_n else ""
+        recent = f", last 3y {p.recent_win_rate:.0%}" if p.recent_n else ""
         news = f" · news {p.news_mean:+.2f}" if p.news_count else ""
         lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {p.side} @ {p.last_close:.2f} · {p.pattern} ({p.signal_date[5:]}) · "
-                     f"{p.success:.0%} success (base {p.baseline:.0%}{recent}){news}")
+                     f"{p.success:.0%} of past trades won (random day {p.baseline:.0%}{recent}), avg {p.avg_return:+.0%} on the option{news}")
         if p.plan is not None:
             lines += p.plan.lines()
         for n in p.notes:
@@ -303,4 +336,7 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
         lines.append(f"Sized for {money(pl.capital, pl.currency)} capital, {pl.risk_pct:.0%} risk per trade."
                      + (" Premiums are model estimates: check live quotes." if est else ""))
     lines.append(f"Scanned {stats['loaded']} stocks, {stats['candidates']} with an edge. Not investment advice.")
+    v = validation_line()
+    if v:
+        lines.append(v)
     return "\n".join(lines)

@@ -154,7 +154,11 @@ def run_screen(settings: dict, progress) -> dict:
         d.pop("plan", None)
         d.update(side=p.side, edge=p.edge, plan=plan_dict(p.plan))
         out.append(d)
-    return {"picks": out, "stats": stats, "settings": settings, "generated": datetime.now().isoformat(timespec="minutes")}
+    from .screener import validation_line
+    from .tradetest import load_validation
+
+    return {"picks": out, "stats": stats, "settings": settings, "generated": datetime.now().isoformat(timespec="minutes"),
+            "validation": load_validation(), "validation_text": validation_line()}
 
 
 def run_track(settings: dict, replay_days: int, progress) -> dict:

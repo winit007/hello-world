@@ -353,7 +353,7 @@ details.events li { margin: 2px 0; }
       <div class="card"><h2>1. Evening: scan</h2>
         <ol><li>After the market closes (3:30 pm IST), open <b>Today's picks</b> and press <b>Scan now</b>.</li>
         <li>Each card is one idea. <b>CALL</b> expects the stock to rise, <b>PUT</b> expects a fall.</li>
-        <li><b>Success rate</b> is how often this setup worked on this stock before. The grey tick is how often the stock moved that way anyway; the gap is the edge.</li></ol></div>
+        <li><b>Past trades won</b> is how often this exact trade (buy next morning, stop, target, exit date) made money after this setup on this stock. The grey tick is the same trade on an ordinary day; the gap is the edge.</li></ol></div>
       <div class="card"><h2>2. Morning: check and buy</h2>
         <ol><li>Skip cards that say <b>Not affordable</b> or <b>Edge faded</b>.</li>
         <li>Look up the contract in your broker app. The premium here is an estimate; if the live one is much higher, the trade is riskier than planned.</li>
@@ -366,6 +366,7 @@ details.events li { margin: 2px 0; }
       <div class="card"><h2>Stay safe</h2>
         <ol><li>Take one or two picks, not all five. They often move together.</li>
         <li>A 60% setup still loses 4 times in 10. The stop keeps each loss near your risk limit.</li>
+        <li>The <b>Strategy check</b> banner shows how these rules did on recent years they were not tuned on. While it is negative, use the picks for research and practice mode only.</li>
         <li>This is a statistics tool, not investment advice.</li></ol></div>
     </div>
   </section>
@@ -467,6 +468,7 @@ function renderPicks(res) {
   }
   const blocked = res.picks.filter(p => p.plan && p.plan.lots === 0).length;
   let html = "";
+  if (res.validation_text) html += `<div class="notice ${res.validation && res.validation.test_avg_ret <= 0 ? "error" : ""}"><b>Strategy check:</b> ${esc(res.validation_text)}</div>`;
   if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade. Tick <b>Only trades I can afford</b> to see only tradeable ones.</div>`;
   if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. If today is a trading day, scan again after 3:30 pm IST for fresh picks.</div>`;
   html += `<div class="grid">` + res.picks.map((p, i) => {
@@ -478,12 +480,12 @@ function renderPicks(res) {
         <div class="price num"><b>${money(p.last_close, c2, 2)}</b><div class="sub" style="font-size:12.5px">trend ${esc(p.trend)}</div></div></div>
       <div class="setup">${esc(p.pattern)} on ${fmtDate(p.signal_date)}</div>
       <div class="meter">
-        <div class="meter-row"><span>Success rate</span><span><b class="num">${pct(p.success)}</b> vs ${pct(p.baseline)} usual</span></div>
-        <div class="track" title="Blue: this setup's success rate. Grey tick: how often the stock moves this way anyway.">
+        <div class="meter-row"><span>Past trades won</span><span><b class="num">${pct(p.success)}</b> vs ${pct(p.baseline)} on a random day</span></div>
+        <div class="track" title="Blue: share of past signals that made money as this exact trade. Grey tick: the same trade started on an ordinary day.">
           <div class="fill" style="width:${scale(p.success)}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
       </div>
       <div class="stats num"><span>Past signals <b>${p.n}</b></span><span>Last 3 years <b>${p.recent_n ? pct(p.recent_win_rate) : "–"}</b></span>
-        <span>Avg move <b>${spct(p.avg_return, 2)}</b></span><span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
+        <span>Avg option return <b>${spct(p.avg_return, 0)}</b></span><span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
       ${orderBlock(p.plan, p.ticker)}
       ${warns ? `<div class="warns">${warns}</div>` : ""}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>

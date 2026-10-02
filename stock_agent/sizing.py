@@ -160,16 +160,9 @@ def plan_trade(
     candles = PATTERN_BY_NAME[pattern].candles if pattern else 3
     end = df.index.get_loc(pd.Timestamp(signal_date)) if signal_date else len(df) - 1
     window = df.iloc[max(0, end - candles + 1): end + 1]
-    if bullish:
-        stop = float(window["Low"].min()) - 0.25 * a
-        dist = min(max(entry - stop, 0.75 * a), 2.5 * a)
-        stop = entry - dist
-    else:
-        stop = float(window["High"].max()) + 0.25 * a
-        dist = min(max(stop - entry, 0.75 * a), 2.5 * a)
-        stop = entry + dist
-    sgn = 1 if bullish else -1
-    t1, t2 = entry + sgn * 1.5 * dist, entry + sgn * 2.5 * dist
+    from .tradetest import levels, load_strategy
+
+    stop, t1, t2, dist = levels(entry, float(window["Low"].min()), float(window["High"].max()), a, bullish, load_strategy())
 
     # ---- contract: real chain when we have one, NSE conventions otherwise
     min_days = math.ceil(horizon * 7 / 5) + 3

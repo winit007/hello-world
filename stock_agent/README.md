@@ -188,6 +188,33 @@ no free history of NSE option prices exists. Brokerage, taxes and the bid/ask sp
 every pick at one lot. Replayed days are rebuilt without news, so they can differ slightly from what the
 daily message sent on those days.
 
+## How good is it? The strategy lab
+
+```bash
+python -m stock_agent lab                # test 72 rule variants (about 3 minutes)
+python -m stock_agent lab --check-only   # only re-check the current rules (seconds)
+```
+
+Every past signal is replayed as the exact trade the agent recommends: buy the at-the-money option at
+the next open, intraday stop, Target 1, time exit, option values from Black-Scholes. The lab varies the
+stop width, target, holding period, a 200-day-trend filter and a Nifty-trend filter. Each variant picks
+its patterns on the older years only and is then judged on the last 3 years it never saw.
+
+**Result on the Nifty 50, October 2023 to October 2026 (13,063 trades):** 38% of trades made money and
+the average option trade lost 2.2%. At the stock level the same trades averaged about zero. In other words,
+candlestick patterns on these stocks behaved like coin flips over this period, and buying options turned
+that into a steady loss through time decay. Only 19% of the 72 variants were positive on the test years,
+about what luck alone produces, and variants that looked best on the older years were negative on the
+newer ones. No filter improved results consistently, so the rules were left unchanged.
+
+There is no rule that never loses. Strategies that win almost every time (for example selling options)
+do so by taking rare, very large losses. The app and the daily message therefore show this check on
+every scan, and the Kite dialog warns while it is negative: **use the picks for research and practice
+mode, not real money, unless a future lab run shows a positive result on untouched data.**
+
+The *success rate* on each pick is this trade-based win rate (blended with the universe rate for small
+samples), compared with the same trade started on an ordinary day.
+
 ## The call / put verdict
 
 `trade` (and the *Options trade* section of `research`) works like this:
@@ -246,12 +273,14 @@ stock_agent/
   universes.py  built-in Nifty 50 and US mega-cap lists
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
+  tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)
+  lab.py        rule-variant search with a train/test split; validation.json holds the latest check
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days
   kite.py       Zerodha Kite Connect: login, contract lookup, one-click LIMIT buy + GTT stop/target
   app.py        local web app server (standard library only) + desktop shortcut
   web/          the app's single-page interface
   llm.py        optional local Ollama narrative
-  __main__.py   CLI (app / shortcut / screen / research / trade / rules / news)
+  __main__.py   CLI (app / shortcut / screen / track / lab / research / trade / rules / news)
 tests/          unit tests: python -m unittest discover -s tests
 ```
 

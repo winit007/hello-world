@@ -313,6 +313,12 @@ def preview(kite: Kite, cache_dir: Path, ticker: str, plan: dict, capital: float
         warnings.append("With 1 lot the position cannot be split, so all of it exits at Target 1")
     if (exp - now_ist().date()).days < 7:
         warnings.append("Expiry is less than a week away: time decay is fast")
+    from .tradetest import load_validation
+
+    v = load_validation()
+    if v and (v.get("test_avg_ret") or 0) <= 0:
+        warnings.insert(0, f"This strategy lost money on recent untouched data ({v['test_win_rate']:.0%} of "
+                           f"{v['test_trades']:,} trades won, average {v['test_avg_ret']:+.1%}). There is no proven edge.")
     return {
         "ticker": ticker, "tradingsymbol": c["tradingsymbol"], "expiry": c["expiry"], "strike": c["strike"],
         "lot_size": lot, "lots": max(lots, 0), "qty": max(lots, 0) * lot, "limit": limit, "cost": cost,

@@ -1,0 +1,19 @@
+{
+ "strategy": "stop 0.75-2.5 ATR, target 1.5R, 5d",
+ "test_from": "2023-10-02",
+ "test_to": "2026-10-01",
+ "universe": 52,
+ "test_trades": 13063,
+ "test_win_rate": 0.3766363010028324,
+ "test_avg_ret": -0.022448669702485408,
+ "test_profit_factor": 0.8953617183774895,
+ "test_worst_streak": 30,
+ "test_per_year": 4358.313528336381,
+ "train_trades": 28141,
+ "train_win_rate": 0.37443587647915855,
+ "train_avg_ret": -0.019104480281694407,
+ "train_profit_factor": 0.911259537287417,
+ "train_worst_streak": 35,
+ "train_per_year": 4058.263532200711,
+ "test_stock_avg_r": -0.011817494799280959
+}
