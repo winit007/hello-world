@@ -19,7 +19,15 @@ Each broker adapter provides:
   funds() -> float | None
   place_order(contract, side, qty, price) -> order id
   order_state(order_id) -> {"status": COMPLETE/REJECTED/CANCELLED/OPEN, "filled", "avg_price", "message"}
-  place_exit(contract, qty, ltp, stop, target) -> id;  exit_state(id) -> {"status", "order_ids"};  cancel_exit(id)
+  place_exit(contract, qty, ltp, stop, target) -> id;  exit_state(id, contract) -> {"status", "order_ids"};
+  cancel_exit(id, contract)
+  LOGIN_KIND: "redirect" (login_url + complete_login from the broker's redirect) or "direct" (direct_login())
+Brokers whose stop/target order must include the entry (Upstox GTT) set BRACKET = True and provide
+  place_bracket(contract, qty, limit, stop, target) -> id and bracket_state(id, contract) ->
+  {"entry_order_id", "entry_status", "exit_order_ids", "open_exit_legs", "found"}; the BUY then goes out as
+  one bracket per exit leg instead of a separate order.
+An exit order that the broker reports EXPIRED (some brokers' stop/target orders last one day) while the
+position is still held is placed again on the next sync.
 """
 from __future__ import annotations
 
@@ -63,6 +71,10 @@ class Broker:
     FIELDS: list[dict] = []          # [{"name", "label", "secret": bool, "help"}]
     EXPIRES_AT = (6, 0)              # access tokens die at this time IST the next morning
     LOGIN_PARAM = "request_token"    # query parameter the broker's login redirect carries
+    LOGIN_KIND = "redirect"
+    BRACKET = False
+    EXIT_NOTE: str | None = None     # shown in the order preview when exits need attention
+    SETUP: list[str] = []            # one-time setup steps shown in Settings (HTML allowed)
 
     def __init__(self, home: Path):
         self.home = Path(home)
@@ -126,6 +138,7 @@ class Broker:
             "api_key": self.cfg.get("api_key", ""), "has_secret": bool(self.cfg.get("api_secret")),
             "connected": self.token_valid(), "user": self.cfg.get("user_name") if self.token_valid() else None,
             "practice": self.cfg.get("practice", True), "market_open": market_open(),
+            "login_kind": self.LOGIN_KIND, "setup": self.SETUP,
         }
 
     def logout(self) -> dict:
@@ -260,6 +273,17 @@ def place(broker: Broker, pv: dict, wait_seconds: float = 20, confirmed: list | 
                    gtt_ids=[f"PRACTICE-{i + 1}" for i in range(len(pv["gtt_legs"]))])
         rec["events"].append(f"Practice: BUY order and stop/target exits simulated, nothing sent to {broker.label}")
         return rec
+    if getattr(broker, "BRACKET", False):
+        lot = pv["lot_size"]
+        rec.update(buy_order_id=None, buy_status="OPEN", filled_qty=0, avg_price=None, bracket=True)
+        for leg in pv["gtt_legs"]:
+            gid = broker.place_bracket(c, leg["lots"] * lot, pv["limit"], leg["stop"], leg["target"])
+            rec["gtt_ids"].append(gid)
+            rec.setdefault("exit_legs", []).append({"id": gid, "qty": leg["lots"] * lot, "stop": leg["stop"],
+                                                    "target": leg["target"], "label": leg["label"]})
+            rec["events"].append(f"{broker.label} GTT {gid}: BUY {leg['lots'] * lot} @ {pv['limit']:.2f}, then sell at stop "
+                                 f"{leg['stop']:.2f} or {leg['label']} {leg['target']:.2f}")
+        return sync_one(broker, rec)
     oid = broker.place_order(c, "BUY", pv["qty"], pv["limit"])
     rec.update(buy_order_id=oid, buy_status="OPEN", filled_qty=0, avg_price=None)
     rec["events"].append(f"BUY {pv['qty']} {pv['tradingsymbol']} @ {pv['limit']:.2f} sent to {broker.label} (order {oid})")
@@ -278,6 +302,8 @@ def sync_one(broker: Broker, rec: dict) -> dict:
     if rec.get("practice") or rec.get("broker", "kite") != broker.key:
         return rec
     c = rec.get("contract") or {"tradingsymbol": rec["tradingsymbol"]}
+    if rec.get("bracket"):
+        return _sync_bracket(broker, rec, c)
     if not rec.get("gtt_ids"):
         st = broker.order_state(rec["buy_order_id"])
         rec["buy_status"] = st["status"]
@@ -303,11 +329,30 @@ def sync_one(broker: Broker, rec: dict) -> dict:
                 continue
             gid = broker.place_exit(c, qty, ltp, leg["stop"], leg["target"])
             rec["gtt_ids"].append(gid)
+            rec.setdefault("exit_legs", []).append({"id": gid, "qty": qty, "stop": leg["stop"], "target": leg["target"],
+                                                    "label": leg["label"]})
             rec["events"].append(f"Exit order {gid}: sell {qty} at stop {leg['stop']:.2f} or {leg['label']} {leg['target']:.2f}")
         return rec
-    seen = {e["order_id"] for e in rec["exits"]}
-    for gid in rec["gtt_ids"]:
-        g = broker.exit_state(gid)
+    seen = {e["order_id"] for e in rec["exits"]} | set(rec.get("manual_exit_ids", []))
+    for gid in list(rec["gtt_ids"]):
+        g = broker.exit_state(gid, c)
+        if (g.get("status") or "").upper() == "EXPIRED" and not g["order_ids"]:
+            leg = next((l for l in rec.get("exit_legs", []) if l["id"] == gid), None)
+            held = int(rec.get("filled_qty") or 0) - sum(int(e["qty"]) for e in rec["exits"])
+            today = now_ist().date().isoformat()
+            if leg and held > 0 and market_open() and leg.get("replaced_on") != today:
+                leg["replaced_on"] = today
+                live = broker.live(c, None) or {}
+                ltp = float(live.get("ltp") or 0)
+                if ltp and leg["stop"] < ltp < leg["target"]:
+                    new = broker.place_exit(c, min(leg["qty"], held), ltp, leg["stop"], leg["target"])
+                    rec["gtt_ids"][rec["gtt_ids"].index(gid)] = new
+                    leg["id"] = new
+                    rec["events"].append(f"Exit order {gid} expired; placed again as {new}")
+                else:
+                    rec["events"].append(f"Exit order {gid} expired and the premium {ltp:.2f} is outside the stop/target: "
+                                         f"exit by hand in {broker.label}")
+            continue
         for oid in g["order_ids"]:
             if oid in seen:
                 continue
@@ -316,13 +361,67 @@ def sync_one(broker: Broker, rec: dict) -> dict:
                 rec["exits"].append({"order_id": oid, "qty": st["filled"], "price": st["avg_price"], "via": f"exit {gid}"})
                 rec["events"].append(f"Exit filled via {gid}: {st['filled']} @ {st['avg_price']:.2f}")
                 seen.add(oid)
+    recorded = {e["order_id"] for e in rec["exits"]}
     for e in rec.get("manual_exit_ids", []):
-        if e in seen:
+        if e in recorded:
             continue
         st = broker.order_state(e)
         if st["status"] == "COMPLETE":
             rec["exits"].append({"order_id": e, "qty": st["filled"], "price": st["avg_price"], "via": "Exit now"})
             rec["events"].append(f"Exit filled: {st['filled']} @ {st['avg_price']:.2f}")
+    return rec
+
+
+def _sync_bracket(broker: Broker, rec: dict, c: dict) -> dict:
+    """Entry fills and exit fills of bracket orders (entry + target + stop in one broker order)."""
+    seen = {e["order_id"] for e in rec["exits"]} | set(rec.get("manual_exit_ids", []))
+    fills, done, rejected = [], 0, 0
+    for gid in rec["gtt_ids"]:
+        b = broker.bracket_state(gid, c)
+        if not b.get("found", True):
+            if f"gone-{gid}" not in rec.get("noted", []):
+                rec.setdefault("noted", []).append(f"gone-{gid}")
+                rec["events"].append(f"{broker.label} no longer lists GTT {gid} (it has finished). Check the fills in "
+                                     f"{broker.label} and close the trade here if it has sold.")
+            continue
+        eid = b.get("entry_order_id")
+        if eid:
+            st = broker.order_state(eid)
+            if st["status"] == "COMPLETE":
+                fills.append((st["filled"], st["avg_price"]))
+                done += 1
+            elif st["status"] in ("REJECTED", "CANCELLED"):
+                rejected += 1
+                if f"entry-{gid}" not in rec.get("noted", []):
+                    rec.setdefault("noted", []).append(f"entry-{gid}")
+                    rec["events"].append(f"BUY in {gid} {st['status'].lower()}: {st.get('message') or 'no reason given'}")
+        elif (b.get("entry_status") or "").upper() in ("FAILED", "CANCELLED", "EXPIRED"):
+            rejected += 1
+        for oid in b.get("exit_order_ids", []):
+            if oid in seen:
+                continue
+            st = broker.order_state(oid)
+            if st["status"] == "COMPLETE":
+                rec["exits"].append({"order_id": oid, "qty": st["filled"], "price": st["avg_price"], "via": f"GTT {gid}"})
+                rec["events"].append(f"Exit filled via {gid}: {st['filled']} @ {st['avg_price']:.2f}")
+                seen.add(oid)
+                if b.get("open_exit_legs"):     # safety: never leave the other exit leg live once one has sold
+                    try:
+                        broker.cancel_exit(gid, c)
+                        rec["events"].append(f"Remaining exit leg of {gid} cancelled")
+                    except BrokerError as exc:
+                        rec["events"].append(f"Could not cancel the other exit leg of {gid}: {exc}. Check {broker.label}.")
+    if fills:
+        qty = sum(q for q, _ in fills)
+        rec["filled_qty"], rec["avg_price"] = qty, sum(q * p for q, p in fills) / qty if qty else None
+    if done == len(rec["gtt_ids"]):
+        if rec.get("buy_status") != "COMPLETE":
+            rec["events"].append(f"BUY filled: {rec['filled_qty']} @ {rec['avg_price']:.2f}")
+        rec["buy_status"] = "COMPLETE"
+    elif rejected == len(rec["gtt_ids"]):
+        rec["buy_status"] = "REJECTED"
+    elif done:
+        rec["buy_status"] = "COMPLETE"   # part of the position is held and protected
     return rec
 
 
@@ -346,7 +445,7 @@ def exit_now(broker: Broker, rec: dict, price: float | None = None) -> dict:
         price = live.get("bid") or live.get("ltp")
     for gid in rec.get("gtt_ids", []):
         try:
-            broker.cancel_exit(gid)
+            broker.cancel_exit(gid, c)
             rec["events"].append(f"Exit order {gid} cancelled")
         except BrokerError as exc:
             rec["events"].append(f"Exit order {gid} not cancelled: {exc}")

@@ -37,7 +37,7 @@ WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
     "capital": 200000, "risk": 2.0, "universe": "nifty50", "custom": "", "horizon": 5,
-    "affordable_only": False, "top": 10,
+    "affordable_only": False, "top": 10, "broker": "kite",
 }
 
 _lock = threading.Lock()
@@ -143,13 +143,28 @@ MANIFEST = {
 }
 
 
-def kite_client():
-    global _kite
-    if _kite is None:
-        from .kite import Kite
+_brokers: dict = {}
 
-        _kite = Kite(HOME)
-    return _kite
+
+def broker_client(key: str | None = None):
+    """The broker adapter for `key` (default: the one chosen in Settings), one instance per broker."""
+    from . import brokers
+
+    key = key or load_settings().get("broker") or "kite"
+    if key not in brokers.BROKERS:
+        key = "kite"
+    if key not in _brokers:
+        _brokers[key] = brokers.make(key, HOME)
+    return _brokers[key]
+
+
+def kite_client():
+    """The selected broker (named for the first one, Kite)."""
+    return broker_client()
+
+
+def broker_redirect(key: str, port: int) -> str:
+    return f"http://127.0.0.1:{port}/kite/callback" if key == "kite" else f"http://127.0.0.1:{port}/broker/callback/{key}"
 
 
 # --------------------------------------------------------------------------- storage helpers
@@ -512,16 +527,17 @@ def kite_place(body: dict) -> dict:
 
     st = load_settings()
     # never trust a preview computed in the browser: rebuild it here from the plan
-    pv = K.preview(kite_client(), CACHE, body["ticker"], body["plan"], float(st["capital"]), float(st["risk"]) / 100,
+    b = kite_client()
+    pv = K.preview(b, CACHE, body["ticker"], body["plan"], float(st["capital"]), float(st["risk"]) / 100,
                    float(body["limit"]) if body.get("limit") else None)
-    rec = K.place(kite_client(), pv, confirmed=body.get("confirm") or [])
+    rec = K.place(b, pv, confirmed=body.get("confirm") or [])
     rec["checklist"] = pv.get("checklist")
     plan = body["plan"]
     entry = {"ticker": body["ticker"], "contract": pv["tradingsymbol"], "side": pv["side"], "lots": pv["lots"],
              "lot_size": pv["lot_size"], "entry_premium": rec.get("avg_price") or pv["limit"],
              "stop": plan["stop_underlying"], "target1": plan["target1_underlying"], "target2": plan["target2_underlying"],
              "time_exit": plan.get("time_stop"), "pattern": body.get("pattern"),
-             "notes": "Kite practice" if rec["practice"] else "Kite live", "kite": rec}
+             "notes": f"{b.label} {'practice' if rec['practice'] else 'live'}", "kite": rec}
     return journal_op("POST", "/api/journal", entry)
 
 
@@ -534,7 +550,7 @@ def kite_sync() -> dict:
     for e in entries:
         if e.get("kite") and e.get("status") == "open" and not e["kite"].get("practice"):
             try:
-                K.sync_one(kite_client(), e["kite"])
+                K.sync_one(broker_client(e["kite"].get("broker") or "kite"), e["kite"])
             except K.KiteError as exc:
                 errors.append(f"{e['contract']}: {exc}")
             _apply_kite(e)
@@ -551,7 +567,7 @@ def kite_exit(trade_id: str, price) -> dict:
     e = next((x for x in entries if x["id"] == trade_id), None)
     if not e or not e.get("kite"):
         raise KeyError("Kite trade not found")
-    K.exit_now(kite_client(), e["kite"], float(price) if price not in (None, "") else None)
+    K.exit_now(broker_client(e["kite"].get("broker") or "kite"), e["kite"], float(price) if price not in (None, "") else None)
     _apply_kite(e)
     with _lock:
         _write_json(JOURNAL_FILE, entries)
@@ -662,21 +678,64 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     if q.get("status") != "success" or not q.get("request_token"):
                         raise KiteError("Kite login was cancelled")
-                    st = kite_client().complete_login(q["request_token"])
+                    st = broker_client("kite").complete_login(q["request_token"])
                     msg = f"Connected to Kite as {st.get('user') or 'you'}. You can close this tab and go back to the app."
                 except Exception as exc:
                     msg = f"Kite login failed: {exc}"
                 page = (f"<!doctype html><meta charset=utf-8><title>Kite login</title><body style='font:16px system-ui;"
                         f"padding:40px'><p>{msg.replace('<', '&lt;')}</p><p><a href='/'>Back to Stock Agent</a></p>")
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            if url.path.startswith("/broker/callback/"):
+                from . import brokers
+
+                key = url.path.rsplit("/", 1)[-1]
+                label = brokers.LABELS.get(key, "Broker")
+                try:
+                    b = broker_client(key) if key in brokers.BROKERS else None
+                    if not b or b.key != key:
+                        raise brokers.BrokerError("unknown broker")
+                    want = b.cfg.get("login_state")
+                    got = q.get("state") or q.get("State")
+                    if want and got != want:
+                        raise brokers.BrokerError("the login did not start from this app; press Log in again")
+                    token = q.get(b.LOGIN_PARAM)
+                    if not token:
+                        raise brokers.BrokerError("login was cancelled")
+                    st = b.complete_login(token)
+                    msg = f"Connected to {label} as {st.get('user') or 'you'}. You can close this tab and go back to the app."
+                except Exception as exc:
+                    msg = f"{label} login failed: {exc}"
+                page = (f"<!doctype html><meta charset=utf-8><title>{label} login</title><body style='font:16px system-ui;"
+                        f"padding:40px'><p>{msg.replace('<', '&lt;')}</p><p><a href='/'>Back to Stock Agent</a></p>")
+                return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             if url.path.startswith("/api/") and not self._token_ok():
                 return self._send(403, {"error": "missing app token; reload the page"})
             if url.path == "/api/kite/status":
-                st = kite_client().status()
-                st["redirect_url"] = f"http://127.0.0.1:{self.server.server_address[1]}/kite/callback"
+                from . import brokers
+
+                b = kite_client()
+                st = b.status()
+                port = self.server.server_address[1]
+                st["brokers"] = brokers.LABELS
+                st["redirect_url"] = broker_redirect(b.key, port)
+                st["setup"] = [x.replace("{redirect}", st["redirect_url"]) for x in st.get("setup", [])]
                 return self._send(200, st)
             if url.path == "/api/kite/login":
-                return self._send(200, {"url": kite_client().login_url()})
+                from .broker_base import BrokerError
+
+                b = kite_client()
+                try:
+                    if b.LOGIN_KIND == "direct":
+                        return self._send(200, {"status": b.direct_login()})
+                    if b.key != "kite":
+                        b.cfg["login_state"] = secrets.token_urlsafe(12)
+                        b.save()
+                    url_ = b.login_url(broker_redirect(b.key, self.server.server_address[1]))
+                    if b.key != "kite":
+                        url_ += f"&{'State' if b.key == 'fivepaisa' else 'state'}={b.cfg['login_state']}"
+                    return self._send(200, {"url": url_})
+                except BrokerError as exc:
+                    return self._send(400, {"error": str(exc)})
             if url.path == "/api/settings":
                 return self._send(200, load_settings())
             if url.path == "/api/last-screen":
@@ -733,9 +792,21 @@ class Handler(BaseHTTPRequestHandler):
                 from . import kite as K
 
                 try:
+                    if url.path == "/api/kite/select":
+                        from . import brokers
+
+                        if body.get("broker") not in brokers.BROKERS:
+                            return self._send(400, {"error": "unknown broker"})
+                        s = load_settings()
+                        s["broker"] = body["broker"]
+                        _write_json(SETTINGS_FILE, s)
+                        return self._send(200, kite_client().status())
                     if url.path == "/api/kite/config":
-                        return self._send(200, kite_client().update_config(body.get("api_key"), body.get("api_secret"),
-                                                                          body.get("practice")))
+                        b = kite_client()
+                        if "fields" in body:
+                            return self._send(200, b.update(body.get("fields") or {}, body.get("practice")))
+                        return self._send(200, b.update({"api_key": body.get("api_key"), "api_secret": body.get("api_secret") or ""},
+                                                        body.get("practice")))
                     if url.path == "/api/kite/logout":
                         return self._send(200, kite_client().logout())
                     if url.path == "/api/kite/preview":

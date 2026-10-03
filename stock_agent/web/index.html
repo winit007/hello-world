@@ -553,30 +553,23 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     </div>
 
     <div class="card form" id="kite-card" style="margin-top:16px">
-      <div class="kite-row"><h2 style="margin:0">Zerodha Kite</h2><span class="dot" id="k-dot"></span><span id="k-state" class="sub"></span></div>
-      <div class="sub" style="font-size:14px">Lets you place a pick on your Kite account with one click. Every order is shown to you first;
-        the stop-loss and target are set in Kite as a GTT order only after your buy is filled.</div>
-      <details><summary style="cursor:pointer;font-weight:600">One-time setup (about 5 minutes)</summary>
-        <ol style="font-size:14px;padding-left:20px">
-          <li>Go to <a href="https://developers.kite.trade" target="_blank" rel="noopener">developers.kite.trade</a>, sign up and create an app (check Zerodha's current pricing; live quotes need the paid Connect plan).</li>
-          <li>Set the app's <b>Redirect URL</b> to <span class="copy" id="k-redirect">http://127.0.0.1:8765/kite/callback</span></li>
-          <li>Copy the <b>API key</b> and <b>API secret</b> into the boxes below and save.</li>
-          <li>Each morning press <b>Log in to Kite</b>. Kite access expires every day at 6 am; that is Zerodha's rule.</li>
-          <li>If Kite rejects orders mentioning an IP address, register your IP in the Kite developer console (SEBI rule for API orders).</li>
-        </ol></details>
-      <div class="two">
-        <div class="field"><label for="k-key">API key</label><input type="text" id="k-key" autocomplete="off"></div>
-        <div class="field"><label for="k-secret">API secret</label><input type="text" id="k-secret" autocomplete="off" placeholder="leave blank to keep the saved one"></div>
-      </div>
-      <label class="switch"><input type="checkbox" id="k-practice" checked> Practice mode: check everything with Kite but never place real orders</label>
-      <div class="notice warn" id="k-live-warn" hidden>Practice mode is <b>off</b>. "Place on Kite" will send real orders with real money after you confirm.</div>
+      <div class="kite-row"><h2 style="margin:0">Broker</h2>
+        <select id="k-broker" aria-label="Broker" style="width:auto"></select>
+        <span class="dot" id="k-dot"></span><span id="k-state" class="sub"></span></div>
+      <div class="sub" style="font-size:14px">Place a pick on your broker account with one click. Every order is shown to you first;
+        the stop-loss and target are set only after your buy is filled (or, on Upstox, as part of the buy's GTT).</div>
+      <details><summary style="cursor:pointer;font-weight:600">One-time setup</summary>
+        <ol style="font-size:14px;padding-left:20px" id="k-setup"></ol></details>
+      <div class="two" id="k-fields"></div>
+      <label class="switch"><input type="checkbox" id="k-practice" checked> <span>Practice mode: check everything with the broker but never place real orders</span></label>
+      <div class="notice warn" id="k-live-warn" hidden>Practice mode is <b>off</b>. "Place on <span class="k-label">Kite</span>" will send real orders with real money after you confirm.</div>
       <div class="actions" style="margin-top:0">
-        <button type="button" class="btn" id="k-save">Save Kite settings</button>
-        <button type="button" class="btn primary" id="k-login">Log in to Kite</button>
+        <button type="button" class="btn" id="k-save">Save settings</button>
+        <button type="button" class="btn primary" id="k-login">Log in</button>
         <button type="button" class="btn" id="k-logout">Log out</button>
       </div>
       <div class="sub" id="k-msg" style="font-size:13.5px"></div>
-      <div class="hint" style="font-size:12.5px;color:var(--muted)">Your key and secret are stored only on this computer, in the .stock_agent folder in your user folder.</div>
+      <div class="hint" style="font-size:12.5px;color:var(--muted)">Keys are stored only on this computer, in the .stock_agent folder in your user folder. Brokers now require a <b>static IP</b> registered with them for API orders (SEBI rule), and some charge for API access. Upstox, Groww and 5paisa connections were built from their published API documentation; try them in practice mode and with one small live order first.</div>
     </div>
   </section>
 
@@ -604,7 +597,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>Phone app, no PC needed</b>: open <a href="https://winit007.github.io/hello-world/" target="_blank" rel="noopener">winit007.github.io/hello-world</a> in Chrome and tap <b>Install app</b>. It shows the evening run's results; Goals, Rebalance and My trades work on the phone.</li>
         <li><b>This PC app on your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
       <div class="card"><h2>Trade checklist</h2>
-        <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live Kite orders are refused until all pass.</p>
+        <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live broker orders are refused until all pass.</p>
         <ol><li><b>Proven edge</b>: has this setup made money on data it wasn't tuned on, after costs?</li>
         <li><b>Planned exit</b>: stop-loss, target and time limit known before entering?</li>
         <li><b>Small risk</b>: loss at the stop within 2% of capital (₹4,000 for ₹2,00,000)?</li>
@@ -612,7 +605,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>No big events</b>: no results, RBI decision or budget before your exit?</li>
         <li><b>Intraday timing</b>: not in the first 15 minutes after 9:15, and out before the 3:20 pm square-off?</li></ol></div>
       <div class="card" id="full-app" style="grid-column:1/-1"><h2>The full app on your Android phone (no PC)</h2>
-        <p class="sub" style="font-size:13.5px;margin:0 0 8px">Runs the complete app on the phone itself: live scans, stock lookup, paper trading and Kite orders. Nothing is uploaded; it only answers this phone.</p>
+        <p class="sub" style="font-size:13.5px;margin:0 0 8px">Runs the complete app on the phone itself: live scans, stock lookup, paper trading and broker orders. Nothing is uploaded; it only answers this phone.</p>
         <ol><li>Install <b>Termux</b> from <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noopener">F-Droid</a> or <a href="https://github.com/termux/termux-app/releases" target="_blank" rel="noopener">GitHub</a> (the old Play Store version does not work).</li>
         <li>Open Termux, paste this and press Enter. It takes 5 to 10 minutes the first time:
           <div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><code id="fa-cmd" style="background:var(--surface-2);padding:6px 8px;border-radius:8px;font-size:12.5px;word-break:break-all;flex:1 1 220px">curl -fsSL https://winit007.github.io/hello-world/termux.sh | bash</code><button class="btn small" id="fa-copy" type="button">Copy</button></div></li>
@@ -769,6 +762,7 @@ function newsBlock(p, title = "News behind this pick") {
     <ul style="padding-left:16px;margin:0;font-size:13.5px;display:grid;gap:6px">${items}</ul></details>`;
 }
 function renderPicks(res) {
+  window._lastScreen = res;
   const box = $("#picks");
   if (!res) { box.innerHTML = `<div class="card empty"><span class="et">No scan yet</span>Press <b>Scan now</b>. The first scan downloads 10 years of prices and takes a minute or two.</div>`; return; }
   const s = res.settings || {}, st = res.stats || {};
@@ -808,7 +802,7 @@ function renderPicks(res) {
       ${newsBlock(p)}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
         ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}
-        ${kiteable(p.ticker, p.plan) ? `<button class="btn small primary" data-kite="${i}">Place on Kite</button>` : ""}
+        ${kiteable(p.ticker, p.plan) ? `<button class="btn small primary" data-kite="${i}">Place on ${BL()}</button>` : ""}
         ${paperable(p.ticker, p.plan) ? `<button class="btn small" data-paper="${i}">Paper trade</button>` : ""}</div>
     </article>`;
   }).join("") + `</div>`;
@@ -867,8 +861,8 @@ async function loadJournal(sync = true) {
       const c = cur(e.ticker);
       const open = e.status === "open";
       const k = e.kite;
-      const badge = k ? `<span class="pill ${k.practice ? "none" : "warn"}" style="margin-left:6px">${k.practice ? "Kite practice" : "Kite live"}</span>` : "";
-      const events = k && k.events && k.events.length ? `<details class="events"><summary>Kite activity</summary><ul>${k.events.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : "";
+      const badge = k ? `<span class="pill ${k.practice ? "none" : "warn"}" style="margin-left:6px">${(BROKER_NAMES[k.broker] || "Kite") + (k.practice ? " practice" : " live")}</span>` : "";
+      const events = k && k.events && k.events.length ? `<details class="events"><summary>${BROKER_NAMES[k.broker] || "Kite"} activity</summary><ul>${k.events.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : "";
       return `<tr><td>${fmtDate(e.opened)}</td><td><b>${esc(e.contract)}</b>${badge}<div class="sub" style="font-size:12px">${esc(e.pattern || "")}${e.notes ? " · " + esc(e.notes) : ""}</div>${events}</td>
         <td class="r">${e.lots}</td><td class="r">${money(e.entry_premium, c, 2)}</td>
         <td class="r">${(+e.stop).toFixed(2)} / ${(+e.target1).toFixed(2)} / ${(+e.target2).toFixed(2)}</td><td>${fmtDate(e.time_exit)}</td>
@@ -885,7 +879,7 @@ async function loadJournal(sync = true) {
     const e = entries.find(x => x.id === b.dataset.kexit);
     const typed = $(`[data-exit="${e.id}"]`, box).value;
     const msg = e.kite.practice ? "Record a practice exit" + (typed ? " at " + typed : " at the buy price") + "?"
-      : "Cancel the stop/target GTTs and SELL the whole position on Kite" + (typed ? " at " + typed : " at the best bid") + "?";
+      : "Cancel the stop/target orders and SELL the whole position on " + (BROKER_NAMES[e.kite.broker] || "Kite") + (typed ? " at " + typed : " at the best bid") + "?";
     if (!confirm(msg)) return;
     try { await api("/api/kite/exit/" + e.id, { method: "POST", body: { price: typed || null } }); }
     catch (err) { alert(err.message); }
@@ -942,7 +936,7 @@ function renderStock(d) {
       </div>
       ${t.action === "NO TRADE" ? `<p style="margin:12px 0 0;color:var(--ink-2);font-size:14px">${esc(t.reason)}</p>` : ""}
       ${d.plan ? `<div style="margin-top:12px">${orderBlock(d.plan, d.ticker)}</div>` : ""}
-      ${kiteable(d.ticker, d.plan) || paperable(d.ticker, d.plan) ? `<div class="actions">${kiteable(d.ticker, d.plan) ? `<button class="btn primary" id="stock-kite">Place on Kite</button>` : ""}${paperable(d.ticker, d.plan) ? `<button class="btn" id="stock-paper">Paper trade</button>` : ""}</div>` : ""}
+      ${kiteable(d.ticker, d.plan) || paperable(d.ticker, d.plan) ? `<div class="actions">${kiteable(d.ticker, d.plan) ? `<button class="btn primary" id="stock-kite">Place on ${BL()}</button>` : ""}${paperable(d.ticker, d.plan) ? `<button class="btn" id="stock-paper">Paper trade</button>` : ""}</div>` : ""}
       ${(t.warnings || []).length ? `<div class="warns">${t.warnings.map(w => `<span class="pill warn">⚠ ${esc(w)}</span>`).join("")}</div>` : ""}
     </div>
     <div class="cols">
@@ -1475,27 +1469,43 @@ async function loadPhone() {
   }
 }
 
-/* ---------------- Zerodha Kite ---------------- */
+/* ---------------- broker (Kite, Upstox, Groww, 5paisa) ---------------- */
 function kiteable(ticker, plan) { return /\.(NS|BO)$/i.test(ticker || "") && plan && plan.instrument !== "stock" && plan.lots > 0 && KITE.configured; }
+const BL = () => KITE.label || "Kite";
+const BROKER_NAMES = {"kite":"Kite","upstox":"Upstox","groww":"Groww","fivepaisa":"5paisa"};
 async function loadKite() {
   try { KITE = await api("/api/kite/status"); } catch (e) { KITE = {}; }
+  if (!$("#k-broker")) return;
+  $("#k-broker").innerHTML = Object.entries(KITE.brokers || { kite: "Kite" }).map(([k, v]) => `<option value="${k}" ${k === KITE.broker ? "selected" : ""}>${esc(v)}</option>`).join("");
   $("#k-dot").classList.toggle("on", !!KITE.connected);
   $("#k-state").textContent = !KITE.configured ? "not set up" : KITE.connected ? `logged in${KITE.user ? " as " + KITE.user : ""}` : "set up, not logged in today";
-  $("#k-key").value = KITE.api_key || ""; $("#k-secret").value = "";
-  $("#k-secret").placeholder = KITE.has_secret ? "saved (leave blank to keep)" : "paste your API secret";
+  $("#k-setup").innerHTML = (KITE.setup || []).map(x => `<li>${x}</li>`).join("");
+  $("#k-fields").innerHTML = (KITE.fields || []).map(f => `<div class="field"><label for="kf-${f.name}">${esc(f.label)}</label>
+      <input type="text" id="kf-${f.name}" data-kf="${f.name}" autocomplete="off" value="${esc(f.value || "")}" placeholder="${f.secret ? (f.has_value ? "saved (leave blank to keep)" : "paste it here") : ""}">
+      ${f.help ? `<span class="hint">${esc(f.help)}</span>` : ""}</div>`).join("");
   $("#k-practice").checked = KITE.practice !== false; $("#k-live-warn").hidden = KITE.practice !== false;
-  if (KITE.redirect_url) $("#k-redirect").textContent = KITE.redirect_url;
+  $$(".k-label").forEach(x => x.textContent = BL());
+  $("#k-login").textContent = `Log in to ${BL()}`;
 }
+$("#k-broker").onchange = async () => {
+  try { await api("/api/kite/select", { method: "POST", body: { broker: $("#k-broker").value } }); $("#k-msg").textContent = ""; }
+  catch (e) { $("#k-msg").textContent = e.message; }
+  await loadKite();
+  if (window._lastScreen) renderPicks(window._lastScreen);
+};
 $("#k-practice").onchange = () => { $("#k-live-warn").hidden = $("#k-practice").checked; };
 $("#k-save").onclick = async () => {
   if (!$("#k-practice").checked && !confirm("Turn practice mode off? Confirmed orders will then use real money.")) { $("#k-practice").checked = true; $("#k-live-warn").hidden = true; return; }
-  try { await api("/api/kite/config", { method: "POST", body: { api_key: $("#k-key").value, api_secret: $("#k-secret").value || null, practice: $("#k-practice").checked } });
+  const fields = Object.fromEntries($$("[data-kf]").map(i => [i.dataset.kf, i.value]));
+  try { await api("/api/kite/config", { method: "POST", body: { fields, practice: $("#k-practice").checked } });
     $("#k-msg").textContent = "Saved."; } catch (e) { $("#k-msg").textContent = e.message; }
   loadKite();
 };
 $("#k-login").onclick = async () => {
-  try { const { url } = await api("/api/kite/login"); window.open(url, "_blank", "noopener");
-    $("#k-msg").textContent = "Finish the login in the new tab, then come back here."; 
+  try { const r = await api("/api/kite/login");
+    if (r.status) { $("#k-msg").textContent = "Connected."; return loadKite(); }
+    window.open(r.url, "_blank", "noopener");
+    $("#k-msg").textContent = "Finish the login in the new tab, then come back here.";
     const t = setInterval(async () => { await loadKite(); if (KITE.connected) { clearInterval(t); $("#k-msg").textContent = "Connected."; } }, 3000);
     setTimeout(() => clearInterval(t), 180000);
   } catch (e) { $("#k-msg").textContent = e.message; }
@@ -1503,32 +1513,32 @@ $("#k-login").onclick = async () => {
 $("#k-logout").onclick = async () => { await api("/api/kite/logout", { method: "POST", body: {} }); loadKite(); };
 
 async function kiteOrder(ticker, plan, pattern, limit) {
-  if (!KITE.connected) { alert("Log in to Kite first: Settings → Zerodha Kite → Log in to Kite."); showTab("settings"); return; }
+  if (!KITE.connected) { alert(`Log in to ${BL()} first: Settings → Broker → Log in to ${BL()}.`); showTab("settings"); return; }
   const dlg = $("#dlg"), f = $("#dlg-form");
-  f.innerHTML = `<h2>Checking with Kite…</h2><p class="sub">Looking up the contract and live price.</p>`; if (!dlg.open) dlg.showModal();
+  f.innerHTML = `<h2>Checking with ${BL()}…</h2><p class="sub">Looking up the contract and live price.</p>`; if (!dlg.open) dlg.showModal();
   let pv;
   try { pv = await api("/api/kite/preview", { method: "POST", body: { ticker, plan, limit } }); }
   catch (e) { f.innerHTML = `<h2>Can't place this trade</h2><div class="blocker">${esc(e.message)}</div><div class="actions"><button class="btn" value="cancel">Close</button></div>`; dlg.onclose = null; return; }
   const live = pv.live, blocked = pv.blockers.length > 0;
   const legs = pv.gtt_legs.map(l => `<div>${l.lots} lot${l.lots > 1 ? "s" : ""}: stop ₹${l.stop.toFixed(2)} or ${l.label} ₹${l.target.toFixed(2)}</div>`).join("");
-  f.innerHTML = `<h2>${pv.practice ? "Practice order" : "Confirm order on Kite"}</h2>
-    <div class="${pv.practice ? "banner-practice" : "banner-live"}">${pv.practice ? "Practice mode: nothing will be sent to Kite." : "LIVE: this sends a real order with real money."}</div>
+  f.innerHTML = `<h2>${pv.practice ? "Practice order" : "Confirm order on " + BL()}</h2>
+    <div class="${pv.practice ? "banner-practice" : "banner-live"}">${pv.practice ? "Practice mode: nothing will be sent to " + BL() + "." : "LIVE: this sends a real order with real money."}</div>
     <div class="confirm-grid num">
       <span class="k">Buy</span><b>${pv.lots} lot${pv.lots === 1 ? "" : "s"} · ${pv.qty} qty · ${esc(pv.tradingsymbol)}</b>
-      <span class="k">Live price</span><span>${live ? `bid ₹${live.bid.toFixed(2)} · ask ₹${live.ask.toFixed(2)} · last ₹${live.ltp.toFixed(2)}` : "not available on your Kite plan"}</span>
+      <span class="k">Live price</span><span>${live ? `bid ₹${live.bid.toFixed(2)} · ask ₹${live.ask.toFixed(2)} · last ₹${live.ltp.toFixed(2)}` : "not available from " + BL()}</span>
       <span class="k">Limit price</span><span><input type="number" step="0.05" name="limit" value="${pv.limit}" style="width:110px"> <button class="btn small" value="recalc">Recalculate</button></span>
       <span class="k">Total cost</span><b>₹${Number(pv.cost).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</b>
       <span class="k">Max loss at stop</span><span>₹${Number(pv.max_loss_at_stop).toLocaleString("en-IN", { maximumFractionDigits: 0 })} (limit ₹${Number(pv.budget).toLocaleString("en-IN")})</span>
       <span class="k">Funds available</span><span>${pv.funds == null ? "unknown" : "₹" + Number(pv.funds).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-      <span class="k">After fill, GTT</span><span>${legs || "–"}</span>
+      <span class="k">Stop / target</span><span>${legs || "–"}</span>
       <span class="k">Exit by</span><span>${fmtDate(pv.time_exit)} if nothing is hit (sell it yourself, or use Exit now)</span>
     </div>
     ${pv.warnings.map(w => `<div class="pill warn" style="margin:3px 0">⚠ ${esc(w)}</div>`).join("")}
     ${pv.blockers.map(b => `<div class="blocker">${esc(b)}</div>`).join("")}
     ${checklistBlock(pv.checklist, true)}
     ${!pv.practice && pv.checklist && pv.checklist.failed ? `<div class="blocker">Live order not allowed: take a trade only if every checklist answer is yes. Practice mode still works.</div>` : ""}
-    ${!pv.practice && !blocked ? `<label class="switch" style="margin-top:10px"><input type="checkbox" name="sure"> I have checked this order in Kite and want to buy</label>` : ""}
-    <div class="actions"><button class="btn primary" value="ok" id="kite-ok" ${blocked || (!pv.practice && pv.checklist && pv.checklist.failed) ? "disabled" : ""}>${pv.practice ? "Run practice order" : "Buy on Kite"}</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>`;
+    ${!pv.practice && !blocked ? `<label class="switch" style="margin-top:10px"><input type="checkbox" name="sure"> I have checked this order in ${BL()} and want to buy</label>` : ""}
+    <div class="actions"><button class="btn primary" value="ok" id="kite-ok" ${blocked || (!pv.practice && pv.checklist && pv.checklist.failed) ? "disabled" : ""}>${pv.practice ? "Run practice order" : "Buy on " + BL()}</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>`;
   if (!pv.practice && pv.checklist && !pv.checklist.failed) {
     const need = $$("[data-cl]", f), ok = $("#kite-ok", f);
     const upd = () => { ok.disabled = blocked || need.some(c => !c.checked); };
@@ -1540,7 +1550,7 @@ async function kiteOrder(ticker, plan, pattern, limit) {
     if (dlg.returnValue === "recalc") return kiteOrder(ticker, plan, pattern, lim);
     if (dlg.returnValue !== "ok") return;
     if (!pv.practice && !(f.sure && f.sure.checked)) { alert("Tick the confirmation box to place a live order."); return kiteOrder(ticker, plan, pattern, lim); }
-    f.innerHTML = `<h2>${pv.practice ? "Running practice order…" : "Placing order on Kite…"}</h2><p class="sub">Waiting for the fill, then setting stop and target.</p>`; dlg.showModal(); dlg.onclose = null;
+    f.innerHTML = `<h2>${pv.practice ? "Running practice order…" : "Placing order on " + BL() + "…"}</h2><p class="sub">Waiting for the fill, then setting stop and target.</p>`; dlg.showModal(); dlg.onclose = null;
     const confirm = ticked;
     try { await api("/api/kite/place", { method: "POST", body: { ticker, plan, pattern, limit: lim, confirm } }); dlg.close(); showTab("journal"); }
     catch (e) { f.innerHTML = `<h2>Order not placed</h2><div class="blocker">${esc(e.message)}</div><div class="actions"><button class="btn" value="cancel">Close</button></div>`; }
@@ -2008,7 +2018,7 @@ async function staticBoot() {
   try {
     const m = await pubData("meta"), t = new Date(m.generated);
     const errs = Object.keys(m.errors || {});
-    ban.innerHTML = `<b>Phone version</b> · results from the evening run on ${t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. <a href="#" data-fullapp>Get live scans, stock lookup, paper trading and Kite on this phone</a>.${errs.length ? ` <span style="color:var(--warn-text)">Not updated this time: ${esc(errs.join(", "))}.</span>` : ""}`;
+    ban.innerHTML = `<b>Phone version</b> · results from the evening run on ${t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. <a href="#" data-fullapp>Get live scans, stock lookup, paper trading and broker orders on this phone</a>.${errs.length ? ` <span style="color:var(--warn-text)">Not updated this time: ${esc(errs.join(", "))}.</span>` : ""}`;
   } catch (e) { ban.innerHTML = `<b>Phone version</b> · no results published yet, or you are offline with nothing saved.`; }
   $$("[data-fullapp]").forEach(a => a.onclick = ev => { ev.preventDefault(); showTab("help"); $("#full-app").scrollIntoView({ behavior: "smooth" }); });
 

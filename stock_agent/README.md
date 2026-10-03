@@ -153,6 +153,26 @@ outlook), `--min-samples 10` (occurrences a rule needs before it is ranked), `--
 recent bars count as a live signal), `--interval 1wk` (weekly candles), `--no-context` (ignore the
 prior-trend requirement of reversal patterns).
 
+## One-click orders: Kite, Upstox, Groww, 5paisa
+
+Pick your broker in **Settings → Broker**; the card shows that broker's setup steps and fields. Every broker
+starts in **practice mode** (everything is checked with the broker, nothing is sent). Live orders need the
+six-point checklist, and always go out as LIMIT orders (exchanges no longer accept MARKET orders on stock
+options through APIs).
+
+| Broker | Login | Stop-loss and target after the buy |
+|---|---|---|
+| Zerodha Kite | Kite Connect login page, daily (expires 6 am) | two-leg GTT (OCO) on the option, set once the buy fills |
+| Upstox | Upstox login page, daily (expires 3:30 am) | the buy itself is a GTT bracket (entry + target + stop-loss, exits live up to a year); when one exit fills the app cancels the rest |
+| Groww | API key approved on Groww each morning, then Log in (or paste the day's token) | OCO smart order; Groww documents it as a one-day order, so the app places it again each trading day you open My trades |
+| 5paisa | 5paisa login page, daily (expires 11:59 pm) | 5paisa's API has no stop + target order: a day stop-loss order, placed again each trading day you open My trades; sell at the target yourself |
+
+All four brokers now require a **static IP** registered with them for API orders (SEBI's 2026 retail algo
+rules), and some charge for API access. The Upstox, Groww and 5paisa adapters (`upstox.py`, `groww.py`,
+`fivepaisa.py`) were written from each broker's published API documentation and are tested against fake
+servers that follow it, not against real accounts: start in practice mode and place one small live order
+before relying on them.
+
 ## How the numbers are produced
 
 | Column | Meaning |
@@ -499,7 +519,12 @@ stock_agent/
   longterm.py   long-term picks: factor rank + ten-year 12-month win records
   paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days
-  kite.py       Zerodha Kite Connect: login, contract lookup, one-click LIMIT buy + GTT stop/target
+  broker_base.py  broker-neutral order flow: preview, checklist gate, LIMIT buy, protective exits, sync, exit now
+  brokers.py    the broker registry
+  kite.py       Zerodha Kite Connect adapter (GTT OCO exits)
+  upstox.py     Upstox adapter (GTT bracket)
+  groww.py      Groww Trade API adapter (OCO smart order)
+  fivepaisa.py  5paisa Xstream adapter (daily stop-loss order)
   app.py        local web app server (standard library only) + desktop shortcut
   web/          the app's single-page interface
   llm.py        optional local Ollama narrative

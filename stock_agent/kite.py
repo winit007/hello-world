@@ -30,6 +30,13 @@ class Kite(Broker):
     label = "Kite"
     FIELDS = [{"name": "api_key", "label": "API key", "help": "From developers.kite.trade > your app"},
               {"name": "api_secret", "label": "API secret", "secret": True}]
+    SETUP = ["Go to <a href=\"https://developers.kite.trade\" target=\"_blank\" rel=\"noopener\">developers.kite.trade</a>, sign up and "
+             "create an app (check Zerodha's current pricing; live quotes need the paid Connect plan).",
+             "Set the app's <b>Redirect URL</b> to <b>{redirect}</b>.",
+             "Copy the <b>API key</b> and <b>API secret</b> below and save.",
+             "Each morning press <b>Log in</b>. Kite access expires every day at 6 am; that is Zerodha's rule.",
+             "If Kite rejects orders mentioning an IP address, register your static IP in the Kite developer console "
+             "(SEBI rule for API orders)."]
     EXPIRES_AT = (6, 0)
     LOGIN_PARAM = "request_token"
 
@@ -168,7 +175,7 @@ class Kite(Broker):
                                                           "orders": json.dumps(legs)})
         return str(data["trigger_id"])
 
-    def exit_state(self, trigger_id: str) -> dict:
+    def exit_state(self, trigger_id: str, c=None) -> dict:
         g = self._call("GET", f"/gtt/triggers/{trigger_id}")
         order_ids = []
         for leg in g.get("orders") or []:
@@ -177,7 +184,7 @@ class Kite(Broker):
                 order_ids.append(str(res["order_id"]))
         return {"status": g.get("status"), "order_ids": order_ids}
 
-    def cancel_exit(self, trigger_id: str) -> None:
+    def cancel_exit(self, trigger_id: str, c=None) -> None:
         self._call("DELETE", f"/gtt/triggers/{trigger_id}")
 
     # names used before the broker layer existed
