@@ -609,6 +609,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li>Kite: use the same redirect URL as on the PC, <b>http://127.0.0.1:8765/kite/callback</b>, and enter your API key in Settings on the phone.</li></ol></div>
       <div class="card"><h2>Paper trading</h2>
         <ol><li>Open <b>Paper trading</b>. You start with virtual money equal to your capital in Settings; <b>Reset account</b> starts again with any amount.</li>
+        <li>Options can be bought or sold (written). Selling blocks about 18% of the contract value as margin, earns at most the premium and can lose much more, so practise it here before trying it for real.</li>
         <li>On any pick, lookup, crypto or commodity card press <b>Paper trade</b> to copy its lots, stop, Target 1 and exit date into the order form, then <b>Preview</b> and <b>Place order</b>.</li>
         <li>The tab refreshes every minute while open: stops and targets close positions automatically, intraday trades square off at 3:20 pm, and charges are deducted like a real broker.</li>
         <li>After 20 or more trades, check the win rate and total P&amp;L before risking real money.</li></ol></div>
@@ -1559,8 +1560,9 @@ function ppSetup(keep = false) {
   ppSideRule(); ppClearPreview();
 }
 function ppSideRule() {
-  const inst = $("#pp-inst").value, can = inst === "commodity" || (inst === "stock" && $("#pp-product").value === "intraday");
+  const inst = $("#pp-inst").value, can = inst === "commodity" || inst === "option" || (inst === "stock" && $("#pp-product").value === "intraday");
   $("#pp-side option[value=sell]").disabled = !can;
+  $("#pp-side option[value=sell]").textContent = inst === "option" ? "Sell (write the option)" : "Sell first (short)";
   if (!can) $("#pp-side").value = "buy";
 }
 function ppClearPreview() { _ppPreview = null; $("#pp-place").disabled = true; $("#pp-pv").innerHTML = ""; }
@@ -1581,13 +1583,15 @@ function ppPreviewHtml(pv) {
   const row = (k, v) => `<div class="row"><span>${k}</span><b class="num">${v}</b></div>`;
   let what = pv.instrument === "option" ? `${bare(pv.symbol)} ${fmtDate(pv.expiry)} ${pv.strike} ${pv.option_type} · lot ${pv.lot_size}`
     : pv.instrument === "commodity" ? `${esc(pv.contract)} · ${pv.lot_size} ${esc(pv.unit_label)} per lot` : bare(pv.symbol);
-  return `<div class="order pp-pv ${pv.can_place ? "" : "blocked"}"><div class="line1">${pv.side === "short" ? "SELL" : "BUY"} ${what} × ${pv.qty.toLocaleString("en-IN")}</div>
+  return `<div class="order pp-pv ${pv.can_place ? "" : "blocked"}"><div class="line1">${pv.side === "short" ? "SELL" : "BUY"} ${what} × ${pv.lots ? `${pv.lots} lot${pv.lots > 1 ? "s" : ""} (${pv.qty.toLocaleString("en-IN")})` : pv.qty.toLocaleString("en-IN")}</div>
     ${row("Price now", `${c}${usd ? pxj(pv.spot) : pv.spot.toFixed(2)} <span class="sub" style="font-weight:400">at ${esc(pv.price_time)}</span>`)}
     ${pv.instrument === "option" ? row("Option premium (model)", `${money(pv.fill, "₹", 2)} · vol ${pct(pv.iv)}`) : row("Fill price, ₹ per unit", money(pv.fill, "₹", pv.fill < 10 ? 4 : 2))}
-    ${row("Order value", money(pv.value))}
-    ${pv.margin_rate < 1 ? row(`Margin blocked (${pct(pv.margin_rate)})`, money(pv.blocked)) : ""}
+    ${pv.instrument === "option" && pv.side === "short" ? "" : row("Order value", money(pv.value))}
+    ${pv.instrument === "option" && pv.side === "short" ? row("Premium you receive", money(pv.value)) + row("Margin blocked (≈18% of contract)", money(pv.blocked))
+      : pv.margin_rate < 1 ? row(`Margin blocked (${pct(pv.margin_rate)})`, money(pv.blocked)) : ""}
     ${row("Charges", money(pv.charges, "₹", 2))}
     ${pv.risk_at_stop != null ? row("Loss if the stop is hit", money(pv.risk_at_stop)) : row("Loss if the stop is hit", "no stop set")}
+    ${(pv.notes || []).map(n => `<div class="line2" style="margin-top:6px">${esc(n)}</div>`).join("")}
     ${pv.warnings.map(w => `<div class="line2" style="margin-top:6px;color:var(--warn-text)">⚠ ${esc(w)}</div>`).join("")}</div>`;
 }
 $("#pp-form").onsubmit = async ev => {
@@ -1612,8 +1616,8 @@ $("#pp-place").onclick = async () => {
 function ppPnl(x) { return `<span class="${x > 0 ? "chg up" : x < 0 ? "chg down" : ""}">${money(x)}</span>`; }
 function ppTag(p) {
   const t = [p.product === "intraday" ? "intraday" : p.instrument === "stock" ? "delivery" : p.instrument === "crypto" ? "spot" : p.instrument === "option" ? "option" : "overnight"];
-  if (p.side === "short") t.unshift("short");
-  return t.map(x => `<span class="pill ${x === "short" ? "put" : "none"}" style="font-size:11px;padding:0 6px;margin-left:4px">${x}</span>`).join("");
+  if (p.side === "short") t.unshift(p.instrument === "option" ? "sold" : "short");
+  return t.map(x => `<span class="pill ${x === "short" || x === "sold" ? "put" : "none"}" style="font-size:11px;padding:0 6px;margin-left:4px">${x}</span>`).join("");
 }
 function ppLevel(p) {
   const f = x => x == null ? "–" : (p.instrument === "crypto" || p.instrument === "commodity" ? "$" + pxj(x) : (+x).toFixed(2));

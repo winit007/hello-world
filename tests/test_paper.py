@@ -181,6 +181,61 @@ class PaperTests(unittest.TestCase):
         self.assertEqual(c["exit_reason"], "Expired")
         self.assertAlmostEqual(c["exit_price"], 50 * 0.99, places=3)
 
+    def opt(self, **kw):
+        order = {"instrument": "option", "symbol": "RELIANCE", "product": "positional", "lots": 1,
+                 "option_type": "CE", "strike": 1000, "expiry": "2026-10-27", **kw}
+        with mock.patch("stock_agent.lots.lot_size", return_value=(500, "test")), \
+                mock.patch("stock_agent.data.load_prices", side_effect=OSError("offline")):
+            return self.acct().place(order)
+
+    def test_sold_call_blocks_margin_and_is_stopped_by_a_rally(self):
+        with self.assertRaises(PaperError):          # a sold call loses when the share rises: stop goes above
+            self.opt(side="sell", stop=990)
+        st = self.opt(side="sell", stop=1020)
+        p = st["positions"][0]
+        self.assertEqual(p["side"], "short")
+        self.assertAlmostEqual(p["blocked"], 0.18 * 1000 * 500, places=2)
+        self.assertAlmostEqual(st["cash"], 200_000 - p["blocked"] - p["entry_charges"], places=2)
+        self.px.extend("RELIANCE.NS", [(1005, 1025, 1004, 1022)])
+        self.now = T0 + timedelta(minutes=5)
+        st = self.acct().state()
+        c = st["closed"][0]
+        self.assertEqual(c["exit_reason"], "Stop-loss hit")
+        self.assertGreater(c["exit_price"], c["entry_price"])      # bought back dearer
+        self.assertLess(c["pnl"], 0)
+        self.assertAlmostEqual(st["cash"], 200_000 + c["pnl"], places=1)
+
+    def test_sold_put_expiring_worthless_keeps_the_premium(self):
+        st = self.opt(side="sell", option_type="PE", strike=950)
+        p = st["positions"][0]
+        premium = p["entry_price"] * p["qty"]
+        self.px.extend("RELIANCE.NS", [(1040, 1040, 1040, 1040)])
+        self.now = datetime(2026, 10, 28, 10, 0, tzinfo=IST)
+        c = self.acct().state()["closed"][0]
+        self.assertEqual((c["exit_reason"], c["exit_price"]), ("Expired", 0.0))
+        self.assertAlmostEqual(c["pnl"], premium - c["entry_charges"] - c["exit_charges"], places=2)
+        self.assertGreater(c["pnl"], 0)
+
+    def test_bought_put_stop_sits_above_the_share_price(self):
+        with self.assertRaises(PaperError):
+            self.opt(side="buy", option_type="PE", stop=980)
+        st = self.opt(side="buy", option_type="PE", stop=1015, target=970)
+        self.assertAlmostEqual(st["positions"][0]["blocked"], st["positions"][0]["entry_price"] * 500, places=1)   # paid in full
+        self.px.extend("RELIANCE.NS", [(1000, 1016, 999, 1012)])
+        self.now = T0 + timedelta(minutes=5)
+        c = self.acct().state()["closed"][0]
+        self.assertEqual(c["exit_reason"], "Stop-loss hit")
+        self.assertLess(c["pnl"], 0)
+
+    def test_preview_of_a_sold_option_explains_the_risk(self):
+        with mock.patch("stock_agent.lots.lot_size", return_value=(500, "test")), \
+                mock.patch("stock_agent.data.load_prices", side_effect=OSError("offline")):
+            pv = self.acct().preview({"instrument": "option", "symbol": "RELIANCE", "side": "sell", "product": "intraday",
+                                      "lots": 1, "option_type": "CE", "strike": 1000, "expiry": "2026-10-27", "stop": 1020})
+        self.assertTrue(pv["can_place"])
+        self.assertIn("no limit", pv["notes"][0])
+        self.assertGreater(pv["risk_at_stop"], 0)
+
     def test_reset_and_persistence(self):
         a = self.acct()
         a.place({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": 1})

@@ -3,8 +3,10 @@
 Instruments
   stock      NSE shares. "delivery" (buy and hold, pay in full) or "intraday" (long or short, 20% margin,
              squared off at 3:20 pm)
-  option     NSE stock options, buying only. Priced with Black-Scholes from the live share price at the
-             volatility fixed when you bought (no free live NSE option prices); settled at expiry
+  option     NSE stock options, bought or sold (written). Priced with Black-Scholes from the live share
+             price at the volatility fixed when you traded (no free live NSE option prices); settled at
+             intrinsic value on expiry. Selling blocks margin of about 18% of the contract value and can lose
+             far more than the premium it collects
   crypto     coins quoted in US dollars, bought outright, converted to rupees at the live USD/INR rate
   commodity  MCX mini contracts sized from the US futures price, long or short, 10% margin, squared off
              at 11:15 pm
@@ -29,6 +31,7 @@ import pandas as pd
 IST = timezone(timedelta(hours=5, minutes=30))
 SLIPPAGE = {"stock": 0.0005, "option": 0.01, "crypto": 0.001, "commodity": 0.0002}
 MARGIN = {("stock", "intraday"): 0.20, ("commodity", "intraday"): 0.10, ("commodity", "positional"): 0.10}
+SHORT_OPTION_MARGIN = 0.18   # of the contract value (share price x quantity): roughly NSE SPAN + exposure
 SQUARE_OFF = {"stock": (15, 20), "option": (15, 20), "commodity": (23, 15)}
 PRODUCTS = {"stock": ("delivery", "intraday"), "option": ("positional", "intraday"), "crypto": ("positional",),
             "commodity": ("positional", "intraday")}
@@ -41,6 +44,15 @@ class PaperError(ValueError):
 
 def now_ist() -> datetime:
     return datetime.now(IST)
+
+
+def bearish(p: dict) -> bool:
+    """True when the position gains as the underlying price falls: short shares or futures, a bought put,
+    a sold call. Stops and targets are levels on the underlying, so their side depends on this."""
+    short = p.get("side") == "short"
+    if p.get("instrument") == "option":
+        return (p.get("option_type") == "PE") != short
+    return short
 
 
 def market_open(instrument: str, t: datetime | None = None) -> bool:
@@ -210,8 +222,8 @@ class Account:
         if product not in PRODUCTS[inst]:
             raise PaperError(f"Product for {inst} must be one of: {', '.join(PRODUCTS[inst])}")
         short = side == "sell"
-        if short and not (inst == "commodity" or (inst == "stock" and product == "intraday")):
-            raise PaperError("Selling first (short) is only allowed for intraday shares and commodity futures")
+        if short and not (inst in ("commodity", "option") or (inst == "stock" and product == "intraday")):
+            raise PaperError("Selling first (short) is only allowed for intraday shares, options and commodity futures")
         spot, asof = self.prices.last(sym)
         entry_bar = self.prices.bars(sym).index[-1].isoformat()
         pos = {"instrument": inst, "symbol": sym, "side": "short" if short else "long", "product": product}
@@ -257,15 +269,30 @@ class Account:
         slip = SLIPPAGE[inst]
         fill = unit * (1 - slip if short else 1 + slip)
         value = fill * qty
-        margin_rate = MARGIN.get((inst, product), 1.0)
-        blocked = value * margin_rate
+        notes = []
+        if inst == "option" and short:
+            blocked = SHORT_OPTION_MARGIN * spot * qty
+            margin_rate = blocked / value if value else 1.0
+            from .sizing import money
+
+            notes.append(f"Selling an option: the most you can make is the premium, {money(value, '₹')}. The loss has "
+                         f"no limit if the share moves sharply {'up' if pos['option_type'] == 'CE' else 'down'}. "
+                         f"Margin blocked is about {SHORT_OPTION_MARGIN:.0%} of the contract value "
+                         f"({money(spot * qty, '₹')}); a real broker's may differ.")
+        else:
+            margin_rate = MARGIN.get((inst, product), 1.0)
+            blocked = value * margin_rate
         fee = charges(inst, product, side, value)
         stop = float(o["stop"]) if o.get("stop") not in (None, "") else None
         target = float(o["target"]) if o.get("target") not in (None, "") else None
-        if stop is not None and ((stop >= spot) if not short else (stop <= spot)):
-            raise PaperError("The stop-loss must be below the price for a buy (above it for a sell)")
-        if target is not None and ((target <= spot) if not short else (target >= spot)):
-            raise PaperError("The target must be above the price for a buy (below it for a sell)")
+        bear = bearish(pos)
+        what = "share price" if inst in ("stock", "option") else "price"
+        if stop is not None and ((stop <= spot) if bear else (stop >= spot)):
+            raise PaperError(f"The stop-loss must be {'above' if bear else 'below'} the {what} ({spot:,.2f}): "
+                             f"this trade loses when the price {'rises' if bear else 'falls'}")
+        if target is not None and ((target >= spot) if bear else (target <= spot)):
+            raise PaperError(f"The target must be {'below' if bear else 'above'} the {what} ({spot:,.2f}): "
+                             f"this trade gains when the price {'falls' if bear else 'rises'}")
         warnings = []
         if not market_open(inst):
             warnings.append("Market is closed: orders fill only during market hours")
@@ -273,18 +300,20 @@ class Account:
             warnings.append(f"Not enough virtual cash: needs ₹{blocked + fee:,.0f}, you have ₹{self.data['cash']:,.0f}")
         risk = abs(spot - stop) * qty * (fill / spot if inst != "option" else 1) if stop else None
         if inst == "option" and stop:
-            risk = (fill - self._unit_price(pos, stop)) * qty
+            at_stop = self._unit_price(pos, stop)
+            risk = ((at_stop - fill) if short else (fill - at_stop)) * qty
         return {**pos, "qty": qty, "lots": qty / lot if lot > 1 else None, "spot": spot, "price_time": asof,
                 "fill": round(fill, 4), "value": round(value, 2), "blocked": round(blocked, 2), "charges": fee,
                 "margin_rate": margin_rate, "stop": stop, "target": target, "risk_at_stop": risk,
-                "exit_by": o.get("exit_by") or None, "entry_bar": entry_bar, "warnings": warnings, "can_place": not warnings}
+                "exit_by": o.get("exit_by") or None, "entry_bar": entry_bar, "warnings": warnings, "notes": notes,
+                "can_place": not warnings}
 
     def place(self, o: dict) -> dict:
         pv = self.preview(o)
         if not pv["can_place"]:
             raise PaperError("; ".join(pv["warnings"]))
-        pos = {k: pv[k] for k in pv if k not in ("warnings", "can_place", "spot", "price_time", "value", "lots",
-                                                  "risk_at_stop")}
+        pos = {k: pv[k] for k in pv if k not in ("warnings", "notes", "can_place", "spot", "price_time", "value",
+                                                  "lots", "risk_at_stop")}
         pos.update(id=uuid.uuid4().hex[:8], entry_price=pv["fill"], entry_spot=pv["spot"],
                    entry_time=now_ist().isoformat(timespec="minutes"), entry_charges=pv["charges"],
                    note=str(o.get("note") or "")[:120])
@@ -343,7 +372,7 @@ class Account:
             except Exception:
                 continue
             since = bars[bars.index > pd.Timestamp(p.get("entry_bar") or p["entry_time"])]
-            short = p["side"] == "short"
+            short = bearish(p)   # which way the underlying hurts: stops and targets are underlying levels
             hit = None
             sq = SQUARE_OFF.get(p["instrument"]) if p["product"] == "intraday" else None
             entry_day = datetime.fromisoformat(p["entry_time"]).date()
