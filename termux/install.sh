@@ -50,8 +50,11 @@ chmod 755 "$PREFIX/bin/stock-agent"
 
 # Home-screen icon through the Termux:Widget add-on, if the person installs it
 mkdir -p "$HOME/.shortcuts"
+chmod 700 "$HOME/.shortcuts"                  # Termux:Widget ignores a folder others can write to
 printf '#!/data/data/com.termux/files/usr/bin/bash\nstock-agent\n' > "$HOME/.shortcuts/Stock Agent"
-chmod 755 "$HOME/.shortcuts/Stock Agent"
+chmod 700 "$HOME/.shortcuts/Stock Agent"
+# refresh the widget list if Termux:Widget is already installed
+am broadcast -n com.termux.widget/.TermuxWidgetProvider -a com.termux.widget.ACTION_REFRESH_WIDGET >/dev/null 2>&1 || true
 
 python -c "import stock_agent; print('Stock Agent', stock_agent.__version__, 'installed')"
 cat <<'MSG'
