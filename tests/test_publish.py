@@ -53,7 +53,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(meta["ok"], ["screen", "crypto", "commodities"])
         self.assertIn("Yahoo said no", meta["errors"]["fund"])
         self.assertEqual(json.loads((site / "data" / "commodities.json").read_text())["market"], "commodities")
-        for f in ("index.html", "sw.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "data/meta.json"):
+        for f in ("index.html", "sw.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "data/meta.json", "termux.sh"):
             self.assertTrue((site / f).exists(), f)
         man = json.loads((site / "manifest.webmanifest").read_text())
         self.assertEqual((man["start_url"], man["icons"][0]["src"]), ("./", "icon-192.png"))

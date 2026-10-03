@@ -107,7 +107,12 @@ def resolve_company(ticker: str, offline: bool = False, cache_dir: Path = DEFAUL
             if name.endswith(suffix):
                 name = name[: -len(suffix)]
     except Exception:
-        name = bare
+        from .yahoo import long_name
+
+        name = long_name(ticker) or bare
+        for suffix in (" Limited", " Ltd", " Ltd.", " Inc.", " Inc", " Corporation", " Corp.", " plc", " PLC"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
     names[key] = name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(names, indent=1), encoding="utf-8")

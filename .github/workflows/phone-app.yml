@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: ["stock_agent/**", ".github/workflows/phone-app.yml"]
+    paths: ["stock_agent/**", "termux/**", ".github/workflows/phone-app.yml"]
 
 permissions:
   contents: read

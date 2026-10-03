@@ -96,14 +96,24 @@ class Prices:
             return hit[1]
         import logging
 
-        import yfinance as yf
-
+        from . import yahoo
         from .data import _flatten
 
-        logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-        raw = yf.download(symbol, period="5d", interval="5m", progress=False, auto_adjust=False)
-        if raw is None or raw.empty:
-            raw = yf.download(symbol, period="1mo", interval="1d", progress=False, auto_adjust=False)
+        if yahoo.use_builtin():
+            raw = None
+            for per, iv in (("5d", "5m"), ("1mo", "1d")):
+                try:
+                    raw = yahoo.chart(symbol, per, iv, adjust=False)[0]
+                    break
+                except Exception:
+                    continue
+        else:
+            import yfinance as yf
+
+            logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+            raw = yf.download(symbol, period="5d", interval="5m", progress=False, auto_adjust=False)
+            if raw is None or raw.empty:
+                raw = yf.download(symbol, period="1mo", interval="1d", progress=False, auto_adjust=False)
         if raw is None or raw.empty:
             raise PaperError(f"No price found for {symbol}")
         df = _flatten(raw)

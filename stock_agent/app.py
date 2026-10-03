@@ -839,6 +839,21 @@ def start_tunnel(port: int, exe: str | None = None, timeout: float = 60.0) -> st
     return found["url"]
 
 
+def on_termux() -> bool:
+    """Running inside Termux on an Android phone."""
+    return "com.termux" in os.environ.get("PREFIX", "") or bool(os.environ.get("TERMUX_VERSION"))
+
+
+def open_url(url: str) -> None:
+    import shutil
+    import subprocess
+
+    if on_termux() and shutil.which("termux-open-url"):   # Android: hand the link to Chrome
+        subprocess.run(["termux-open-url", url], check=False)
+    else:
+        webbrowser.open(url)
+
+
 def serve(port: int = 8765, open_browser: bool = True, phone: bool = False, tunnel: bool = False,
           cloudflared: str | None = None) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
@@ -874,7 +889,7 @@ def serve(port: int = 8765, open_browser: bool = True, phone: bool = False, tunn
         print("If Windows asks about the firewall, allow Python on Private networks.\n")
     print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
     if open_browser:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.8, lambda: open_url(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

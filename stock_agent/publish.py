@@ -105,6 +105,9 @@ def build(out: Path, steps: list[str] | None = None, log=print) -> dict:
         (out / name).write_bytes(app._icon_png(size))
     (out / "sw.js").write_text(SW, encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
+    installer = Path(__file__).resolve().parent.parent / "termux" / "install.sh"
+    if installer.exists():   # the full app for Android: curl -fsSL <site>/termux.sh | bash
+        (out / "termux.sh").write_text(installer.read_text(encoding="utf-8"), encoding="utf-8")
     (data / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     return meta
 

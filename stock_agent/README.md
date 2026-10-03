@@ -65,6 +65,28 @@ anyone with the link sees the same picks; nothing personal is published.
 One-time setup in the GitHub repository: **Settings > Pages > Build and deployment > Source: GitHub
 Actions**. Then **Actions > Phone app > Run workflow** for the first build (about 15 to 30 minutes).
 
+**The full app on the phone itself (live scans, lookup, paper trading, Kite), no PC:**
+
+1. Install **Termux** from [F-Droid](https://f-droid.org/packages/com.termux/) or
+   [GitHub](https://github.com/termux/termux-app/releases) (not the old Play Store build).
+2. In Termux run:
+
+   ```bash
+   curl -fsSL https://winit007.github.io/hello-world/termux.sh | bash
+   ```
+
+   It installs Python, numpy and pandas (ready-made Termux packages from `tur-repo`), the small libraries,
+   and this app ([`termux/install.sh`](../termux/install.sh)). It takes 5 to 10 minutes the first time;
+   run it again to update.
+3. Type `stock-agent`. The app starts on the phone and opens in Chrome at `http://127.0.0.1:8765`. For a
+   home-screen icon, install **Termux:Widget**. Set Termux's battery use to *Unrestricted* so Android does not
+   stop it mid-scan.
+
+yfinance is not installed on the phone: its `curl_cffi` dependency does not build on Android. Without it the
+app reads prices from Yahoo's chart API itself (`stock_agent/yahoo.py`), with the same split and dividend
+adjustment. Set `STOCK_AGENT_PRICES=yahoo` to use that client on a PC too. Kite works as on the PC, with the
+same redirect URL `http://127.0.0.1:8765/kite/callback`.
+
 **The PC app on your phone, works on Wi-Fi and mobile data (no firewall or router changes):**
 
 ```bat
@@ -471,6 +493,7 @@ stock_agent/
   lots.py       NSE lot sizes (live fo_mktlots.csv, cached daily, bundled snapshot fallback)
   tradetest.py  every past signal replayed as the real trade; strategy rules (strategy.json)
   lab.py        rule-variant search with a train/test split; validation.json holds the latest check
+  yahoo.py      built-in Yahoo price client, used when yfinance is missing (Android/Termux)
   publish.py    phone app: static site + the evening's results as data files (GitHub Pages)
   paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days

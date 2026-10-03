@@ -599,6 +599,14 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>Liquid contract</b>: bid-ask spread under about 2% of the price?</li>
         <li><b>No big events</b>: no results, RBI decision or budget before your exit?</li>
         <li><b>Intraday timing</b>: not in the first 15 minutes after 9:15, and out before the 3:20 pm square-off?</li></ol></div>
+      <div class="card" id="full-app" style="grid-column:1/-1"><h2>The full app on your Android phone (no PC)</h2>
+        <p class="sub" style="font-size:13.5px;margin:0 0 8px">Runs the complete app on the phone itself: live scans, stock lookup, paper trading and Kite orders. Nothing is uploaded; it only answers this phone.</p>
+        <ol><li>Install <b>Termux</b> from <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noopener">F-Droid</a> or <a href="https://github.com/termux/termux-app/releases" target="_blank" rel="noopener">GitHub</a> (the old Play Store version does not work).</li>
+        <li>Open Termux, paste this and press Enter. It takes 5 to 10 minutes the first time:
+          <div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><code id="fa-cmd" style="background:var(--surface-2);padding:6px 8px;border-radius:8px;font-size:12.5px;word-break:break-all;flex:1 1 220px">curl -fsSL https://winit007.github.io/hello-world/termux.sh | bash</code><button class="btn small" id="fa-copy" type="button">Copy</button></div></li>
+        <li>Then type <b>stock-agent</b>. The app opens in Chrome at <b>127.0.0.1:8765</b>. Keep Termux running in the background while you use it.</li>
+        <li>Home-screen icon: install <b>Termux:Widget</b> and add its widget, then tap <b>Stock Agent</b>. Set Termux's battery use to <b>Unrestricted</b> so Android does not stop it.</li>
+        <li>Kite: use the same redirect URL as on the PC, <b>http://127.0.0.1:8765/kite/callback</b>, and enter your API key in Settings on the phone.</li></ol></div>
       <div class="card"><h2>Paper trading</h2>
         <ol><li>Open <b>Paper trading</b>. You start with virtual money equal to your capital in Settings; <b>Reset account</b> starts again with any amount.</li>
         <li>On any pick, lookup, crypto or commodity card press <b>Paper trade</b> to copy its lots, stop, Target 1 and exit date into the order form, then <b>Preview</b> and <b>Place order</b>.</li>
@@ -1931,9 +1939,18 @@ async function staticBoot() {
   try {
     const m = await pubData("meta"), t = new Date(m.generated);
     const errs = Object.keys(m.errors || {});
-    ban.innerHTML = `<b>Phone version</b> · results from the evening run on ${t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Live scans, stock lookup, paper trading and Kite orders need the PC app.${errs.length ? ` <span style="color:var(--warn-text)">Not updated this time: ${esc(errs.join(", "))}.</span>` : ""}`;
+    ban.innerHTML = `<b>Phone version</b> · results from the evening run on ${t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. <a href="#" data-fullapp>Get live scans, stock lookup, paper trading and Kite on this phone</a>.${errs.length ? ` <span style="color:var(--warn-text)">Not updated this time: ${esc(errs.join(", "))}.</span>` : ""}`;
   } catch (e) { ban.innerHTML = `<b>Phone version</b> · no results published yet, or you are offline with nothing saved.`; }
+  $$("[data-fullapp]").forEach(a => a.onclick = ev => { ev.preventDefault(); showTab("help"); $("#full-app").scrollIntoView({ behavior: "smooth" }); });
+
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+/* ---------------- full app on the phone (Termux) ---------------- */
+{
+  const cmd = `curl -fsSL ${STATIC ? new URL("termux.sh", location.href).href : "https://winit007.github.io/hello-world/termux.sh"} | bash`;
+  $("#fa-cmd").textContent = cmd;
+  $("#fa-copy").onclick = async () => { try { await navigator.clipboard.writeText(cmd); $("#fa-copy").textContent = "Copied"; } catch (e) { prompt("Copy this command", cmd); } };
 }
 
 /* ---------------- boot ---------------- */

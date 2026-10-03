@@ -30,6 +30,10 @@ def _flatten(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def download_prices(ticker: str, period: str = "5y", interval: str = "1d") -> pd.DataFrame:
+    from . import yahoo
+
+    if yahoo.use_builtin():  # no yfinance (e.g. on a phone): read Yahoo directly
+        return _flatten(yahoo.chart(ticker, period, interval)[0])
     import yfinance as yf  # imported lazily so offline runs never need it
 
     raw = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=True)
@@ -105,8 +109,9 @@ def refresh_many(tickers: list[str], period: str = "10y", interval: str = "1d", 
     overlap disagrees by more than 1% (a split or bonus re-adjusted the history) the full history is
     downloaded again. Returns the tickers that could not be refreshed.
     """
-    import yfinance as yf
+    from . import yahoo
 
+    builtin = yahoo.use_builtin()
     paths = {t: _cache_path(cache_dir, t, period, interval) for t in tickers}
     stale = [t for t in tickers if not _is_fresh(paths[t])]
     update = [t for t in stale if paths[t].exists()]
@@ -119,6 +124,10 @@ def refresh_many(tickers: list[str], period: str = "10y", interval: str = "1d", 
             yield lst[k:k + chunk]
 
     def fetch(group, per):
+        if builtin:
+            return {t: _flatten(df) for t, df in yahoo.download(group, per, interval).items()}
+        import yfinance as yf
+
         try:
             raw = yf.download(group, period=per, interval=interval, progress=False, auto_adjust=True,
                               group_by="ticker", threads=True)
