@@ -153,6 +153,27 @@ outlook), `--min-samples 10` (occurrences a rule needs before it is ranked), `--
 recent bars count as a live signal), `--interval 1wk` (weekly candles), `--no-context` (ignore the
 prior-trend requirement of reversal patterns).
 
+## Backtest lab: modern checks of the edge
+
+The **Backtest lab** tab (or `python -m stock_agent robust`) re-tests ten years of Nifty 50 signals with
+methods from the quant-research literature (López de Prado; Bailey, Borwein, López de Prado & Zhu):
+
+* **Walk-forward**: every year is judged by rules chosen only from earlier years.
+* **Purging and embargo**: training trades whose holding period overlaps the test year are dropped, plus 10 days.
+* **Meta-labeling**: a second model (L2 logistic regression) learns from conditions at the signal (trend,
+  momentum, volatility, RSI, volume, distance from the 52-week high, market regime, pattern) which signals tend
+  to win; it is walk-forward tested and its calibration on unseen years is shown.
+* **Probability of backtest overfitting (PBO)** by combinatorially symmetric cross-validation.
+* **False discovery control** (Benjamini-Hochberg) on "beats a random day".
+* **Month-block bootstrap** of the average trade.
+
+Results on data to October 2026, as option trades: walk-forward 37% won, -2.2% a trade; the meta-label
+filter keeps about a fifth of the signals and raised that to 39% won and -2.0% (better in 4 of 6 unseen
+years, so each pick shows **Filter: keep / skip**); no pattern survives the false-discovery correction; the
+bootstrap gives a 0.1% chance that the average option trade is positive. As share trades: 42% won, -0.1%
+a trade; filtered 45%. In plain words: the checks found no profitable edge in these signals, only a filter
+that loses less. The lab reruns every evening on the phone site, so this verdict updates with new data.
+
 ## One-click orders: Kite, Upstox, Groww, 5paisa
 
 Pick your broker in **Settings → Broker**; the card shows that broker's setup steps and fields. Every broker
@@ -516,6 +537,7 @@ stock_agent/
   lab.py        rule-variant search with a train/test split; validation.json holds the latest check
   yahoo.py      built-in Yahoo price client, used when yfinance is missing (Android/Termux)
   publish.py    phone app: static site + the evening's results as data files (GitHub Pages)
+  robust.py     walk-forward, purging, meta-labeling, PBO, false-discovery and bootstrap checks
   longterm.py   long-term picks: factor rank + ten-year 12-month win records
   paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
   tracker.py    track record: pick ledger, day-by-day outcome simulation, replay of past days

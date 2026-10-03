@@ -75,6 +75,7 @@ def build(out: Path, steps: list[str] | None = None, log=print) -> dict:
         return out
 
     jobs = {
+        "robust": lambda: app.run_robust(settings, _quiet),       # first: today's picks use its filter
         "screen": lambda: app.run_screen(settings, _quiet),
         "track": lambda: app.run_track(settings, 10, _quiet),
         "crypto": lambda: app.run_market("crypto", settings, _quiet),

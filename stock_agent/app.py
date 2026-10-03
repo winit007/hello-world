@@ -33,6 +33,7 @@ LEDGER_FILE = HOME / "track.json"
 GOAL_FILE = HOME / "goal.json"
 PORTFOLIO_FILE = HOME / "portfolio.json"
 PAPER_FILE = HOME / "paper.json"
+ROBUST_FILE = HOME / "robust.json"
 WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
@@ -268,7 +269,8 @@ def run_screen(settings: dict, progress) -> dict:
     for p in picks:
         d = clean(p)
         d.pop("plan", None)
-        d.update(side=p.side, edge=p.edge, win_chance=p.win_chance, plan=plan_dict(p.plan))
+        d.update(side=p.side, edge=p.edge, win_chance=p.win_chance, plan=plan_dict(p.plan),
+                 meta=meta_filter(p.ticker, p.pattern, p.direction))
         out.append(d)
     from .screener import validation_line
     from .tradetest import load_validation
@@ -387,6 +389,43 @@ def paper_op(path: str, body: dict) -> dict:
         if path == "/api/paper/reset":
             return acct.reset(float(body.get("start_cash") or load_settings()["capital"]))
     raise KeyError(path)
+
+
+def run_robust(settings: dict, progress) -> dict:
+    """Walk-forward, meta-label, PBO, FDR and bootstrap checks on the Nifty 50 signals, as options and as shares."""
+    from . import robust, screener
+    from .data import _cache_path, read_cached, refresh_many
+    from .universes import get_universe
+
+    tickers = get_universe("nifty50")
+    prices = screener.load_universe(tickers, "10y", "1d", False, CACHE, log=lambda *a: None,
+                                    progress=lambda m, f: progress(m, f * 0.3))
+    refresh_many(["NIFTYBEES.NS"], "10y", "1d", CACHE)
+    idx = read_cached(_cache_path(CACHE, "NIFTYBEES.NS", "10y", "1d"))
+    opt = robust.run(prices, idx, lambda m, f: progress("Option trades: " + m, 0.3 + f * 0.35), instrument="option")
+    spot = robust.run(prices, idx, lambda m, f: progress("Share trades: " + m, 0.65 + f * 0.35), instrument="spot",
+                      cost=0.001)
+    res = clean({"option": opt, "spot": spot})
+    _write_json(ROBUST_FILE, res)
+    return res
+
+
+def meta_filter(ticker: str, pattern: str, direction: str) -> dict | None:
+    """The meta-label model's view of one pick, if the robust study validated the filter."""
+    saved = _read_json(ROBUST_FILE, None)
+    model = ((saved or {}).get("option") or {}).get("model")
+    if not model or not model.get("validated"):
+        return None
+    from . import robust
+    from .data import _cache_path, read_cached
+
+    try:
+        df = read_cached(_cache_path(CACHE, ticker, "10y", "1d"))
+        idx = read_cached(_cache_path(CACHE, "NIFTYBEES.NS", "10y", "1d"))
+    except Exception:
+        return None
+    p = robust.score_today(model, df, idx, pattern, direction)
+    return None if p is None else {"p": p, "keep": p >= model["threshold"], "threshold": model["threshold"]}
 
 
 def run_longterm(settings: dict, progress) -> dict:
@@ -771,6 +810,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, _read_json(GOAL_FILE, None))
             if url.path == "/api/portfolio":
                 return self._send(200, _read_json(PORTFOLIO_FILE, None))
+            if url.path == "/api/robust":
+                if q.get("last"):
+                    return self._send(200, _read_json(ROBUST_FILE, None))
+                return self._send(200, {"job": start_job("robust", run_robust, load_settings())})
             if url.path == "/api/longterm":
                 return self._send(200, {"job": start_job("longterm", run_longterm, load_settings())})
             if url.path == "/api/ipo":

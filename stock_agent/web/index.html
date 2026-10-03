@@ -242,6 +242,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
       <button role="tab" data-tab="track">Track record</button>
+      <button role="tab" data-tab="lab">Backtest lab</button>
       <button role="tab" data-tab="ipo">New IPOs</button>
       <button role="tab" data-tab="crypto">Crypto</button>
       <button role="tab" data-tab="commodities">Commodities</button>
@@ -389,6 +390,17 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <b>model estimates</b> (no free history of NSE option prices exists), before brokerage and taxes.</div>
     <div class="progress" id="track-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
     <div id="track"></div>
+  </section>
+
+  <!-- ============ BACKTEST LAB ============ -->
+  <section class="page" id="page-lab">
+    <div class="head-row">
+      <div><h1>Backtest lab</h1>
+        <p class="sub" id="lab-sub">Modern checks of whether the candlestick signals really have an edge, and a filter that tries to raise the win rate, judged only on years it never saw.</p></div>
+      <button class="btn primary" id="lab-run">Run the checks</button>
+    </div>
+    <div class="progress" id="lab-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="lab"><div class="card empty"><span class="et">Test the strategy the hard way</span>Walk-forward testing, purging and embargo, a meta-label filter, probability of backtest overfitting, false-discovery control and a block bootstrap, on ten years of Nifty 50 signals. Takes about a minute.</div></div>
   </section>
 
   <!-- ============ NEW IPOS ============ -->
@@ -690,6 +702,7 @@ function showTab(name) {
   if (name === "journal") loadJournal();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
+  if (name === "lab" && !window._lastLab) loadLab(STATIC);
   if (name === "longterm" && !window._lastLt && (STATIC || window._ltAuto)) loadLongterm();
   if (STATIC && ["crypto", "commodities"].includes(name) && !$("#" + name).innerHTML.trim()) $(`[data-market-scan="${name}"]`).click();
   if (STATIC && name === "fund" && !window._lastFund) $("#f-run").click();
@@ -798,6 +811,7 @@ function renderPicks(res) {
         ${p.plan && p.plan.instrument === "stock" ? `<span>Avg result <b>${p.avg_r == null ? "–" : (p.avg_r >= 0 ? "+" : "") + p.avg_r.toFixed(2) + "× stop"}</b></span>` : `<span>Avg option return <b>${spct(p.avg_return, 0)}</b></span>`}<span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>
       ${orderBlock(p.plan, p.ticker)}
       ${warns ? `<div class="warns">${warns}</div>` : ""}
+      ${p.meta ? `<div class="warns"><span class="pill ${p.meta.keep ? "call" : "put"}" title="Meta-label filter from the Backtest lab: on unseen years the trades it kept won more often than the rest">${p.meta.keep ? "✓ Filter: keep" : "✕ Filter: skip"}</span></div>` : ""}
       ${checklistBlock(p.checklist)}
       ${newsBlock(p)}
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
@@ -1559,6 +1573,41 @@ async function kiteOrder(ticker, plan, pattern, limit) {
 
 let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastPaper) drawEquity(window._lastPaper); if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); if (window._lastGoal) drawFan(window._lastGoal); if (window._lastFund) drawFund(window._lastFund); }, 150); });
 
+/* ---------------- backtest lab ---------------- */
+async function loadLab(run) {
+  try {
+    if (!run) { const last = await api("/api/robust?last=1"); if (last) { window._lastLab = last; return renderLab(last); } return; }
+    $("#lab-run").disabled = true;
+    window._lastLab = await runJob(api("/api/robust"), $("#lab-progress")); renderLab(window._lastLab);
+  } catch (e) { $("#lab").innerHTML = `<div class="notice error">Could not run the checks: ${esc(e.message)}</div>`; }
+  $("#lab-run").disabled = false;
+}
+$("#lab-run").onclick = () => loadLab(true);
+function labPart(r, title) {
+  const wf = r.walk_forward, v = r.verdict;
+  const f = d => d && d.trades ? `${pct(d.win_rate)} · ${spct(d.avg_ret, 1)} <span class="sub">(${d.trades.toLocaleString("en-IN")})</span>` : "–";
+  const cls = x => x == null ? "" : x > 0 ? "chg up" : "chg down";
+  const bars = wf.calibration.map(c => `<tr><td class="r">${pct(c.predicted)}</td><td class="r">${pct(c.actual)}</td><td class="r ${cls(c.avg_ret)}">${spct(c.avg_ret, 1)}</td><td class="r">${c.n.toLocaleString("en-IN")}</td></tr>`).join("");
+  return `<div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">${title}</h2>
+    <div class="notice ${v.profitable ? "" : "warn"}" style="margin-bottom:10px">${v.lines.map(esc).join("<br>")}</div>
+    <div class="table-scroll"><table class="num"><thead><tr><th>Year (unseen)</th><th class="r">All signals</th><th class="r">Patterns chosen from earlier years</th><th class="r">Meta-label filter</th></tr></thead><tbody>
+      ${wf.per_year.map(y => `<tr><td>${y.year}</td><td class="r">${f(y.all)}</td><td class="r">${f(y.selected_patterns)} <span class="sub">${y.patterns_kept} kept</span></td><td class="r">${f(y.meta)}</td></tr>`).join("")}
+      <tr><td><b>All years</b></td><td class="r"><b>${f(wf.all)}</b></td><td class="r"><b>${f(wf.selected)}</b></td><td class="r"><b>${f(wf.meta)}</b></td></tr></tbody></table></div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">Is the filter's probability honest? (calibration on unseen years)</summary>
+      <p class="sub" style="font-size:13px">If the model is well calibrated, "predicted" and "actually won" match. Brier score ${wf.brier == null ? "–" : wf.brier.toFixed(3)} vs ${wf.brier_base == null ? "–" : wf.brier_base.toFixed(3)} for always guessing the average (lower is better).</p>
+      <div class="table-scroll"><table class="num"><thead><tr><th class="r">Predicted</th><th class="r">Actually won</th><th class="r">Avg result</th><th class="r">Trades</th></tr></thead><tbody>${bars}</tbody></table></div></details>
+    <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">Patterns after the false-discovery correction</summary>
+      <div class="table-scroll"><table class="num"><thead><tr><th>Pattern</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Random day</th><th class="r">p-value</th><th>Survives</th></tr></thead><tbody>
+      ${(r.fdr.patterns || []).map(x => `<tr><td>${esc(x.pattern)} <span class="sub">${esc(x.direction)}</span></td><td class="r">${x.trades.toLocaleString("en-IN")}</td><td class="r">${pct(x.win_rate)}</td><td class="r">${pct(x.baseline)}</td><td class="r">${x.p_value.toFixed(3)}</td><td>${x.survives ? "✓ yes" : "no"}</td></tr>`).join("")}</tbody></table></div></details>
+  </div>`;
+}
+function renderLab(res) {
+  const o = res.option, sp = res.spot;
+  $("#lab-sub").innerHTML = `Ten years of Nifty 50 signals, data to <b>${fmtDate(o.as_of)}</b> · ${o.signals.toLocaleString("en-IN")} signal trades · strategy ${esc(o.strategy)}`;
+  $("#lab").innerHTML = `<div class="notice"><b>What these checks do.</b> <b>Walk-forward</b>: every year is judged by rules chosen only from earlier years. <b>Purge + embargo</b>: training trades that overlap the test year are dropped. <b>Meta-label filter</b>: a second model learns from trend, momentum, volatility, RSI, volume and the market which signals tend to win; it is also tested walk-forward. <b>PBO</b>: how often the best-looking pattern turns out below median on other years. <b>False discovery</b>: which patterns beat a random day once luck from testing many is removed. <b>Bootstrap</b>: a range for the average trade. ${o.model && o.model.validated ? "The filter improved unseen years, so each pick now shows <b>Filter: keep</b> or <b>Filter: skip</b>." : "The filter did not reliably improve unseen years, so it is not shown on the picks."}</div>
+    ${labPart(o, "Picks traded as options (as the app suggests)")}${labPart(sp, "The same signals traded as shares (0.1% costs)")}`;
+}
+
 /* ---------------- long-term picks ---------------- */
 async function loadLongterm() {
   const btn = $("#lt-run"); btn.disabled = true;
@@ -1845,6 +1894,7 @@ async function staticApi(path, opts) {
   if (p === "/api/markets") return done(pubData(q.get("market") === "commodities" ? "commodities" : "crypto"));
   if (p === "/api/fund") return done(pubData("fund"));
   if (p === "/api/longterm") return done(pubData("longterm"));
+  if (p === "/api/robust") return q.get("last") ? pubData("robust").catch(() => null) : done(pubData("robust"));
   if (p === "/api/ipo") {
     const days = +q.get("days") || 90, d = await pubData("ipo"), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     return { __result: { ...d, days, listings: d.listings.filter(r => String(r.listed) >= from) } };
@@ -2013,6 +2063,7 @@ async function staticBoot() {
   document.body.classList.add("static");
   $$(".live-only").forEach(el => { el.hidden = true; });
   $("#scan").textContent = "Reload"; $("#f-run").textContent = "Show fund"; $("#lt-run").textContent = "Show latest";
+  $("#lab-run").textContent = "Show latest";
   $$("[data-market-scan]").forEach(b => { b.textContent = "Show latest"; });
   const ban = $("#static-banner"); ban.hidden = false;
   try {

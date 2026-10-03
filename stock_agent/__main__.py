@@ -310,6 +310,23 @@ def cmd_research(args) -> int:
     return 0
 
 
+def _robust_cli(a) -> int:
+    from . import robust, screener
+    from .data import _cache_path, read_cached, refresh_many
+    from .universes import get_universe
+
+    prices = screener.load_universe(get_universe("nifty50", a.offline), "10y", "1d", a.offline, a.cache_dir, log=lambda *x: None)
+    if not a.offline:
+        refresh_many(["NIFTYBEES.NS"], "10y", "1d", a.cache_dir)
+    idx = read_cached(_cache_path(a.cache_dir, "NIFTYBEES.NS", "10y", "1d"))
+    r = robust.run(prices, idx, instrument=a.instrument, cost=0.001 if a.instrument == "spot" else 0.0)
+    print("\n".join(r["verdict"]["lines"]))
+    for y in r["walk_forward"]["per_year"]:
+        f = lambda d: f"{d['win_rate']:.0%} won, {d['avg_ret']:+.2%} ({d['trades']})" if d["trades"] else "-"
+        print(f"{y['year']}: all {f(y['all'])} | filtered {f(y['meta'])}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     # Windows consoles and pipes often default to cp1252, which cannot print ₹, · or —.
     for stream in (sys.stdout, sys.stderr):
@@ -385,6 +402,12 @@ def main(argv: list[str] | None = None) -> int:
     lt.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
     lt.set_defaults(func=lambda a: (print(__import__("stock_agent.longterm", fromlist=["render_text"]).render_text(
         __import__("stock_agent.longterm", fromlist=["run"]).run(a.capital, a.top, a.offline, a.cache_dir))), 0)[1])
+
+    rb = sub.add_parser("robust", help="walk-forward, meta-label, overfitting (PBO), false-discovery and bootstrap checks")
+    rb.add_argument("--instrument", choices=["option", "spot"], default="option")
+    rb.add_argument("--offline", action="store_true")
+    rb.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    rb.set_defaults(func=lambda a: _robust_cli(a))
 
     pb = sub.add_parser("publish", help="build the phone app (static site + tonight's results) into a folder")
     pb.add_argument("--out", default="_site")
