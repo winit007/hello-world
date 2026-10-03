@@ -154,7 +154,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 .spin { width: 22px; height: 22px; border: 3px solid var(--grid); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
-#toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 140%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); transition: transform .2s; z-index: 50; max-width: calc(100vw - 32px); }
+#toast { position: fixed; left: 50%; bottom: 76px; transform: translate(-50%, 140%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); transition: transform .2s; z-index: 50; max-width: calc(100vw - 32px); }
 #toast.show { transform: translate(-50%, 0); } #toast.bad { background: var(--down); color: #fff; }
 .notice { border-radius: 12px; padding: 12px 14px; background: var(--accent-soft); color: var(--ink); font-size: 14px; margin-bottom: 14px; }
 .notice.warn { background: var(--warn-soft); }
@@ -217,11 +217,30 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
 .help-table td:first-child { width: 190px; }
 nav.tabs.only-home { display: none; }
+.skip { position: absolute; left: 8px; top: -60px; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 100; }
+.skip:focus { top: 8px; }
+a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#main:focus { outline: none; }
+.tour-body { font-size: 15px; } .tour-body ol { padding-left: 20px; } .tour-body li { margin: 6px 0; }
+#dlg { max-width: min(560px, calc(100vw - 32px)); }
+.set-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.set-nav a { border: 1px solid var(--ring); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; color: var(--ink-2); text-decoration: none; background: var(--surface); }
+.set-nav a:hover { color: var(--ink); border-color: var(--axis); }
+.set-form fieldset { border: 1px solid var(--ring); margin: 0 0 14px; min-width: 0; }
+.set-form legend { padding: 0; float: left; width: 100%; } .set-form legend h2 { margin: 0; }
+.set-form legend + * { clear: both; }
+.set-why { font-size: 13.5px; margin: 4px 0 4px; }
+.set-save { position: sticky; bottom: 0; background: var(--page); padding: 10px 0; z-index: 2; }
+#set-money, #set-scan, #kite-card, #phone-card { scroll-margin-top: 130px; }
 @media (max-width: 640px) {
   table.cards thead { display: none; }
   table.cards, table.cards tbody { display: block; width: 100%; }
   table.cards tr { border: 1px solid var(--grid); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; background: var(--surface);
-                   display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+                   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+  table.cards td { min-width: 0; overflow-wrap: anywhere; }
+  table.cards td input, table.cards td select { min-width: 0; width: 100%; }
+  table.cards td:has(input, select) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; text-align: left; }
+  table.cards td:has(input[type=checkbox]) { display: flex; }
   table.cards td:first-child, table.cards td[colspan] { grid-column: 1 / -1; }
   table.cards td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border: 0; padding: 3px 0; text-align: right; }
   table.cards td::before { content: attr(data-label); color: var(--muted); font-size: 12.5px; font-weight: 600; text-align: left; flex: 0 0 auto; }
@@ -293,7 +312,7 @@ details.events li { margin: 2px 0; }
 body.static [data-detail], body.static [data-ipo], body.static .live-only { display: none !important; }
 .foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 @media (max-width: 720px) {
-  .pp-layout { grid-template-columns: 1fr; }
+  .pp-layout { grid-template-columns: minmax(0, 1fr); }
   .bar { gap: 8px 10px; }
   nav.groups { order: 3; flex-basis: 100%; justify-content: space-between; }
   nav.groups button { flex: 1; padding: 7px 4px; }
@@ -309,6 +328,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="bar">
     <div class="brand"><span class="logo" aria-hidden="true">
@@ -352,7 +372,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
   </div>
 </header>
 
-<main>
+<main id="main" tabindex="-1">
   <div class="notice" id="static-banner" hidden></div>
   <!-- ============ PICKS ============ -->
   <!-- ============ HOME ============ -->
@@ -789,42 +809,58 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
 
   <!-- ============ SETTINGS ============ -->
   <section class="page" id="page-settings">
-    <div class="head-row"><div><h1>Settings</h1><p class="sub">Saved on this computer. Every scan and order uses them.</p></div></div>
-    <form class="card form" id="settings-form">
-      <div class="two">
-        <div class="field"><label for="s-capital">Trading capital</label>
-          <input type="number" id="s-capital" min="1000" step="1000" class="num"><span class="hint">In rupees for Indian stocks, dollars for US.</span></div>
-        <div class="field"><label for="s-risk">Risk per trade (%)</label>
-          <input type="number" id="s-risk" min="0.1" max="20" step="0.1" class="num"><span class="hint">Most traders use 1 to 2%.</span></div>
-      </div>
-      <div class="budget" id="s-budget"></div>
-      <div class="two">
-        <div class="field"><label for="s-universe">Stocks to scan</label>
-          <select id="s-universe">
-            <option value="nifty50">Nifty 50 (India)</option>
-            <option value="nifty100">Nifty 100 (India)</option>
-            <option value="fno">All F&amp;O stocks, about 215 (India)</option>
-            <option value="nse_all">All NSE stocks, about 2,300 (slow first scan)</option>
-            <option value="sp500">S&amp;P 500 (US)</option>
-            <option value="us">US mega caps</option>
-            <option value="custom">My own list</option>
-          </select></div>
-        <div class="field"><label for="s-horizon">Holding period</label>
-          <select id="s-horizon"><option value="3">3 trading days</option><option value="5">5 trading days</option><option value="10">10 trading days</option></select></div>
-      </div>
-      <div class="field" id="s-custom-wrap"><label for="s-custom">My own list</label>
-        <textarea id="s-custom" rows="3" placeholder="INFY.NS, TCS.NS, WIPRO.NS, HCLTECH.NS"></textarea>
-        <span class="hint">Separate symbols with commas. NSE stocks end in .NS.</span></div>
-      <div class="two">
-        <div class="field"><label for="s-top">Number of picks</label>
-          <select id="s-top"><option>3</option><option>5</option><option selected>10</option><option>15</option></select></div>
-        <div class="field" style="align-content:end"><label class="switch"><input type="checkbox" id="s-afford"> Only trades I can afford</label></div>
-      </div>
-      <div><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" style="display:inline;margin-left:8px"></span></div>
+    <div class="head-row"><div><h1>Settings</h1><p class="sub">Saved on this computer. Every scan, backtest and order uses them.</p></div></div>
+    <nav class="set-nav" aria-label="Settings sections">
+      <a href="#set-money">Money and risk</a><a href="#set-scan">What to scan</a><a href="#kite-card">Broker</a><a href="#phone-card">Phone</a><a href="#" data-go="alerts">Alerts</a>
+    </nav>
+    <form id="settings-form" class="set-form">
+      <fieldset class="card form" id="set-money"><legend><h2>Money and risk</h2></legend>
+        <p class="sub set-why">How big your trades are. Picks, paper trading, the model fund and every backtest are sized from these.</p>
+        <div class="two">
+          <div class="field"><label for="s-capital">Trading capital</label>
+            <input type="number" id="s-capital" min="1000" step="1000" class="num"><span class="hint">The money you set aside for this, in rupees (dollars for US stocks). Paper trading starts with this amount.</span></div>
+          <div class="field"><label for="s-risk">Risk per trade (%)</label>
+            <input type="number" id="s-risk" min="0.1" max="20" step="0.1" class="num"><span class="hint">The most one trade may lose at its stop-loss. Most traders use 1 to 2%.</span></div>
+        </div>
+        <div class="budget" id="s-budget"></div>
+        <div class="two">
+          <div class="field"><label for="s-brokerage">Delivery brokerage per order (₹)</label>
+            <input type="number" id="s-brokerage" min="0" max="100" step="1" class="num"><span class="hint">0 at Zerodha; ₹20 at many others. Used in the model fund and screener backtests, with STT, stamp duty and DP charges.</span></div>
+          <div class="field" style="align-content:end"><label class="switch"><input type="checkbox" id="s-afford"> Only show trades I can afford</label>
+            <span class="hint">Hides picks whose one lot risks more than your limit.</span></div>
+        </div>
+      </fieldset>
+      <fieldset class="card form" id="set-scan"><legend><h2>What to scan</h2></legend>
+        <p class="sub set-why">Which stocks <b>Scan now</b> looks at for candlestick setups, how long a trade is held, and how many picks to show.</p>
+        <div class="two">
+          <div class="field"><label for="s-universe">Stocks to scan</label>
+            <select id="s-universe">
+              <option value="nifty50">Nifty 50 (India)</option>
+              <option value="nifty100">Nifty 100 (India)</option>
+              <option value="fno">All F&amp;O stocks, about 215 (India)</option>
+              <option value="nse_all">All NSE stocks, about 2,300 (slow first scan)</option>
+              <option value="sp500">S&amp;P 500 (US)</option>
+              <option value="us">US mega caps</option>
+              <option value="custom">My own list</option>
+            </select><span class="hint">Only F&amp;O stocks have options; others get share trades.</span></div>
+          <div class="field"><label for="s-horizon">Holding period</label>
+            <select id="s-horizon"><option value="3">3 trading days</option><option value="5">5 trading days</option><option value="10">10 trading days</option></select>
+            <span class="hint">When a trade that hit neither stop nor target is closed.</span></div>
+        </div>
+        <div class="field" id="s-custom-wrap"><label for="s-custom">My own list</label>
+          <textarea id="s-custom" rows="3" placeholder="INFY.NS, TCS.NS, WIPRO.NS, HCLTECH.NS"></textarea>
+          <span class="hint">Separate symbols with commas. NSE stocks end in .NS.</span></div>
+        <div class="two">
+          <div class="field"><label for="s-top">Number of picks</label>
+            <select id="s-top"><option>3</option><option>5</option><option selected>10</option><option>15</option></select></div>
+        </div>
+      </fieldset>
+      <div class="set-save"><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" role="status" aria-live="polite" style="display:inline;margin-left:8px"></span></div>
     </form>
 
     <div class="card form" id="phone-card" style="margin-top:16px">
       <h2 style="margin:0">Use on your Android phone</h2>
+      <p class="sub set-why" style="margin:0">Open this app from your phone while the PC runs it, or install the full app on the phone itself (see Help).</p>
       <div id="phone-body" class="sub" style="font-size:14px"></div>
     </div>
 
@@ -851,7 +887,8 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
 
   <!-- ============ HELP ============ -->
   <section class="page help" id="page-help">
-    <div class="head-row"><div><h1>How to use</h1><p class="sub">Three steps: scan in the evening, check in the morning, manage the exit.</p></div></div>
+    <div class="head-row"><div><h1>How to use</h1><p class="sub">Three steps: scan in the evening, check in the morning, manage the exit.</p></div>
+      <button class="btn" type="button" id="tour-again">Show the welcome tour</button></div>
     <div class="grid">
       <div class="card"><h2>1. Evening: scan</h2>
         <ol><li>After the market closes (3:30 pm IST), open <b>Today's picks</b> and press <b>Scan now</b>.</li>
@@ -903,6 +940,14 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
           <tr><td><b>Picks that rose</b></td><td>The share of picks that were higher at the next rebalance, and the share that beat the Nifty over the same period.</td></tr>
           <tr><td><b>Trading a year</b></td><td>Turnover: 100% means the whole portfolio was replaced once a year. More trading means more costs and more tax.</td></tr>
         </tbody></table></div>
+      <div class="card" style="grid-column:1/-1"><h2>Tools for investors and fund managers</h2>
+        <ol><li><b>Home</b>: what needs you today: top picks, paper account, open trades, alerts, dates coming up and your holdings.</li>
+        <li><b>Portfolio risk</b> (Practice): every position re-priced together: money lost if all stops hit, exposure and beta-weighted exposure, what a 5% Nifty fall does, a bad day (1 in 20, from the last 500 days), sectors and how much your positions move together.</li>
+        <li><b>Holdings &amp; tax</b> (Invest): your long-term shares with buy price and date; this financial year's capital-gains tax (20% short-term, 12.5% long-term above ₹1.25 lakh, with the set-off rules) and what to do before 31 March: book losses that cut this year's tax, sell and buy back long-term winners inside the exemption, or wait for holdings about to turn long-term.</li>
+        <li><b>Alerts</b> (the bell): stop near or hit, target reached, exit date, your own price alerts, a watched screen's changes and model-fund rebalance reminders, in the browser, on Telegram, or in Android's notifications.</li>
+        <li><b>Order record</b> (My trades): every order with the price you planned next to the price you got, so you see your real slippage by broker.</li>
+        <li><b>Model fund and My screener</b>: choose the benchmark; see <b>where the extra return came from</b> (the stock list, the rules' picks, costs) with beta, alpha and tracking error; replay a <b>SIP, STP or lump sum</b> with XIRR; test on the <b>top NSE stocks of each date</b> instead of today's list to remove most survivorship bias; and use <b>company results</b> (P/E, ROE, debt, growth, promoter holding and pledges) as rules.</li>
+        <li><b>Trading costs</b> in these backtests are the real ones for your capital: STT, stamp duty, exchange and DP charges, your broker's delivery brokerage (Settings), the bid-ask spread and market impact. Small trades in small accounts pay relatively more.</li></ol></div>
       <div class="card"><h2>Trade checklist</h2>
         <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live broker orders are refused until all pass.</p>
         <ol><li><b>Proven edge</b>: has this setup made money on data it wasn't tuned on, after costs?</li>
@@ -1144,7 +1189,7 @@ function renderPicks(res) {
       <div class="setup">${esc(p.pattern)} on ${fmtDate(p.signal_date)}</div>
       <div class="meter">
         <div class="meter-row"><span>Chance of winning</span><span><b class="num">${pct(chance(p))}</b> vs ${pct(p.baseline)} on a random day</span></div>
-        <div class="track" title="Blue: estimated chance this trade makes money (past trades won, adjusted by the news). Grey tick: the same trade started on an ordinary day.">
+        <div class="track" role="img" aria-label="Chance of winning ${pct(chance(p))}, against ${pct(p.baseline)} for the same trade on a random day" title="Blue: estimated chance this trade makes money (past trades won, adjusted by the news). Grey tick: the same trade started on an ordinary day.">
           <div class="fill" style="width:${scale(chance(p))}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
         <div class="sub num" style="font-size:12px">${pct(p.success)} of past trades won${p.news_effect ? ` · news ${p.news_effect > 0 ? "+" : "−"}${Math.abs(Math.round(p.news_effect * 100))} pts` : ""}</div>
       </div>
@@ -1284,6 +1329,7 @@ function fillSettings() {
   const s = SETTINGS;
   $("#s-capital").value = s.capital; $("#s-risk").value = s.risk; $("#s-universe").value = s.universe;
   $("#s-horizon").value = s.horizon; $("#s-custom").value = s.custom || ""; $("#s-top").value = s.top; $("#s-afford").checked = !!s.affordable_only;
+  $("#s-brokerage").value = s.brokerage ?? 0;
   $("#s-saved").textContent = ""; budgetText();
 }
 ["#s-capital", "#s-risk", "#s-universe"].forEach(id => $(id).addEventListener("input", budgetText));
@@ -1291,9 +1337,9 @@ $("#settings-form").onsubmit = async ev => {
   ev.preventDefault();
   SETTINGS = await api("/api/settings", { method: "POST", body: { capital: +$("#s-capital").value, risk: +$("#s-risk").value,
     universe: $("#s-universe").value, horizon: +$("#s-horizon").value, custom: $("#s-custom").value, top: +$("#s-top").value,
-    affordable_only: $("#s-afford").checked } });
+    affordable_only: $("#s-afford").checked, brokerage: +$("#s-brokerage").value || 0 } });
   $("#afford").checked = !!SETTINGS.affordable_only;
-  $("#s-saved").textContent = "Saved. Press Scan now on Today's picks to use them.";
+  $("#s-saved").textContent = "Saved. Press Scan now on Today's picks to use them."; toast("Settings saved");
 };
 
 /* ---------------- stock page ---------------- */
@@ -1429,8 +1475,8 @@ function renderMarket(res, box) {
   let html = res.check_text ? `<div class="notice ${res.check && res.check.avg_ret <= 0 ? "error" : ""}">${esc(res.check_text)}</div>` : "";
   const ideas = crypto ? res.rows.filter(r => r.idea) : [];
   if (ideas.length) html += `<div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Crypto trades, most likely to win first</h2>
-    <p class="sub" style="font-size:13px;margin:0 0 8px">Each idea: buy now, stop 2× the coin's average daily range below, target 3× above, sell after 10 days if neither is hit. Sized so the stop loses at most your risk limit. "Chance" is how often this exact trade won on past days with the same trend and volatility as today; break-even needs ${pct(ideas[0].idea.breakeven)}.</p>
-    <table class="num"><thead><tr><th>#</th><th>Coin</th><th class="r">Entry</th><th class="r">Stop</th><th class="r">Target</th><th class="r">Chance</th><th class="r">All history</th><th class="r">Avg result</th><th class="r">Buy</th><th></th></tr></thead><tbody>
+    <p class="sub" style="font-size:13px;margin:0 0 8px">Each idea: buy now, stop 2× the coin's average daily range below, target 3× above, sell after 10 days if neither is hit. Sized so the stop loses at most your risk limit. <b>Chance of winning</b> is how often this exact trade won on past days with the same trend and volatility as today; the win rate needed to break even is ${pct(ideas[0].idea.breakeven)}.</p>
+    <table class="num"><thead><tr><th>#</th><th>Coin</th><th class="r">Entry</th><th class="r">Stop</th><th class="r">Target</th><th class="r">Chance of winning</th><th class="r">Win rate, all history</th><th class="r">Avg result</th><th class="r">Buy</th><th></th></tr></thead><tbody>
     ${ideas.map((r, i) => { const d = r.idea; return `<tr><td>${i + 1}</td><td><b>${esc(r.name)}</b><div class="sub" style="font-size:12px">${esc(r.symbol)} · ${esc(d.trend || "")}trend</div></td>
       <td class="r">$${pxj(d.entry)}</td><td class="r">$${pxj(d.stop)}</td><td class="r">$${pxj(d.target)}</td>
       <td class="r"><b class="${d.chance >= d.breakeven ? "chg up" : ""}">${pct(d.chance)}</b></td><td class="r">${pct(d.win_all)}</td>
@@ -1493,6 +1539,64 @@ function cardify(root = document) {
 { let pend = null; new MutationObserver(() => { if (!pend) pend = requestAnimationFrame(() => { pend = null; cardify(); }); })
     .observe(document.querySelector("main") || document.body, { childList: true, subtree: true }); }
 
+/* keyboard: left / right arrows move between tabs and between sections; progress messages are read out */
+for (const sel of ["nav.tabs", "nav.groups"]) {
+  $(sel).addEventListener("keydown", e => {
+    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) return;
+    const btns = $$(`${sel} button`).filter(b => b.offsetParent), i = btns.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const j = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + btns.length) % btns.length;
+    btns[j].focus(); btns[j].click();
+  });
+}
+$$(".progress .msg").forEach(m => { m.setAttribute("role", "status"); m.setAttribute("aria-live", "polite"); });
+
+/* ---------------- first-time welcome ---------------- */
+function welcome(force = false) {
+  if (!force) { try { if (localStorage.getItem("sa-welcome")) return; } catch (e) { return; } }
+  const dlg = $("#dlg"), f = $("#dlg-form");
+  const steps = STATIC ? [
+    ["Welcome", `<p>This is the phone version of <b>Stock Agent</b>: each weekday evening it scans NSE stocks for candlestick setups that worked in ten years of history, and publishes the picks, long-term ideas, crypto and commodity trades and a model fund here.</p>
+      <p class="sub">It shows the odds honestly: most short-term trades lose, and the app says so when a strategy has no proven edge.</p>`],
+    ["Your routine", `<ol><li><b>Evening:</b> open <b>Home</b> after 4:30 pm for the new picks.</li><li><b>Morning:</b> check the contract in your broker app before buying.</li><li><b>During the day:</b> keep to the stop-loss and exit date.</li></ol>`],
+    ["Want the full app?", `<p>Live scans, paper trading with virtual money, alerts, tax and risk tools and broker orders run in the full app, on a PC or on this phone through Termux.</p><p><a href="#" data-go="help">How to install it</a></p>`],
+  ] : [
+    ["Welcome to Stock Agent", `<p>It scans stocks for setups that worked in ten years of history, sizes each trade for your money, and checks everything against real costs and tax.</p>
+      <p class="sub">It is honest about the odds: most short-term trading loses money, and the app tells you when a strategy has no proven edge. Practise before you use real money.</p>`],
+    ["Your money", `<p>How much you trade with, and the most one trade may lose at its stop-loss.</p>
+      <div class="two"><div class="field"><label for="w-cap">Trading capital (₹)</label><input id="w-cap" type="number" min="1000" step="1000" value="${SETTINGS.capital}"></div>
+      <div class="field"><label for="w-risk">Risk per trade (%)</label><input id="w-risk" type="number" min="0.1" max="20" step="0.1" value="${SETTINGS.risk}"></div></div>
+      <p class="sub" id="w-budget" style="font-size:13px"></p>`],
+    ["Practise first", `<p><b>Paper trading</b> gives you virtual money equal to your capital. Buy or short shares, options, crypto and MCX at live prices with real lot sizes and charges; stops and targets close positions for you.</p>
+      <p>The <b>bell</b> at the top tells you when a stop is near or a target is hit, in this browser or on Telegram.</p>`],
+    ["Your daily routine", `<ol><li><b>Evening, after 3:30 pm:</b> press <b>Scan for picks</b>. Each card shows its chance of winning and the exact order.</li>
+      <li><b>Morning:</b> check the live premium, then place the order (practice mode first) or paper trade it.</li>
+      <li><b>During the day:</b> let the alerts watch your stops and exit dates. <b>Home</b> shows everything that needs you.</li></ol>`],
+  ];
+  let i = 0;
+  const show = () => {
+    const [t, body] = steps[i], last = i === steps.length - 1;
+    f.innerHTML = `<div class="sub" style="font-size:12.5px">Step ${i + 1} of ${steps.length}</div><h2 style="margin-top:4px">${t}</h2><div class="tour-body">${body}</div>
+      <div class="actions"><button class="btn" type="button" id="w-skip">${last ? "Close" : "Skip"}</button>${i ? '<button class="btn" type="button" id="w-back">Back</button>' : ""}
+        ${last && !STATIC ? '<button class="btn" type="button" id="w-home">Go to Home</button>' : ""}<button class="btn primary" type="button" id="w-next">${last ? (STATIC ? "Done" : "Scan now") : "Next"}</button></div>`;
+    const bud = () => { const c = +($("#w-cap") || {}).value || 0, r = +($("#w-risk") || {}).value || 0; if ($("#w-budget")) $("#w-budget").innerHTML = `Each trade can lose up to <b>${money(c * r / 100)}</b> before its stop-loss closes it.`; };
+    if ($("#w-cap")) { $("#w-cap").oninput = $("#w-risk").oninput = bud; bud(); }
+    const done = () => { try { localStorage.setItem("sa-welcome", "1"); } catch (e) {} dlg.close(); };
+    $("#w-skip").onclick = done;
+    if ($("#w-back")) $("#w-back").onclick = () => { i--; show(); };
+    if ($("#w-home")) $("#w-home").onclick = () => { done(); showTab("home"); };
+    $("#w-next").onclick = async () => {
+      if ($("#w-cap")) { try { SETTINGS = await api("/api/settings", { method: "POST", body: { ...SETTINGS, capital: +$("#w-cap").value, risk: +$("#w-risk").value } }); fillSettings(); } catch (e) { return toast(e.message, true); } }
+      if (!last) { i++; show(); return; }
+      done(); if (!STATIC) { showTab("picks"); $("#scan").click(); }
+    };
+    $("#w-next").focus();
+  };
+  show(); dlg.showModal();
+}
+$("#tour-again").onclick = () => welcome(true);
+
 /* ---------------- home ---------------- */
 async function loadHome() {
   const box = $("#home");
@@ -1541,7 +1645,9 @@ async function loadHome() {
 }
 document.addEventListener("click", e => {
   const a = e.target.closest("[data-go]"); if (!a) return;
-  e.preventDefault(); showTab(a.dataset.go);
+  e.preventDefault();
+  const d = a.closest("dialog"); if (d && d.open) { d.close(); try { localStorage.setItem("sa-welcome", "1"); } catch (er) {} }
+  showTab(a.dataset.go);
   if (a.dataset.click) { const t = $(a.dataset.click); if (t && !t.disabled) t.click(); }
 });
 
@@ -2443,7 +2549,7 @@ function msRule(m = "ret_6m", op = ">", v = 0) {
   row.innerHTML = `<select data-r="metric" style="width:auto;flex:1 1 200px">${msOpts(m)}</select>
     <select data-r="op" style="width:auto"><option value=">" ${op === ">" ? "selected" : ""}>is above</option><option value="<" ${op === "<" ? "selected" : ""}>is below</option></select>
     <input type="number" step="any" data-r="value" value="${v}" style="width:110px"><span class="sub" data-r="unit" style="min-width:16px"></span>
-    <button type="button" class="btn small" title="Remove rule" data-r="x">✕</button>
+    <button type="button" class="btn small" title="Remove rule" aria-label="Remove this rule" data-r="x">✕</button>
     <div class="sub" data-r="hint" style="flex-basis:100%;font-size:12.5px;margin-top:-2px"></div>`;
   const unit = () => { const k = $("[data-r=metric]", row).value;
     $("[data-r=unit]", row).textContent = MS_METRICS[k][1] === "pct" ? "%" : "";
@@ -3046,6 +3152,7 @@ function rebalancePlan(body, prices) {
 async function staticBoot() {
   document.body.classList.add("static");
   $$(".live-only").forEach(el => { el.hidden = true; });
+  $('nav.groups button[data-group="more"]').textContent = "Help";
   $("#scan").textContent = "Reload"; $("#f-run").textContent = "Show fund"; $("#lt-run").textContent = "Show latest";
   $("#lab-run").textContent = "Show latest";
   $$("[data-market-scan]").forEach(b => { b.textContent = "Show latest"; });
@@ -3077,6 +3184,7 @@ async function staticBoot() {
   api("/api/symbols").then(list => { $("#symbols").innerHTML = list.map(s => `<option value="${esc(s)}">`).join(""); });
   let t = null; try { t = sessionStorage.getItem("tab"); } catch (e) {}
   showTab(t || "home");
+  welcome();
 })();
 </script>
 </body>

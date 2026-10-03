@@ -45,10 +45,14 @@ python -m stock_agent shortcut   :: puts a "Stock Agent" icon on your desktop; d
 ```
 
 The app runs on your own computer and opens at `http://127.0.0.1:8765`. Keep the black window
-that appears open while you use it; close it to stop the app. The pages sit in four groups along the
-top: **Trade** (picks, long-term picks, my screener, check my trade, lookup, crypto, commodities, IPOs),
-**Practice** (paper trading, my trades, track record, backtest lab), **Invest** (model fund, goals,
-rebalance) and **Settings** (settings, help). A chip next to them shows whether NSE is open now.
+that appears open while you use it; close it to stop the app. It opens on **Home**: today's top picks,
+the paper account, open trades, unread alerts, dates coming up and your holdings. The other pages sit in
+four groups: **Trade** (picks, long-term picks, my screener, check my trade, lookup, crypto, commodities,
+IPOs), **Practice** (paper trading, my trades with the order record, portfolio risk, track record,
+backtest lab), **Invest** (model fund, goals, rebalance, holdings & tax) and **Settings** (settings,
+alerts, help). A chip shows whether NSE is open, and the bell shows new alerts. A short welcome tour
+runs the first time (Help shows it again). On a phone, wide tables turn into one card per row; charts
+show values on hover or touch, lines can be hidden from the legend, and the 1Y/3Y/5Y buttons zoom in.
 
 | Page | What it does |
 |---|---|
@@ -452,7 +456,7 @@ holds the top 25 in equal weight with at most 5 from one industry, and lists tod
 the number of shares for your capital (stocks whose single share costs more than an equal slot are
 left out and the money is spread over the rest). The rules are textbook and fixed in advance.
 
-The backtest uses dividend-adjusted prices, 0.25% cost on every rupee traded, and an after-tax account
+The backtest uses dividend-adjusted prices, real trading costs for your capital (see below), and an after-tax account
 (20% on gains held under a year, 12.5% after, losses carried forward) compared with a Nifty index fund
 taxed once at the end. Two benchmarks: the Nifty 50 ETF and an equal-weight basket of the whole universe.
 
@@ -472,6 +476,54 @@ because tax money stopped compounding, and shows what the same rules would leave
 Rebalancing less often trades less and defers tax: on the October 2026 data, monthly made 18.4% a year
 after tax, quarterly 20.8%, half-yearly 21.0% and yearly 24.8%. Worst fall and volatility are measured
 on daily values whatever the rebalance period.
+
+## Fairer tests: costs, benchmarks, survivorship, SIPs and company results
+
+These apply to both the model fund and My screener.
+
+* **Real trading costs** (`costs.py`): every buy and sell pays STT (0.1% each way), stamp duty, NSE and
+  SEBI fees, GST, the depository charge of about ₹16 per stock sold, your broker's delivery brokerage
+  (Settings), half the bid-ask spread (estimated from the stock's daily traded value: about 0.03% at
+  ₹1,000 crore a day, 0.3% at ₹10 crore) and market impact by the square-root rule. Holdings within 20%
+  of their target weight are not traded, as fund managers do. Small accounts pay relatively more,
+  because the DP charge is fixed.
+* **Benchmark of your choice**: Nifty 50, Next 50, 200, 500, Midcap 50, Smallcap 250 or Bank (dividends
+  added back for indices quoted without them). **Where the extra return came from** splits the gap into
+  the stock list (all its stocks in equal money vs the benchmark), the rules' own picks, and costs; and
+  shows beta, alpha, tracking error, information ratio and up/down capture.
+* **Top NSE stocks at each date**: instead of today's Nifty 200 (the survivors), the list is rebuilt on
+  every rebalance date from all NSE stocks: the 200 or 500 most traded at that time. On the October 2026
+  data this cuts the model fund from 24.6% to 19.6% a year and "every stock equally" from 21.2% to
+  12.7%; the rules still beat that fair basket by about 7 points a year. Momentum leaders in My
+  screener drop from 31.7% to 23.0%. Delisted companies are still missing (no prices on Yahoo).
+* **SIP, STP or lump sum**: the strategy replayed with a monthly SIP, a lump sum moved in from a liquid
+  fund over 6, 12 or 24 months, or all at once, with XIRR against the benchmark, and the worst, typical
+  and best of every 3-year SIP.
+* **Company results in My screener** (`fundamentals.py`): P/E, P/B, ROE, ROCE, debt to equity, earnings
+  and sales growth, net margin, dividend yield, market value (Yahoo's yearly figures, four years) and
+  promoter holding with its one-year change (NSE filings). Each counts only from when it was published
+  (yearly results 60 days after the year end), so rules using them are backtested from mid-2023.
+  Today's picks also show any promoter pledge from the latest NSE filing.
+
+## Portfolio risk, holdings and tax, alerts, order record
+
+* **Portfolio risk**: paper positions, open trades and holdings re-priced together (options by
+  Black-Scholes): money lost if every stop is hit, exposure and beta-weighted exposure, the effect of a
+  5% Nifty move, a one-day 95% value-at-risk from the last 500 days, sector shares and a correlation
+  heatmap, with warnings above 6% at the stops, 20% in one position or 35% in one sector.
+* **Holdings & tax**: add what you own with the buy price and date and record sales; the page works out
+  this financial year's capital-gains tax (20% short-term; 12.5% long-term above ₹1.25 lakh; short-term
+  losses offset both, long-term losses only long-term gains) and suggests what to do before 31 March:
+  book losses that cut this year's tax, sell and buy back long-term winners inside the exemption, or
+  wait for a profitable holding that turns long-term within 90 days. F&O results are shown separately
+  (business income). A planning aid, not tax advice.
+* **Alerts**: while the app runs, every 5 minutes in market hours it checks stops (near or hit),
+  targets, exit dates and your own price alerts; after the close it re-runs a screen you chose to watch
+  and reminds you before a model fund rebalance. Alerts appear under the bell and as browser
+  notifications, and can go to Telegram (create a bot with @BotFather; the app finds your chat) and to
+  Android's notifications in Termux (with the Termux:API app). Each at most once a day.
+* **Order record** (My trades): every broker and paper order with the price you planned (the live ask
+  when you pressed Place, or the stop/target level) next to the fill, and the slippage in % and rupees.
 
 ## Long-term goals and rebalancing
 
@@ -559,6 +611,15 @@ stock_agent/
   markets.py    crypto (daily) and intraday commodity (15-minute) scans with MCX lot sizing
   fund.py       model factor fund: momentum + low-volatility ranking, backtest with costs and tax
   myscreen.py   My screener: your own filters and ranking, today's matches and a backtest of the rules
+  costs.py      real trading costs: statutory charges, DP fee, brokerage, spread and market impact
+  attribution.py  benchmarks and where a strategy's extra return came from (beta, alpha, tracking error)
+  pit.py        the most-traded NSE stocks as they were on each date (survivorship-bias control)
+  fundamentals.py company results (Yahoo) and promoter holding and pledges (NSE), known only once published
+  sip.py        SIP, STP and lump sum replays with XIRR
+  risk.py       portfolio risk: exposure, stops, Nifty shock, VaR, sectors, correlation
+  tax.py        capital-gains tax for the financial year and harvesting ideas
+  alerts.py     alert rules, the alert store, Telegram and Termux delivery
+  orders.py     order record: planned price vs fill for broker and paper orders
   planner.py    long-term goal planner (allocation, Monte Carlo, required monthly investment)
   rebalance.py  current vs target mix, full rebalance and new-money-only trades
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit
