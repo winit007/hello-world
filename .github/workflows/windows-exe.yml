@@ -1,0 +1,71 @@
+# Builds StockAgent.exe: the whole app with Python and its libraries inside, for Windows laptops that have
+# no Python. The program is tested on a real Windows machine (it must start and serve the app) and then
+# attached to a GitHub release, so it can be downloaded from:
+#   https://github.com/<owner>/<repo>/releases/latest/download/StockAgent.exe
+name: Windows program
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["stock_agent/**", "packaging/**", "pyproject.toml", "requirements.txt", ".github/workflows/windows-exe.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-exe
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install -r requirements.txt pyinstaller tzdata
+          python -m pip install --no-deps .
+      - name: Build StockAgent.exe
+        run: >
+          pyinstaller --noconfirm --onefile --console --name StockAgent
+          --collect-data stock_agent --collect-submodules stock_agent
+          --collect-data vaderSentiment --collect-data tzdata --collect-all curl_cffi --collect-all yfinance
+          packaging/windows_entry.py
+      - name: Test the program on Windows
+        shell: pwsh
+        run: |
+          $exe = "dist\StockAgent.exe"
+          & $exe --help | Select-Object -First 3
+          if ($LASTEXITCODE -ne 0) { throw "StockAgent.exe --help failed" }
+          $env:STOCK_AGENT_HOME = "$env:RUNNER_TEMP\agenthome"
+          $p = Start-Process -FilePath $exe -ArgumentList "app","--no-browser","--port","8790" -PassThru -NoNewWindow
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:8790/" -UseBasicParsing -TimeoutSec 5; $ok = $r.StatusCode -eq 200 -and $r.Content -match "Stock Agent" } catch {}
+          }
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok) { throw "the app did not start" }
+          Write-Host "StockAgent.exe started and served the app"
+          (Get-Item $exe).Length / 1MB
+      - name: Version
+        id: v
+        shell: bash
+        run: echo "version=$(python -c 'import stock_agent; print(stock_agent.__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-v${{ steps.v.outputs.version }}
+          name: Stock Agent ${{ steps.v.outputs.version }} for Windows
+          body: |
+            **StockAgent.exe**: the whole app for Windows, no Python needed. Download it, double-click, and the app
+            opens in your browser at http://127.0.0.1:8765. Windows may warn about an unknown publisher (the file
+            is not code-signed): click "More info" and "Run anyway". Your data is kept in %USERPROFILE%\.stock_agent.
+          files: dist/StockAgent.exe
+          make_latest: true

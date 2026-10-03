@@ -1065,11 +1065,13 @@ def make_shortcut(phone: bool = False, tunnel: bool = False) -> Path:
     desktops = [home / "OneDrive" / "Desktop", home / "Desktop", home]
     desktop = next(d for d in desktops if d.is_dir())
     py = Path(sys.executable)
+    frozen = getattr(sys, "frozen", False)       # running as StockAgent.exe: the program itself is the launcher
     if os.name == "nt":
         pyw = py.with_name("python.exe")
         target = desktop / ("Stock Agent (anywhere).bat" if tunnel else "Stock Agent (phone).bat" if phone else "Stock Agent.bat")
         flag = " --tunnel" if tunnel else " --phone" if phone else ""
-        target.write_text(f'@echo off\r\ntitle Stock Agent\r\n"{pyw}" -m stock_agent app{flag}\r\npause\r\n', encoding="utf-8")
+        run = f'"{py}" app{flag}' if frozen else f'"{pyw}" -m stock_agent app{flag}'
+        target.write_text(f'@echo off\r\ntitle Stock Agent\r\n{run}\r\npause\r\n', encoding="utf-8")
     else:
         target = desktop / ("stock-agent-anywhere.command" if tunnel else "stock-agent-phone.command" if phone else "stock-agent.command")
         flag = " --tunnel" if tunnel else " --phone" if phone else ""

@@ -1,5 +1,6 @@
 """Phone app build: static page, data files, and the JavaScript ports of the planner and rebalancer."""
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -34,6 +35,13 @@ def run_js(expr: str):
 
 
 class BuildTests(unittest.TestCase):
+    def test_windows_bundle_lists_every_module(self):
+        pkg = Path(app.__file__).parent
+        mods = {f.stem for f in pkg.glob("*.py") if not f.stem.startswith("_")}
+        listed = set(re.findall(r"^from \. import (\w+)$", (pkg / "_bundle.py").read_text(), re.M))
+        self.assertEqual(mods - listed, set(), "add new modules to stock_agent/_bundle.py")
+        import stock_agent._bundle  # noqa: F401  (every listed module imports cleanly)
+
     def test_static_page_uses_relative_paths_and_static_flag(self):
         html = publish.page_html(app.WEB)
         self.assertIn('<meta name="static-site" content="1">', html)

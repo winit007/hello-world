@@ -12,6 +12,16 @@ narrative step uses a local model through [Ollama](https://ollama.com); nothing 
 
 ## Install
 
+**Windows without Python:** download **StockAgent.exe** from
+https://github.com/winit007/hello-world/releases/latest/download/StockAgent.exe and double-click it. It
+contains Python and every library, starts the app and opens your browser. Windows may say the publisher is
+unknown (the file is not code-signed): click **More info → Run anyway**. Run `StockAgent.exe shortcut` once
+from a Command Prompt in its folder for a desktop launcher. Data lives in `%USERPROFILE%\.stock_agent`, the same
+as the Python install. A GitHub Actions workflow (`.github/workflows/windows-exe.yml`) builds it on Windows,
+checks that it starts and serves the app, and attaches it to a release for every new version.
+
+**With Python:**
+
 As an app (needs Python 3.10+; Git is not required):
 
 ```bash
