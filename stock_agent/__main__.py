@@ -378,6 +378,14 @@ def main(argv: list[str] | None = None) -> int:
     ap_.set_defaults(func=lambda a: (__import__("stock_agent.app", fromlist=["serve"]).serve(
         a.port, not a.no_browser, a.phone, a.tunnel, a.cloudflared), 0)[1])
 
+    lt = sub.add_parser("longterm", help="stocks to hold for about a year, ranked by their chance of a gain")
+    lt.add_argument("--top", type=int, default=10)
+    lt.add_argument("--capital", type=float, default=200_000)
+    lt.add_argument("--offline", action="store_true")
+    lt.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    lt.set_defaults(func=lambda a: (print(__import__("stock_agent.longterm", fromlist=["render_text"]).render_text(
+        __import__("stock_agent.longterm", fromlist=["run"]).run(a.capital, a.top, a.offline, a.cache_dir))), 0)[1])
+
     pb = sub.add_parser("publish", help="build the phone app (static site + tonight's results) into a folder")
     pb.add_argument("--out", default="_site")
     pb.add_argument("--only", nargs="*", help="publish only these parts: screen track crypto commodities fund ipo prices")

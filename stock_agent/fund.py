@@ -203,8 +203,8 @@ def _yearly(curve: pd.DataFrame) -> list[dict]:
              **{c: float(out.loc[i, c]) for c in out}} for i in keep]
 
 
-def run(rules: FundRules = FundRules(), capital: float = 200_000, offline: bool = False, cache_dir=DEFAULT_CACHE,
-        progress=None) -> dict:
+def load(rules: FundRules, offline: bool = False, cache_dir=DEFAULT_CACHE, progress=None):
+    """(closes, traded values, Nifty ETF closes, industries) for the rules' universe, ten years daily."""
     progress = progress or (lambda m, f: None)
     tickers = get_universe(rules.universe, offline)
     prices = load_universe(tickers, "10y", "1d", offline, cache_dir, log=lambda *a: None,
@@ -216,7 +216,13 @@ def run(rules: FundRules = FundRules(), capital: float = 200_000, offline: bool 
     values = pd.DataFrame({t: df["Close"] * df["Volume"] for t, df in prices.items()}).reindex(closes.index)
     closes = closes.loc[closes.index >= bench.index[0]]
     values = values.loc[closes.index]
-    sectors = industries(offline)
+    return closes, values, bench, industries(offline)
+
+
+def run(rules: FundRules = FundRules(), capital: float = 200_000, offline: bool = False, cache_dir=DEFAULT_CACHE,
+        progress=None) -> dict:
+    progress = progress or (lambda m, f: None)
+    closes, values, bench, sectors = load(rules, offline, cache_dir, progress)
     bt = backtest(closes, values, bench, sectors, rules, progress)
 
     # today's portfolio

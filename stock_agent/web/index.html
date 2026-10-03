@@ -237,6 +237,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     </span>Stock Agent</div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
+      <button role="tab" data-tab="longterm">Long-term picks</button>
       <button role="tab" data-tab="stock" class="live-only">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
@@ -309,6 +310,17 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     </div>
     <div class="tiles" id="j-tiles"></div>
     <div id="journal"></div>
+  </section>
+
+  <!-- ============ LONG-TERM PICKS ============ -->
+  <section class="page" id="page-longterm">
+    <div class="head-row">
+      <div><h1>Long-term picks</h1>
+        <p class="sub" id="lt-sub">Shares to buy and hold for about a year, ranked by their chance of being higher 12 months later.</p></div>
+      <button class="btn primary" id="lt-run">Find long-term picks</button>
+    </div>
+    <div class="progress" id="lt-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="lt"><div class="card empty"><span class="et">Find stocks to hold for a year</span>Ranks the Nifty 200 by momentum and steadiness, then puts a chance of a 12-month gain on each from ten years of history. The first run downloads prices and takes a minute or two.</div></div>
   </section>
 
   <!-- ============ PAPER TRADING ============ -->
@@ -635,6 +647,7 @@ const spct = (x, d = 1) => x == null ? "–" : (x >= 0 ? "+" : "") + (x * 100).t
 const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
 const money = (x, c = "₹", d = 0) => x == null ? "–" : (Number(x) < 0 ? "-" : "") + c + Math.abs(Number(x)).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
+const fmtYear = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "–";
 const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "–";
 let SETTINGS = {}, KITE = {};
 const TOKEN = document.querySelector('meta[name="agent-token"]').content;
@@ -684,6 +697,7 @@ function showTab(name) {
   if (name === "journal") loadJournal();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
+  if (name === "longterm" && !window._lastLt && (STATIC || window._ltAuto)) loadLongterm();
   if (STATIC && ["crypto", "commodities"].includes(name) && !$("#" + name).innerHTML.trim()) $(`[data-market-scan="${name}"]`).click();
   if (STATIC && name === "fund" && !window._lastFund) $("#f-run").click();
   if (name === "ipo" && !window._ipoLoaded) loadIpo();
@@ -1535,6 +1549,42 @@ async function kiteOrder(ticker, plan, pattern, limit) {
 
 let _rz; addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => { if (window._lastPaper) drawEquity(window._lastPaper); if (window._lastStock) drawChart(window._lastStock); if (window._lastTrack) drawPnl(window._lastTrack); if (window._lastGoal) drawFan(window._lastGoal); if (window._lastFund) drawFund(window._lastFund); }, 150); });
 
+/* ---------------- long-term picks ---------------- */
+async function loadLongterm() {
+  const btn = $("#lt-run"); btn.disabled = true;
+  try { window._lastLt = await runJob(api("/api/longterm"), $("#lt-progress")); renderLongterm(window._lastLt); }
+  catch (e) { $("#lt").innerHTML = `<div class="notice error">Could not build long-term picks: ${esc(e.message)}</div>`; }
+  btn.disabled = false;
+}
+$("#lt-run").onclick = loadLongterm;
+function renderLongterm(r) {
+  const h = r.history, all = h.all || {}, nf = h.nifty || {};
+  const scale = x => Math.max(0, Math.min(100, (x || 0) * 100));
+  $("#lt-sub").innerHTML = `Data to <b>${fmtDate(r.as_of)}</b> · ${r.universe_size} Nifty 200 stocks ranked · ${money(r.slot)} per stock for your ${money(r.capital)} · hold about a year`;
+  let html = `<div class="notice"><b>How to read the chance.</b> Each stock's chance is the average of two records from the last ten years: stocks ranked like it (by momentum and steadiness) and the stock's own record of being higher 12 months later. For comparison, a <b>Nifty 50 index fund</b> was higher after 12 months <b>${pct(nf.win)}</b> of the time (typical ${spct(nf.median, 0)}), and any stock in the list ${pct(all.win)} (typical ${spct(all.median, 0)}). These are today's index members, which survived, so all figures flatter reality.</div>`;
+  html += `<p class="sub" style="margin:0 0 10px;font-size:13.5px">Ranked by <b>chance of a gain after 12 months</b>, highest first.</p><div class="grid">` + r.picks.map((p, i) => `
+    <article class="card">
+      <div class="pick-top"><span class="rank">${i + 1}</span>
+        <div><div class="ticker">${esc(bare(p.ticker))}</div><span class="pill call">▲ BUY TO HOLD</span></div>
+        <div class="price num"><b>${money(p.price, "₹", 2)}</b><div class="sub" style="font-size:12.5px">${esc(p.industry)}</div></div></div>
+      <div class="meter" style="margin-top:10px">
+        <div class="meter-row"><span>Chance of a gain in 12 months</span><span><b class="num">${pct(p.win_chance)}</b> vs ${pct(nf.win)} Nifty fund</span></div>
+        <div class="track" title="Blue: this stock's estimated chance of being higher in 12 months. Grey tick: a Nifty 50 index fund."><div class="fill" style="width:${scale(p.win_chance)}%"></div><div class="basemark" style="left:${scale(nf.win)}%"></div></div>
+        <div class="sub num" style="font-size:12px">own record ${p.own_win == null ? "–" : pct(p.own_win)} over ${p.own_months} months · stocks ranked ${p.band} ${pct(p.band_win)}</div></div>
+      <div class="stats num"><span>Typical year <b>${spct(p.median_return, 0)}</b></span><span>Bad case <b>${spct(p.bad_case, 0)}</b></span><span>Beat Nifty <b>${pct(p.beat_nifty)}</b></span><span>Momentum <b>${spct(p.momentum_12_1, 0)}</b></span></div>
+      ${p.too_dear ? `<div class="order blocked"><div class="line1">One share costs more than your ${money(r.slot)} slot</div><div class="line2">Add capital or show fewer picks in Settings.</div></div>`
+        : `<div class="order"><div class="line1">BUY ${p.shares} share${p.shares > 1 ? "s" : ""} · ${money(p.amount)}</div>
+        <div class="line2">Delivery (CNC). Hold until about <b>${fmtYear(r.hold_until)}</b>; check the ranking again on ${fmtYear(r.review)}.</div>
+        <div class="levels num"><div class="level tgt"><div class="k">Typical in a year</div><div class="v">${money(p.typical_price, "₹", 0)}</div></div>
+        <div class="level stop"><div class="k">Bad case</div><div class="v">${money(p.bad_price, "₹", 0)}</div></div>
+        <div class="level"><div class="k">200-day average</div><div class="v">${money(p.sma200, "₹", 0)}</div><div class="p">${p.above_200dma ? "price above it" : "price below it"}</div></div></div></div>`}
+      ${paperable(p.ticker, { instrument: "stock" }) && !p.too_dear ? `<div class="actions"><button class="btn small" data-ltpaper="${i}">Paper trade</button></div>` : ""}
+    </article>`).join("") + `</div><p class="sub" style="font-size:12.5px;margin-top:10px">Long-term gains (held over a year) are taxed at 12.5% above ₹1.25 lakh a year; sales within a year at 20%. Not investment advice.</p>`;
+  $("#lt").innerHTML = html;
+  $$("[data-ltpaper]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.ltpaper];
+    ppFill({ instrument: "stock", product: "delivery", symbol: p.ticker, qty: p.shares, exit_by: r.hold_until, note: "Long-term pick" }); });
+}
+
 /* ---------------- paper trading ---------------- */
 const PP_PRODUCTS = {
   stock: [["delivery", "Delivery (hold, pay in full)"], ["intraday", "Intraday (20% margin, short allowed)"]],
@@ -1784,6 +1834,7 @@ async function staticApi(path, opts) {
   if (p === "/api/track") return done(pubData("track"));
   if (p === "/api/markets") return done(pubData(q.get("market") === "commodities" ? "commodities" : "crypto"));
   if (p === "/api/fund") return done(pubData("fund"));
+  if (p === "/api/longterm") return done(pubData("longterm"));
   if (p === "/api/ipo") {
     const days = +q.get("days") || 90, d = await pubData("ipo"), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     return { __result: { ...d, days, listings: d.listings.filter(r => String(r.listed) >= from) } };
@@ -1951,7 +2002,7 @@ function rebalancePlan(body, prices) {
 async function staticBoot() {
   document.body.classList.add("static");
   $$(".live-only").forEach(el => { el.hidden = true; });
-  $("#scan").textContent = "Reload"; $("#f-run").textContent = "Show fund";
+  $("#scan").textContent = "Reload"; $("#f-run").textContent = "Show fund"; $("#lt-run").textContent = "Show latest";
   $$("[data-market-scan]").forEach(b => { b.textContent = "Show latest"; });
   const ban = $("#static-banner"); ban.hidden = false;
   try {

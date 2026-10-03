@@ -80,6 +80,7 @@ def build(out: Path, steps: list[str] | None = None, log=print) -> dict:
         "crypto": lambda: app.run_market("crypto", settings, _quiet),
         "commodities": lambda: app.run_market("commodities", settings, _quiet),
         "fund": lambda: app.run_fund({}, settings, _quiet),
+        "longterm": lambda: app.run_longterm(settings, _quiet),
         "ipo": lambda: app.run_ipo(365, _quiet),
         "prices": lambda: stats_and_prices(_quiet),
     }

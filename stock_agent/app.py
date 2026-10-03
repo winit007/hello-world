@@ -374,6 +374,12 @@ def paper_op(path: str, body: dict) -> dict:
     raise KeyError(path)
 
 
+def run_longterm(settings: dict, progress) -> dict:
+    from . import longterm
+
+    return clean(longterm.run(float(settings["capital"]), int(settings.get("top") or 10), False, CACHE, progress))
+
+
 def run_ipo(days: int, progress) -> dict:
     from . import ipo
 
@@ -706,6 +712,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, _read_json(GOAL_FILE, None))
             if url.path == "/api/portfolio":
                 return self._send(200, _read_json(PORTFOLIO_FILE, None))
+            if url.path == "/api/longterm":
+                return self._send(200, {"job": start_job("longterm", run_longterm, load_settings())})
             if url.path == "/api/ipo":
                 return self._send(200, {"job": start_job("ipo", run_ipo, max(7, min(int(q.get("days", 90)), 730)))})
             if url.path == "/api/stock":
