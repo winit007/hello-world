@@ -241,6 +241,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="stock" class="live-only">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
+      <button role="tab" data-tab="check" class="live-only">Check my trade</button>
       <button role="tab" data-tab="track">Track record</button>
       <button role="tab" data-tab="lab">Backtest lab</button>
       <button role="tab" data-tab="ipo">New IPOs</button>
@@ -313,6 +314,44 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div id="journal"></div>
   </section>
 
+  <!-- ============ CHECK MY TRADE ============ -->
+  <section class="page" id="page-check">
+    <div class="head-row">
+      <div><h1>Check my trade</h1>
+        <p class="sub">Describe a trade you are thinking of. The app replays the same trade from every past day of that stock, coin or commodity and tells you how often it won.</p></div>
+    </div>
+    <div class="pp-layout">
+      <form class="card form" id="ck-form" style="gap:10px" autocomplete="off">
+        <div class="two">
+          <div class="field"><label for="ck-inst">Market</label><select id="ck-inst" name="instrument">
+            <option value="stock">NSE shares</option><option value="option">NSE stock options</option><option value="crypto">Crypto</option><option value="commodity">Commodity (US futures)</option></select></div>
+          <div class="field"><label for="ck-product">Type</label><select id="ck-product" name="product"></select></div>
+        </div>
+        <div class="field"><label for="ck-sym">Symbol</label><input type="text" id="ck-sym" name="symbol" list="symbols" placeholder="RELIANCE.NS" required></div>
+        <div class="two">
+          <div class="field"><label for="ck-side">Side</label><select id="ck-side" name="side"><option value="buy">Buy</option><option value="sell">Sell (short / write)</option></select></div>
+          <div class="field"><label for="ck-entry">Entry price <span id="ck-unit"></span></label><input type="number" step="any" id="ck-entry" name="entry" placeholder="blank = latest price"></div>
+        </div>
+        <div class="two" id="ck-opt" hidden>
+          <div class="field"><label for="ck-otype">Call or put</label><select id="ck-otype" name="option_type"><option value="CE">CALL (CE)</option><option value="PE">PUT (PE)</option></select></div>
+          <div class="field"><label for="ck-strike">Strike</label><input type="number" step="any" id="ck-strike" name="strike" placeholder="nearest to price"></div>
+          <div class="field"><label for="ck-expiry">Expiry</label><input type="date" id="ck-expiry" name="expiry"><span class="hint">blank: next monthly</span></div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="ck-stop">Stop-loss</label><input type="number" step="any" id="ck-stop" name="stop" placeholder="optional"></div>
+          <div class="field"><label for="ck-target">Target</label><input type="number" step="any" id="ck-target" name="target" placeholder="optional"></div>
+        </div>
+        <div class="field"><label for="ck-hold" id="ck-hold-label">Hold for (trading days)</label><input type="number" min="1" step="1" id="ck-hold" name="hold" value="5"></div>
+        <div class="actions" style="margin-top:2px"><button class="btn primary" type="submit" id="ck-run">Check win rate</button></div>
+        <p class="sub" style="font-size:12.5px;margin:0">Stop and target are prices of the share, coin or US future (for options too). Options are priced with a model, as no free history of NSE option prices exists.</p>
+      </form>
+      <div class="pp-right">
+        <div class="progress" id="ck-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+        <div id="ck-out"><div class="card empty"><span class="et">How often would this trade have won?</span>Fill in the trade on the left, or press <b>Check win rate</b> on any pick or in Paper trading.</div></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ LONG-TERM PICKS ============ -->
   <section class="page" id="page-longterm">
     <div class="head-row">
@@ -364,7 +403,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
           <div class="field"><label for="pp-exit">Exit by</label><input id="pp-exit" name="exit_by" type="date"><span class="hint">sell at the close after this day</span></div>
           <div class="field"><label for="pp-note">Note</label><input type="text" id="pp-note" name="note" placeholder="why this trade?"></div>
         </div>
-        <div class="actions" style="margin-top:2px"><button class="btn" id="pp-preview" type="submit">Preview</button><button class="btn primary" id="pp-place" type="button" disabled>Place order</button></div>
+        <div class="actions" style="margin-top:2px"><button class="btn" id="pp-preview" type="submit">Preview</button><button class="btn primary" id="pp-place" type="button" disabled>Place order</button><button class="btn" id="pp-check" type="button">Check win rate</button></div>
         <div id="pp-pv"></div>
       </form>
       <div class="pp-right">
@@ -696,7 +735,7 @@ $("#theme").onclick = () => {
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
 function showTab(name) {
-  if (STATIC && ["stock", "paper", "settings"].includes(name)) name = "picks";
+  if (STATIC && ["stock", "paper", "settings", "check"].includes(name)) name = "picks";
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
@@ -817,7 +856,8 @@ function renderPicks(res) {
       <div class="actions"><button class="btn small" data-detail="${esc(p.ticker)}">Chart &amp; details</button>
         ${p.plan && p.plan.lots > 0 ? `<button class="btn small" data-log="${i}">Add to my trades</button>` : ""}
         ${kiteable(p.ticker, p.plan) ? `<button class="btn small primary" data-kite="${i}">Place on ${BL()}</button>` : ""}
-        ${paperable(p.ticker, p.plan) ? `<button class="btn small" data-paper="${i}">Paper trade</button>` : ""}</div>
+        ${paperable(p.ticker, p.plan) ? `<button class="btn small" data-paper="${i}">Paper trade</button>` : ""}
+        ${!STATIC && p.plan ? `<button class="btn small" data-check="${i}">Check win rate</button>` : ""}</div>
     </article>`;
   }).join("") + `</div>`;
   box.innerHTML = html;
@@ -825,6 +865,9 @@ function renderPicks(res) {
   $$("[data-log]", box).forEach(b => b.onclick = () => logTrade(res.picks[+b.dataset.log]));
   $$("[data-kite]", box).forEach(b => b.onclick = () => kiteOrder(res.picks[+b.dataset.kite].ticker, res.picks[+b.dataset.kite].plan, res.picks[+b.dataset.kite].pattern));
   $$("[data-paper]", box).forEach(b => b.onclick = () => paperFromPlan(res.picks[+b.dataset.paper].ticker, res.picks[+b.dataset.paper].plan, res.picks[+b.dataset.paper].pattern));
+  $$("[data-check]", box).forEach(b => b.onclick = () => { const p = res.picks[+b.dataset.check], pl = p.plan;
+    ckFill(pl.instrument === "stock" ? { instrument: "stock", product: "delivery", symbol: p.ticker, side: "buy", stop: pl.stop_underlying, target: pl.target1_underlying, hold: s_hold(pl) }
+      : { instrument: "option", product: "positional", symbol: p.ticker, side: "buy", option_type: pl.side === "PUT" ? "PE" : "CE", strike: pl.strike, expiry: pl.expiry, stop: pl.stop_underlying, target: pl.target1_underlying, hold: s_hold(pl) }); });
 }
 $("#scan").onclick = async () => {
   const btn = $("#scan"); btn.disabled = true; btn.textContent = "Scanning…";
@@ -1607,6 +1650,78 @@ function renderLab(res) {
   $("#lab").innerHTML = `<div class="notice"><b>What these checks do.</b> <b>Walk-forward</b>: every year is judged by rules chosen only from earlier years. <b>Purge + embargo</b>: training trades that overlap the test year are dropped. <b>Meta-label filter</b>: a second model learns from trend, momentum, volatility, RSI, volume and the market which signals tend to win; it is also tested walk-forward. <b>PBO</b>: how often the best-looking pattern turns out below median on other years. <b>False discovery</b>: which patterns beat a random day once luck from testing many is removed. <b>Bootstrap</b>: a range for the average trade. ${o.model && o.model.validated ? "The filter improved unseen years, so each pick now shows <b>Filter: keep</b> or <b>Filter: skip</b>." : "The filter did not reliably improve unseen years, so it is not shown on the picks."}</div>
     ${labPart(o, "Picks traded as options (as the app suggests)")}${labPart(sp, "The same signals traded as shares (0.1% costs)")}`;
 }
+
+/* ---------------- check my trade ---------------- */
+const CK_PRODUCTS = { stock: [["delivery", "Positional (days)"], ["intraday", "Intraday (hours)"]], option: [["positional", "Positional (days)"], ["intraday", "Intraday (hours)"]],
+  crypto: [["positional", "Positional (days)"]], commodity: [["intraday", "Intraday (hours)"], ["positional", "Positional (days)"]] };
+function s_hold(pl) { if (!pl.time_stop) return 5; const d = Math.round((new Date(pl.time_stop) - new Date()) / 864e5 * 5 / 7); return Math.max(d, 1); }
+function ckSetup(keep) {
+  const inst = $("#ck-inst").value, prod = $("#ck-product").value;
+  $("#ck-product").innerHTML = CK_PRODUCTS[inst].map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  if (keep && CK_PRODUCTS[inst].some(([v]) => v === prod)) $("#ck-product").value = prod;
+  $("#ck-sym").setAttribute("list", inst === "crypto" ? "pp-crypto" : inst === "commodity" ? "pp-mcx" : "symbols");
+  $("#ck-sym").placeholder = { stock: "RELIANCE.NS", option: "RELIANCE.NS", crypto: "BTC-USD", commodity: "GC=F" }[inst];
+  $("#ck-opt").hidden = inst !== "option";
+  $("#ck-unit").textContent = inst === "crypto" || inst === "commodity" ? "(US $)" : "(₹)";
+  ckHold();
+}
+function ckHold() { const intra = $("#ck-product").value === "intraday"; $("#ck-hold-label").textContent = intra ? "Hold for (hours)" : "Hold for (trading days)"; }
+$("#ck-inst").onchange = () => ckSetup(false);
+$("#ck-product").onchange = ckHold;
+function ckFill(o) {
+  showTab("check");
+  $("#ck-inst").value = o.instrument; ckSetup(false);
+  if (o.product) $("#ck-product").value = o.product; ckHold();
+  $("#ck-sym").value = o.symbol; $("#ck-side").value = o.side || "buy"; $("#ck-entry").value = o.entry ?? "";
+  if (o.instrument === "option") { $("#ck-otype").value = o.option_type || "CE"; $("#ck-strike").value = o.strike ?? ""; $("#ck-expiry").value = o.expiry || ""; }
+  $("#ck-stop").value = o.stop == null ? "" : Math.round(o.stop * 100) / 100; $("#ck-target").value = o.target == null ? "" : Math.round(o.target * 100) / 100;
+  $("#ck-hold").value = o.hold || 5;
+  $("#ck-form").requestSubmit();
+}
+$("#pp-check").onclick = () => { const b = ppBody();
+  ckFill({ instrument: b.instrument, product: b.product, symbol: b.symbol, side: b.side, option_type: b.option_type, strike: b.strike, expiry: b.expiry,
+           stop: b.stop == null ? null : +b.stop, target: b.target == null ? null : +b.target,
+           hold: b.exit_by ? Math.max(Math.round((new Date(b.exit_by) - new Date()) / 864e5 * 5 / 7), 1) : (b.product === "intraday" ? 3 : 5) }); };
+$("#ck-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const f = $("#ck-form"), val = el => el.value.trim() === "" ? null : el.value.trim(), intra = f.product.value === "intraday";
+  const body = { instrument: f.instrument.value, product: f.product.value, symbol: f.symbol.value.trim(), side: f.side.value,
+    entry: val(f.entry), stop: val(f.stop), target: val(f.target), option_type: f.option_type.value, strike: val(f.strike), expiry: val(f.expiry),
+    [intra ? "hold_hours" : "hold_days"]: +f.hold.value || (intra ? 3 : 5) };
+  $("#ck-run").disabled = true; $("#ck-out").innerHTML = "";
+  try { renderCheck(await runJob(api("/api/check", { method: "POST", body }), $("#ck-progress"))); }
+  catch (e) { $("#ck-out").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  $("#ck-run").disabled = false;
+};
+function renderCheck(r) {
+  const a = r.all, lk = r.like_today, usd = r.instrument === "crypto" || r.instrument === "commodity", c = usd ? "$" : "₹";
+  const bars = r.interval === "15m" ? `${(r.hold / 4).toFixed(r.hold % 4 ? 2 : 0)} hours` : `${r.hold} trading days`;
+  const what = r.instrument === "option" ? `${r.side === "sell" ? "SELL (write)" : "BUY"} ${bare(r.symbol)} ${r.option.strike} ${r.option.type} (${fmtYear(r.option.expiry)})`
+    : `${r.side === "sell" ? "SELL" : "BUY"} ${bare(r.symbol)}`;
+  const lvl = x => x == null ? "none" : c + (usd ? pxj(x) : (+x).toFixed(2));
+  const tile = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  const good = a.win_rate >= (r.breakeven || 0) && a.avg_ret > 0;
+  const row = (k, x, y) => `<tr><td>${k}</td><td class="r">${x}</td><td class="r">${y}</td></tr>`;
+  const f = (d, fn) => d ? fn(d) : "–";
+  $("#ck-out").innerHTML = `
+    <div class="card" style="margin-bottom:14px"><div class="line1" style="font-weight:700">${esc(what)}</div>
+      <div class="sub num" style="font-size:13px">entry ${lvl(r.entry)} · stop ${lvl(r.stop)}${r.stop_pct ? ` (${pct(r.stop_pct, 1)} away)` : ""} · target ${lvl(r.target)}${r.target_pct ? ` (${pct(r.target_pct, 1)} away)` : ""} · hold ${bars} · costs ${pct(r.cost, 2)}</div></div>
+    <div class="tiles">
+      ${tile("Win rate, all history", pct(a.win_rate), `${a.wins.toLocaleString("en-IN")} of ${a.trades.toLocaleString("en-IN")} replays · 90% range ${pct(a.low)}–${pct(a.high)}`, a.win_rate >= 0.5 ? "chg up" : "")}
+      ${tile("In conditions like today", lk ? pct(lk.win_rate) : "–", lk ? `${lk.trades.toLocaleString("en-IN")} past days with a ${esc(r.today.trend)}trend and ${esc(r.today.volatility)} volatility` : "not enough history")}
+      ${tile("Win rate needed to break even", r.breakeven == null ? "–" : pct(r.breakeven), r.breakeven == null ? (r.instrument === "option" ? "options: see average result" : "set both a stop and a target") : "for this stop/target distance, before costs")}
+      ${tile("Average result per trade", `<span class="${a.avg_ret >= 0 ? "chg up" : "chg down"}">${spct(a.avg_ret, 1)}</span>`, `wins ${spct(a.avg_win, 1)} · losses ${spct(a.avg_loss, 1)}`)}
+    </div>
+    <div class="notice ${good ? "" : "warn"}">${good ? "Historically this trade won often enough to make money on average." : "Historically this trade did not make money on average: " + (a.win_rate < (r.breakeven || 0) ? "it won less often than its risk/reward needs." : "its losses outweighed its wins after costs.")} Past behaviour is a guide, not a promise.</div>
+    <div class="card table-scroll"><table class="num"><thead><tr><th></th><th class="r">All history</th><th class="r">Like today</th></tr></thead><tbody>
+      ${row("Target reached first", pct(a.target_first), f(lk, d => pct(d.target_first)))}
+      ${row("Stop-loss hit first", pct(a.stop_first), f(lk, d => pct(d.stop_first)))}
+      ${row("Neither: closed at the end of the hold", pct(a.time_exit), f(lk, d => pct(d.time_exit)))}
+      ${row("Typical time to the target", a.median_bars_to_target == null ? "–" : (r.interval === "15m" ? (a.median_bars_to_target / 4).toFixed(1) + " h" : a.median_bars_to_target + " days"), f(lk, d => d.median_bars_to_target == null ? "–" : (r.interval === "15m" ? (d.median_bars_to_target / 4).toFixed(1) + " h" : d.median_bars_to_target + " days")))}
+      ${row(r.interval === "15m" ? "Win rate, last 2 weeks" : "Win rate, last 12 months", pct(a.recent_win_rate), f(lk, d => pct(d.recent_win_rate)))}
+    </tbody></table><p class="sub" style="font-size:12.5px;margin-top:8px">Replayed on ${r.interval === "15m" ? "15-minute candles" : "daily candles"} from ${esc(r.from.slice(0, 10))} to ${esc(r.to.slice(0, 10))}. Overlapping replays move together, so the 90% range is optimistic.</p></div>`;
+}
+ckSetup(false);
 
 /* ---------------- long-term picks ---------------- */
 async function loadLongterm() {

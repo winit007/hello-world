@@ -428,6 +428,44 @@ def meta_filter(ticker: str, pattern: str, direction: str) -> dict | None:
     return None if p is None else {"p": p, "keep": p >= model["threshold"], "threshold": model["threshold"]}
 
 
+def run_check(body: dict, progress) -> dict:
+    """Historical win rate of a trade the person describes (shares, options, crypto, commodities)."""
+    from . import tradecheck
+    from .data import load_prices
+    from .sizing import nse_monthly_expiry, strike_step
+
+    inst = body.get("instrument", "stock")
+    if inst not in ("stock", "option", "crypto", "commodity"):
+        raise ValueError("Choose shares, options, crypto or a commodity")
+    sym = str(body.get("symbol") or "").strip().upper()
+    if not sym:
+        raise ValueError("Enter a symbol")
+    if inst in ("stock", "option") and "." not in sym:
+        sym += ".NS"
+    product = body.get("product") or ("delivery" if inst == "stock" else "positional")
+    intraday = product == "intraday"
+    interval, period = ("15m", "60d") if intraday else ("1d", "10y")
+    progress(f"Loading {'15-minute' if intraday else 'daily'} prices for {sym}", 0.2)
+    df = load_prices(sym, period, interval, cache_dir=CACHE)
+    num = lambda k: float(body[k]) if body.get(k) not in (None, "") else None
+    entry = num("entry") or float(df["Close"].iloc[-1])
+    hold = int(num("hold_hours") * 4) if intraday and num("hold_hours") else int(num("hold_days") or (6 if intraday else 5))
+    hold = max(hold, 1)
+    option = None
+    if inst == "option":
+        expiry = date.fromisoformat(body["expiry"]) if body.get("expiry") else nse_monthly_expiry(date.today(), 10)
+        strike = num("strike") or round(entry / strike_step(entry)) * strike_step(entry)
+        option = {"type": "PE" if body.get("option_type") == "PE" else "CE", "strike": strike,
+                  "days_to_expiry": max((expiry - date.today()).days, 1), "expiry": expiry.isoformat()}
+    progress("Replaying the trade from every past day", 0.5)
+    res = tradecheck.check(df, inst, body.get("side", "buy"), entry, num("stop"), num("target"), hold,
+                           product, option, interval)
+    progress("Done", 1.0)
+    return clean({**res, "symbol": sym, "instrument": inst, "product": product, "side": body.get("side", "buy"),
+                  "entry": entry, "stop": num("stop"), "target": num("target"), "option": option,
+                  "last_price": float(df["Close"].iloc[-1]), "hold": hold})
+
+
 def run_longterm(settings: dict, progress) -> dict:
     from . import longterm
 
@@ -880,6 +918,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"job": start_job("screen", run_screen, {**load_settings(), **body})})
             if url.path == "/api/goal":
                 return self._send(200, {"job": start_job("goal", run_goal, body)})
+            if url.path == "/api/check":
+                return self._send(200, {"job": start_job("check", run_check, body)})
             if url.path == "/api/fund":
                 return self._send(200, {"job": start_job("fund", run_fund, body, load_settings())})
             if url.path == "/api/rebalance":

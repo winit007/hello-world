@@ -43,6 +43,7 @@ that appears open while you use it; close it to stop the app. It has five pages:
 | **Stock lookup** | Type any symbol (TCS.NS, AAPL) for its verdict, a 6-month candlestick chart with patterns and your stop/targets marked, its best candlestick rules and its latest news. |
 | **Track record** | What every pick would have made if you had taken it: profit or loss for each day, a running total, and the outcome of each pick (target, stop, time exit). *Rebuild last 10 days* fills in history straight away. |
 | **Long-term picks** | Ten shares to buy and hold for about a year, ranked by their chance of being higher 12 months later. The chance averages two ten-year records: stocks ranked like it by the model fund's momentum-plus-steadiness score, and the stock's own record. Shows the typical and bad-case year, shares for an equal slice of your capital, and the Nifty 50 index fund's record for comparison (higher after a year 85% of the time). |
+| **Check my trade** | Describe any trade (shares positional or intraday, options bought or written, crypto, commodities): symbol, side, entry, stop-loss, target, how long you hold. It replays that exact trade from every past day of the instrument (daily candles over ten years, or 15-minute candles over 60 days for intraday) and shows the win rate with a 90% range, the win rate in conditions like today (same trend and volatility band), the win rate your risk/reward needs to break even, how often the target or the stop came first, and the average result after costs. **Check win rate** on any pick or in Paper trading fills it in. |
 | **Paper trading** | A practice account with virtual money (your capital from Settings; reset any time). Buy or short NSE shares, buy or sell NSE stock options, trade crypto and MCX commodities at live prices with real lot sizes, slippage and charges. Stop-loss and target close positions automatically, intraday trades square off at 3:20 pm, and it tracks your win rate, P&L, charges and worst drop. *Paper trade* on any card fills in the order. |
 | **My trades** | *Add to my trades* from any pick, then enter the price you sold at to close it. Shows your win rate and total profit or loss. |
 | **Settings** | Capital, risk per trade, which stocks to scan (Nifty 50, US, or your own list), holding period. |
@@ -537,6 +538,7 @@ stock_agent/
   lab.py        rule-variant search with a train/test split; validation.json holds the latest check
   yahoo.py      built-in Yahoo price client, used when yfinance is missing (Android/Termux)
   publish.py    phone app: static site + the evening's results as data files (GitHub Pages)
+  tradecheck.py Check my trade: replays a described trade over history (win rate, like-today, break-even)
   robust.py     walk-forward, purging, meta-labeling, PBO, false-discovery and bootstrap checks
   longterm.py   long-term picks: factor rank + ten-year 12-month win records
   paper.py      paper trading: virtual account, fills, charges, automatic stop/target/square-off
