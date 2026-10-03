@@ -42,16 +42,29 @@ say "Creating the launcher"
 cat > "$PREFIX/bin/stock-agent" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 # Start Stock Agent on this phone. Keep Termux open in the background; Ctrl+C or close the session to stop.
+URL="http://127.0.0.1:8765/"
+if curl -s -o /dev/null --max-time 3 "$URL"; then   # already running (e.g. a second tap): just open it
+  echo "Stock Agent is already running. Opening $URL"
+  termux-open-url "$URL" 2>/dev/null || echo "Open $URL in Chrome."
+  sleep 2; exit 0
+fi
+echo "Starting Stock Agent… Chrome opens in a few seconds (or open $URL yourself)."
 termux-wake-lock 2>/dev/null || true          # keep scans running while the screen is off
-trap 'termux-wake-unlock 2>/dev/null || true' EXIT
-exec python -m stock_agent app --port 8765 "$@"
+python -m stock_agent app --port 8765 "$@"
+code=$?
+termux-wake-unlock 2>/dev/null || true
+if [ "$code" -ne 0 ] && [ "$code" -ne 130 ]; then   # 130 = stopped with Ctrl+C
+  echo; echo "Stock Agent stopped with an error (code $code). Take a screenshot of this screen."
+  read -r -p "Press Enter to close. " _ || true
+fi
+exit "$code"
 EOF
 chmod 755 "$PREFIX/bin/stock-agent"
 
 # Home-screen icon through the Termux:Widget add-on, if the person installs it
 mkdir -p "$HOME/.shortcuts"
 chmod 700 "$HOME/.shortcuts"                  # Termux:Widget ignores a folder others can write to
-printf '#!/data/data/com.termux/files/usr/bin/bash\nstock-agent\n' > "$HOME/.shortcuts/Stock Agent"
+printf '#!/data/data/com.termux/files/usr/bin/bash\n"%s/bin/stock-agent"\n' "$PREFIX" > "$HOME/.shortcuts/Stock Agent"
 chmod 700 "$HOME/.shortcuts/Stock Agent"
 # refresh the widget list if Termux:Widget is already installed
 am broadcast -n com.termux.widget/.TermuxWidgetProvider -a com.termux.widget.ACTION_REFRESH_WIDGET >/dev/null 2>&1 || true
