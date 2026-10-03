@@ -217,6 +217,21 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
 .help-table td:first-child { width: 190px; }
 nav.tabs.only-home { display: none; }
+@media (max-width: 640px) {
+  table.cards thead { display: none; }
+  table.cards, table.cards tbody { display: block; width: 100%; }
+  table.cards tr { border: 1px solid var(--grid); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; background: var(--surface);
+                   display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+  table.cards td:first-child, table.cards td[colspan] { grid-column: 1 / -1; }
+  table.cards td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border: 0; padding: 3px 0; text-align: right; }
+  table.cards td::before { content: attr(data-label); color: var(--muted); font-size: 12.5px; font-weight: 600; text-align: left; flex: 0 0 auto; }
+  table.cards td:first-child { display: block; text-align: left; font-size: 15px; padding-bottom: 6px; }
+  table.cards td:first-child::before, table.cards td[data-label=""]::before { content: none; }
+  table.cards td[data-label=""] { justify-content: flex-end; }
+  table.cards td > div { text-align: right; }
+  table.cards td:first-child > div { text-align: left; }
+  .table-scroll:has(table.cards) { overflow: visible; }
+}
 .quick { display: flex; gap: 8px; flex-wrap: wrap; }
 .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; align-items: start; }
 .home-grid .card h2 { margin: 0 0 8px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -939,6 +954,7 @@ const _retry = {};
 function stateBox(kind, title, text, retry) {
   const id = retry ? "r" + Math.random().toString(36).slice(2, 8) : null; if (id) _retry[id] = retry;
   const icon = { error: "⚠", empty: "○", loading: "" }[kind] || "";
+  text = text && String(text).replace(/^[A-Za-z]*(Error|Exception): /, "");
   return `<div class="card state ${kind}" role="${kind === "error" ? "alert" : "status"}">${kind === "loading" ? '<span class="spin" aria-hidden="true"></span>' : `<span class="state-ic" aria-hidden="true">${icon}</span>`}
     <span class="et">${esc(title)}</span>${text ? `<span class="state-tx">${esc(text)}</span>` : ""}${id ? `<button type="button" class="btn small" data-retry="${id}">Try again</button>` : ""}</div>`;
 }
@@ -1160,7 +1176,7 @@ $("#scan").onclick = async () => {
   try {
     const res = await runJob(api("/api/screen", { method: "POST", body: { affordable_only: $("#afford").checked } }), $("#scan-progress"));
     renderPicks(res);
-  } catch (e) { $("#picks").innerHTML = `<div class="notice error">Scan failed: ${esc(e.message)}. Check your internet connection and try again.</div>`; }
+  } catch (e) { $("#picks").innerHTML = stateBox("error", "The scan failed", e.message + ". Check your internet connection.", () => $("#scan").click()); }
   btn.disabled = false; btn.textContent = "Scan now";
 };
 $("#afford").onchange = async () => { SETTINGS = await api("/api/settings", { method: "POST", body: { affordable_only: $("#afford").checked } }); };
@@ -1190,7 +1206,7 @@ let _ordersFilter = "all";
 async function loadOrders() {
   if (STATIC) return;
   const box = $("#orders-rec");
-  let r; try { r = await api("/api/orders"); } catch (e) { box.innerHTML = `<h2 style="margin-top:0">Order record</h2><div class="notice error">${esc(e.message)}</div>`; return; }
+  let r; try { r = await api("/api/orders"); } catch (e) { box.innerHTML = `<h2 style="margin-top:0">Order record</h2>` + stateBox("error", "Could not load the order record", e.message, loadOrders); return; }
   const keep = x => _ordersFilter === "all" || (_ordersFilter === "real" ? !x.practice : _ordersFilter === "paper" ? x.source === "Paper" : x.practice && x.source !== "Paper");
   const rows = r.rows.filter(keep);
   const sum = Object.entries(r.summary).map(([k, v]) => `<div class="card tile"><div class="k">${esc(k)}</div><div class="v num ${v.avg_slip_pct > 0.002 ? "chg down" : ""}">${spct(v.avg_slip_pct, 2)}</div>
@@ -1287,7 +1303,7 @@ async function analyse(ticker) {
   try {
     const d = await runJob(api("/api/stock?ticker=" + encodeURIComponent(ticker)), $("#stock-progress"));
     window._lastStock = d; renderStock(d);
-  } catch (e) { box.innerHTML = `<div class="notice error">Could not analyse ${esc(ticker)}: ${esc(e.message)}. Check the symbol (Indian stocks end in .NS) and your connection.</div>`; }
+  } catch (e) { box.innerHTML = stateBox("error", `Could not analyse ${ticker}`, e.message + ". Check the symbol (Indian stocks end in .NS) and your connection.", () => analyse(ticker)); }
 }
 function renderStock(d) {
   const c = cur(d.ticker), o = d.outlook, t = d.trade;
@@ -1404,7 +1420,7 @@ $$("[data-market-scan]").forEach(b => b.onclick = () => loadMarket(b.dataset.mar
 async function loadMarket(market) {
   const btn = $(`[data-market-scan="${market}"]`); btn.disabled = true;
   try { renderMarket(await runJob(api("/api/markets?market=" + market), $("#" + market + "-progress")), $("#" + market)); }
-  catch (e) { $("#" + market).innerHTML = `<div class="notice error">Scan failed: ${esc(e.message)}</div>`; }
+  catch (e) { $("#" + market).innerHTML = stateBox("error", "The scan failed", e.message, () => $(`[data-market-scan="${market}"]`).click()); }
   btn.disabled = false;
 }
 function renderMarket(res, box) {
@@ -1461,6 +1477,21 @@ function renderMarket(res, box) {
 
 
 
+
+/* wide tables turn into one card per row on phones: each cell gets its column name as a label */
+function cardify(root = document) {
+  $$("table", root).forEach(t => {
+    if (t.classList.contains("heat") || t.classList.contains("help-table")) return;
+    const ths = [...t.querySelectorAll("thead th")];
+    if (ths.length < 5) return;
+    t.classList.add("cards");
+    t.querySelectorAll("tbody tr").forEach(tr => [...tr.children].forEach((td, i) => {
+      if (td.dataset.label === undefined) td.dataset.label = ths[i] ? ths[i].textContent.trim() : "";
+    }));
+  });
+}
+{ let pend = null; new MutationObserver(() => { if (!pend) pend = requestAnimationFrame(() => { pend = null; cardify(); }); })
+    .observe(document.querySelector("main") || document.body, { childList: true, subtree: true }); }
 
 /* ---------------- home ---------------- */
 async function loadHome() {
@@ -1678,7 +1709,7 @@ $("#f-run").onclick = async () => {
   try {
     const r = await runJob(api("/api/fund", { method: "POST", body: { universe: $("#f-universe").value, size: +$("#f-size").value, rebalance: $("#f-rebal").value, benchmark: $("#f-bench").value } }), $("#fund-progress"));
     window._lastFund = r; renderFund(r);
-  } catch (e) { $("#fund").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  } catch (e) { $("#fund").innerHTML = stateBox("error", "Could not build the fund", e.message, () => $("#f-run").click()); }
   btn.disabled = false;
 };
 function renderFund(r) {
@@ -1909,7 +1940,7 @@ $("#goal-form").onsubmit = async ev => {
     monthly: +$("#g-monthly").value, step_up: +$("#g-step").value / 100, inflation: +$("#g-infl").value / 100, profile: $("#g-profile").value,
     crypto: Math.min(Math.max(+$("#g-crypto").value || 0, 0), 10) / 100 };
   try { const p = await runJob(api("/api/goal", { method: "POST", body }), $("#goal-progress")); window._lastGoal = p; renderGoal(p); }
-  catch (e) { $("#goal").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  catch (e) { $("#goal").innerHTML = stateBox("error", "Could not plan the goal", e.message); }
 };
 const MIXCOL = { equity: "--accent", debt: "--ink-2", gold: "--warn", crypto: "--down", cash: "--muted", other: "--axis" };
 function mixBar(mix) {
@@ -2021,7 +2052,7 @@ $("#rb-go").onclick = async () => {
   try {
     const r = await runJob(api("/api/rebalance", { method: "POST", body: { holdings, target, band: +$("#rb-band").value, new_money: +$("#rb-new").value } }), $("#rb-progress"));
     renderRebalance(r);
-  } catch (e) { $("#rebalance").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  } catch (e) { $("#rebalance").innerHTML = stateBox("error", "Could not work out the rebalance", e.message); }
 };
 function renderRebalance(r) {
   const cur = Object.fromEntries(r.rows.map(x => [x.asset_class, x.weight]));
@@ -2052,7 +2083,7 @@ async function loadIpo() {
   try {
     const d = await runJob(api("/api/ipo?days=" + $("#ipo-days").value), $("#ipo-progress"));
     renderIpo(d);
-  } catch (e) { box.innerHTML = `<div class="notice error">Could not load new listings: ${esc(e.message)}</div>`; }
+  } catch (e) { box.innerHTML = stateBox("error", "Could not load new listings", e.message, loadIpo); }
 }
 $("#ipo-load").onclick = loadIpo;
 function renderIpo(d) {
@@ -2088,7 +2119,7 @@ async function loadTrack(replay) {
   try {
     const ev = await runJob(api("/api/track?replay=" + (replay || 0)), $("#track-progress"));
     window._lastTrack = ev; renderTrack(ev);
-  } catch (e) { box.innerHTML = `<div class="notice error">Could not build the track record: ${esc(e.message)}</div>`; }
+  } catch (e) { box.innerHTML = stateBox("error", "Could not build the track record", e.message, () => loadTrack(0)); }
 }
 $("#track-replay").onclick = () => loadTrack(10);
 function renderTrack(ev) {
@@ -2302,7 +2333,7 @@ async function loadLab(run) {
     if (!run) { const last = await api("/api/robust?last=1"); if (last) { window._lastLab = last; return renderLab(last); } return; }
     $("#lab-run").disabled = true;
     window._lastLab = await runJob(api("/api/robust"), $("#lab-progress")); renderLab(window._lastLab);
-  } catch (e) { $("#lab").innerHTML = `<div class="notice error">Could not run the checks: ${esc(e.message)}</div>`; }
+  } catch (e) { $("#lab").innerHTML = stateBox("error", "Could not run the checks", e.message, () => $("#lab-run").click()); }
   $("#lab-run").disabled = false;
 }
 $("#lab-run").onclick = () => loadLab(true);
@@ -2435,7 +2466,7 @@ $("#ms-form").onsubmit = async ev => {
   try { localStorage.setItem("sa-myscreen", JSON.stringify(body)); } catch (e) {}
   $("#ms-run").disabled = true; $("#ms-out").innerHTML = "";
   try { renderMyScreen(await runJob(api("/api/myscreen", { method: "POST", body }), $("#ms-progress"))); }
-  catch (e) { $("#ms-out").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  catch (e) { $("#ms-out").innerHTML = stateBox("error", "Could not run the screen", e.message, () => $("#ms-form").requestSubmit()); }
   $("#ms-run").disabled = false;
 };
 try { const saved = JSON.parse(localStorage.getItem("sa-myscreen") || "null");
@@ -2528,7 +2559,7 @@ $("#ck-form").onsubmit = async ev => {
     [intra ? "hold_hours" : "hold_days"]: +f.hold.value || (intra ? 3 : 5) };
   $("#ck-run").disabled = true; $("#ck-out").innerHTML = "";
   try { renderCheck(await runJob(api("/api/check", { method: "POST", body }), $("#ck-progress"))); }
-  catch (e) { $("#ck-out").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  catch (e) { $("#ck-out").innerHTML = stateBox("error", "Could not check this trade", e.message); }
   $("#ck-run").disabled = false;
 };
 function renderCheck(r) {
@@ -2565,7 +2596,7 @@ ckSetup(false);
 async function loadLongterm() {
   const btn = $("#lt-run"); btn.disabled = true;
   try { window._lastLt = await runJob(api("/api/longterm"), $("#lt-progress")); renderLongterm(window._lastLt); }
-  catch (e) { $("#lt").innerHTML = `<div class="notice error">Could not build long-term picks: ${esc(e.message)}</div>`; }
+  catch (e) { $("#lt").innerHTML = stateBox("error", "Could not build long-term picks", e.message, () => $("#lt-run").click()); }
   btn.disabled = false;
 }
 $("#lt-run").onclick = loadLongterm;
@@ -2772,7 +2803,7 @@ async function loadPaper(refresh) {
   try {
     if (!window._lastPaper || !refresh) renderPaper(await api("/api/paper?refresh=0"));
     if (refresh && window._lastPaper.positions.length) renderPaper(await runJob(api("/api/paper"), $("#paper-progress")));
-  } catch (e) { $("#pp-events").innerHTML = `<div class="notice error">Could not update prices: ${esc(e.message)}</div>`; }
+  } catch (e) { $("#pp-events").innerHTML = `<div class="notice error">Could not update prices: ${esc(e.message)}. It tries again in a minute.</div>`; }
   _ppBusy = false;
 }
 $("#pp-refresh").onclick = () => loadPaper(true);
