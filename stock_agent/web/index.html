@@ -189,6 +189,11 @@ ul.reasons li { margin: 3px 0; }
 dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 20px; width: min(440px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
+.help-table td:first-child { width: 190px; }
+.help-table th:nth-child(3), .help-table td:nth-child(3) { width: 180px; }
+@media (max-width: 640px) { .help-table thead { display: none; } .help-table tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .help-table td { display: block; width: auto !important; border: 0; padding: 2px 0; }
+  .help-table td[data-label]::before { content: attr(data-label) ": "; font-weight: 600; color: var(--ink-2); } }
 .kite-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--muted); }
 .dot.on { background: var(--up); }
@@ -340,7 +345,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <div class="field"><label for="ms-preset">Start from</label><select id="ms-preset" style="width:auto"><option value="">My own rules</option></select></div>
         <div class="field"><label for="ms-uni">Stocks</label><select id="ms-uni" style="width:auto"><option value="nifty50">Nifty 50</option><option value="nifty100">Nifty 100</option><option value="nifty200" selected>Nifty 200</option><option value="fno">F&amp;O stocks</option></select></div>
       </div>
-      <div><b style="font-size:14px">Keep stocks where</b><div id="ms-rules" style="display:grid;gap:8px;margin-top:8px"></div>
+      <div><b style="font-size:14px">Keep stocks where</b> <a href="#" id="ms-what" style="font-size:13px;margin-left:6px">What does each criterion mean?</a><div id="ms-rules" style="display:grid;gap:8px;margin-top:8px"></div>
         <button type="button" class="btn small" id="ms-add" style="margin-top:8px">+ Add a rule</button></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
         <div class="field"><label for="ms-rank">Rank by</label><select id="ms-rank" style="width:auto"></select></div>
@@ -687,6 +692,33 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>Rebalance</b> compares what you own with that mix and lists what to buy or sell, or how to place new money so nothing has to be sold.</li>
         <li><b>Phone app, no PC needed</b>: open <a href="https://winit007.github.io/hello-world/" target="_blank" rel="noopener">winit007.github.io/hello-world</a> in Chrome and tap <b>Install app</b>. It shows the evening run's results; Goals, Rebalance and My trades work on the phone.</li>
         <li><b>This PC app on your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
+      <div class="card" id="ms-help" style="grid-column:1/-1"><h2>My screener: what each criterion means</h2>
+        <p class="sub" style="font-size:13.5px;margin:0 0 8px">A stock is kept only if <b>every</b> rule is true. The survivors are sorted by <b>Rank by</b> and the top ones are held in equal money. Measures marked % are typed as percentages: 20 means 20%, -5 means 5% below.</p>
+        <div class="table-scroll"><table class="help-table"><thead><tr><th>Criterion</th><th>What it means</th><th>Typical values</th><th>How traders use it</th></tr></thead><tbody id="ms-help-rows"></tbody></table></div>
+        <h3 style="margin:16px 0 6px;font-size:15px">The other choices</h3>
+        <table class="help-table"><tbody>
+          <tr><td><b>Stocks</b></td><td>Which list is checked: Nifty 50 (the 50 largest companies), Nifty 100, Nifty 200, or the F&amp;O stocks (those with futures and options). A bigger list gives more choice but includes smaller, more volatile companies.</td></tr>
+          <tr><td><b>Start from</b></td><td>Fills in a ready-made rule set (below) that you can then change. <b>My own rules</b> keeps what you typed.</td></tr>
+          <tr><td><b>Rank by / Order</b></td><td>After the rules, the passing stocks are sorted by this measure. Use <b>highest first</b> for returns (strongest stocks on top) and <b>lowest first</b> for volatility or beta (calmest on top). For <i>Worst fall</i> and <i>Distance from 52-week high</i>, which are negative numbers, <b>highest first</b> means the smallest fall.</td></tr>
+          <tr><td><b>Hold</b></td><td>How many of the top-ranked stocks you buy. Your capital is split equally: ₹2,00,000 and 10 stocks means about ₹20,000 each. Fewer stocks means bigger swings; 10 to 20 is usual.</td></tr>
+          <tr><td><b>Rebalance</b></td><td>How often the rules are run again and the holdings swapped for the new top list. Monthly follows changes fastest but trades and pays tax more often; yearly trades least and defers tax (gains held over a year are taxed at 12.5% instead of 20%).</td></tr>
+        </tbody></table>
+        <h3 style="margin:16px 0 6px;font-size:15px">The ready-made rule sets</h3>
+        <table class="help-table"><tbody>
+          <tr><td><b>Momentum leaders</b></td><td>Price above its 200-day average (a long-term uptrend) and over ₹20 crore traded a day (easy to buy and sell), ranked by the best 6-month return. The idea behind momentum funds: stocks that have been rising tend to keep rising for a while.</td></tr>
+          <tr><td><b>Near 52-week high</b></td><td>Within 5% of the highest price of the past year and up more than 20% over the year, ranked by 3-month return. Strong stocks about to break out to new highs.</td></tr>
+          <tr><td><b>Pullback in an uptrend</b></td><td>Above the 200-day average but RSI below 40: a strong stock having a short dip. Ranked by 12-month return, so the strongest dipping stocks come first.</td></tr>
+          <tr><td><b>Low volatility</b></td><td>Beta below 0.9 (moves less than the Nifty), ranked by lowest volatility. Smoother ride and smaller falls, usually with somewhat lower returns in strong markets.</td></tr>
+        </tbody></table>
+        <h3 style="margin:16px 0 6px;font-size:15px">Reading the results</h3>
+        <table class="help-table"><tbody>
+          <tr><td><b>Your screen, a year</b></td><td>Average yearly growth (CAGR) if you had followed these rules over the backtest, after 0.25% trading cost, before tax.</td></tr>
+          <tr><td><b>Nifty 50, a year</b></td><td>The same for a Nifty 50 index fund, for comparison.</td></tr>
+          <tr><td><b>All these stocks, equal weight</b></td><td>Buying every stock in the list in equal money. The list is today's index members (the companies that survived), so this number is flattered. If your screen does not beat it, your rules are not adding anything.</td></tr>
+          <tr><td><b>Worst fall</b></td><td>The biggest drop from a peak to a later low. Ask yourself whether you would have held on through it.</td></tr>
+          <tr><td><b>Picks that rose</b></td><td>The share of picks that were higher at the next rebalance, and the share that beat the Nifty over the same period.</td></tr>
+          <tr><td><b>Trading a year</b></td><td>Turnover: 100% means the whole portfolio was replaced once a year. More trading means more costs and more tax.</td></tr>
+        </tbody></table></div>
       <div class="card"><h2>Trade checklist</h2>
         <p class="sub" style="font-size:13.5px;margin:0 0 6px">Take a trade only if every answer is yes. Each pick shows these; live broker orders are refused until all pass.</p>
         <ol><li><b>Proven edge</b>: has this setup made money on data it wasn't tuned on, after costs?</li>
@@ -1762,6 +1794,39 @@ const MS_METRICS = { price: ["Price (₹)", "level"], ret_1m: ["Return, 1 month"
   ret_12m: ["Return, 12 months", "pct"], from_high: ["Distance from 52-week high", "pct"], vs_sma50: ["Price vs 50-day average", "pct"],
   vs_sma200: ["Price vs 200-day average", "pct"], sma50_vs_200: ["50-day vs 200-day average", "pct"], rsi14: ["RSI (14 days)", "level"],
   vol_1y: ["Volatility, 1 year", "pct"], max_dd_1y: ["Worst fall in the last year", "pct"], beta_1y: ["Beta to Nifty, 1 year", "level"], value_cr: ["Traded value a day (₹ crore)", "level"] };
+const MS_HELP = {
+  price: ["The last closing price of one share.", "₹50 to ₹30,000.",
+    "Only to make sure you can afford at least one share of each pick (₹2,00,000 over 10 stocks is about ₹20,000 each). A low price does not mean a stock is cheap."],
+  ret_1m: ["How much the price changed over the last month (21 trading days).", "-10% to +10%.",
+    "Very short-term moves often reverse. Traders use it to avoid stocks that just jumped (say, above 25%) or, with \"below 0\", to buy a dip in a strong stock."],
+  ret_3m: ["Price change over the last 3 months (63 trading days).", "-15% to +25%.",
+    "Medium-term strength. A good ranking measure for picking up new leaders early."],
+  ret_6m: ["Price change over the last 6 months (126 trading days).", "-20% to +40%.",
+    "The classic momentum measure used by momentum funds and indices. Rank highest first to hold the strongest stocks."],
+  ret_12m: ["Price change over the last year (252 trading days).", "-30% to +60%.",
+    "Long-term strength. \"Above 20%\" keeps stocks in a solid yearly uptrend; also good for ranking."],
+  from_high: ["How far the price is below its highest close of the last 52 weeks. Always 0% or negative.", "0% (at the high) to -40% (deeply fallen).",
+    "\"Above -5%\" keeps stocks near their highs, ready to break out. \"Below -30%\" finds beaten-down stocks, a riskier bargain hunt."],
+  vs_sma50: ["Price compared with its average closing price of the last 50 days.", "-10% to +10%.",
+    "Above 0 means a short-term uptrend. Above about +15% the stock has run far ahead of its average and often pauses."],
+  vs_sma200: ["Price compared with its average closing price of the last 200 days.", "-20% to +30%.",
+    "The most common trend filter: \"above 0\" means a long-term uptrend. Many fund managers do not hold stocks below their 200-day average."],
+  sma50_vs_200: ["The 50-day average compared with the 200-day average.", "-10% to +15%.",
+    "Above 0 is the \"golden cross\" state (uptrend), below 0 the \"death cross\" (downtrend). Slower to change than price vs the 200-day average, so fewer false signals."],
+  rsi14: ["Relative Strength Index: compares the size of up-days with down-days over 14 days, on a 0 to 100 scale.", "30 to 70; 50 is neutral.",
+    "Above 70 = overbought (rose fast, may cool off); below 30 = oversold. In an uptrend, RSI below 40 marks a pullback that is often a buying chance."],
+  vol_1y: ["Volatility: how much the price swings day to day, scaled to a year.", "Nifty 12-18%; large steady companies 20-25%; mid and small companies 35-50%.",
+    "Lower means a smoother ride. Low-volatility stocks have historically given similar returns with smaller falls. Rank lowest first for calm stocks."],
+  max_dd_1y: ["The biggest drop from a peak to a later low during the last year. Always 0% or negative.", "-10% (calm) to -40% (rough).",
+    "\"Above -25%\" leaves out stocks that crashed during the year, a simple safety rule."],
+  beta_1y: ["How much the stock moves when the Nifty moves 1%, measured over the last year.", "0.5 to 1.5; 1 moves like the market.",
+    "Below 0.9 is defensive (FMCG, pharma, IT services often). Above 1.2 is aggressive (metals, PSU banks, realty): bigger gains in rallies, bigger falls in crashes."],
+  value_cr: ["Liquidity: the typical rupee value of shares traded in a day, in crore, over the last 60 days.", "₹5 crore to ₹2,000 crore.",
+    "Above ₹20 crore you can buy and sell easily at a fair price. Below ₹5 crore, prices can jump and the bid-ask gap is wider."],
+};
+$("#ms-help-rows").innerHTML = Object.entries(MS_METRICS).map(([k, [label, kind]]) =>
+  `<tr><td><b>${label}</b>${kind === "pct" ? ' <span class="sub">(%)</span>' : ""}</td><td>${esc(MS_HELP[k][0])}</td><td data-label="Typical">${esc(MS_HELP[k][1])}</td><td data-label="Use">${esc(MS_HELP[k][2])}</td></tr>`).join("");
+$("#ms-what").onclick = ev => { ev.preventDefault(); showTab("help"); $("#ms-help").scrollIntoView({ behavior: "smooth" }); };
 const MS_PRESETS = {
   "Momentum leaders": { filters: [["vs_sma200", ">", 0], ["value_cr", ">", 20]], rank_by: "ret_6m", desc: true },
   "Near 52-week high": { filters: [["from_high", ">", -5], ["ret_12m", ">", 20]], rank_by: "ret_3m", desc: true },
@@ -1774,8 +1839,11 @@ function msRule(m = "ret_6m", op = ">", v = 0) {
   row.innerHTML = `<select data-r="metric" style="width:auto;flex:1 1 200px">${msOpts(m)}</select>
     <select data-r="op" style="width:auto"><option value=">" ${op === ">" ? "selected" : ""}>is above</option><option value="<" ${op === "<" ? "selected" : ""}>is below</option></select>
     <input type="number" step="any" data-r="value" value="${v}" style="width:110px"><span class="sub" data-r="unit" style="min-width:16px"></span>
-    <button type="button" class="btn small" title="Remove rule" data-r="x">✕</button>`;
-  const unit = () => { $("[data-r=unit]", row).textContent = MS_METRICS[$("[data-r=metric]", row).value][1] === "pct" ? "%" : ""; };
+    <button type="button" class="btn small" title="Remove rule" data-r="x">✕</button>
+    <div class="sub" data-r="hint" style="flex-basis:100%;font-size:12.5px;margin-top:-2px"></div>`;
+  const unit = () => { const k = $("[data-r=metric]", row).value;
+    $("[data-r=unit]", row).textContent = MS_METRICS[k][1] === "pct" ? "%" : "";
+    $("[data-r=hint]", row).textContent = MS_HELP[k][0] + " Typical: " + MS_HELP[k][1]; };
   $("[data-r=metric]", row).onchange = unit; unit();
   $("[data-r=x]", row).onclick = () => row.remove();
   $("#ms-rules").appendChild(row);

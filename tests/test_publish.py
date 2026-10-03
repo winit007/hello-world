@@ -42,6 +42,13 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(mods - listed, set(), "add new modules to stock_agent/_bundle.py")
         import stock_agent._bundle  # noqa: F401  (every listed module imports cleanly)
 
+    def test_every_screener_measure_is_explained(self):
+        from stock_agent import myscreen
+        html = INDEX.read_text(encoding="utf-8")
+        block = html[html.index("const MS_HELP = {"):html.index("const MS_PRESETS = {")]
+        self.assertEqual(set(re.findall(r"^  (\w+): \[", block, re.M)), set(myscreen.METRICS))
+        self.assertIn('id="ms-help"', html)
+
     def test_static_page_uses_relative_paths_and_static_flag(self):
         html = publish.page_html(app.WEB)
         self.assertIn('<meta name="static-site" content="1">', html)
