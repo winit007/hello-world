@@ -72,7 +72,31 @@ def load_prices(
 
 def read_cached(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col="Date", parse_dates=True)
-    return df[COLUMNS].astype(float)
+    return fix_glitches(df[COLUMNS].astype(float))
+
+
+def fix_glitches(df: pd.DataFrame, jump: float = 0.5, window: int = 5, tol: float = 0.2) -> pd.DataFrame:
+    """Repair short-lived data errors: a price that falls (or rises) by more than half and comes back within a
+    few bars, such as Yahoo's NIFTYBEES on 19-20 Dec 2019 (-90% for two days around a unit split). Real moves
+    that do not reverse are left alone."""
+    c = df["Close"].to_numpy()
+    if len(c) < 3:
+        return df
+    bad = None
+    i = 1
+    while i < len(c):
+        prev, cur = c[i - 1], c[i]
+        if prev > 0 and cur > 0 and (cur / prev < 1 - jump or cur / prev > 1 / (1 - jump)):
+            for j in range(i + 1, min(i + 1 + window, len(c))):
+                if c[j] > 0 and abs(c[j] / prev - 1) < tol:          # back to where it was: bars i..j-1 were wrong
+                    if bad is None:
+                        bad = df.copy()
+                    scale = prev / cur
+                    bad.iloc[i:j, bad.columns.get_indexer(["Open", "High", "Low", "Close"])] *= scale
+                    i = j
+                    break
+        i += 1
+    return bad if bad is not None else df
 
 
 FRESH_SECONDS = 2 * 3600  # a cached file younger than this is used as is

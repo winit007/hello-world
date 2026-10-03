@@ -69,6 +69,13 @@ nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; 
   order: 3; flex-basis: 100%; scrollbar-width: thin; }
 nav.tabs button { border: 0; background: transparent; padding: 7px 14px; border-radius: 9px; cursor: pointer; color: var(--ink-2); white-space: nowrap; }
 nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+nav.tabs button.off { display: none; }
+nav.groups { display: flex; gap: 2px; order: 2; }
+nav.groups button { border: 0; background: transparent; padding: 7px 12px; border-radius: 9px; cursor: pointer; color: var(--ink-2); font-weight: 600; font-size: 14.5px; }
+nav.groups button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.mkt { font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mkt i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.mkt.open i { background: var(--up); box-shadow: 0 0 0 3px var(--up-soft); }
 .icon-btn { border: 1px solid var(--ring); background: var(--surface); border-radius: 10px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; }
 main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; }
 section.page { display: none; }
@@ -217,8 +224,10 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
 .foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 @media (max-width: 720px) {
   .pp-layout { grid-template-columns: 1fr; }
-  .bar { gap: 10px; }
-  nav.tabs { order: 3; flex-basis: 100%; }
+  .bar { gap: 8px 10px; }
+  nav.groups { order: 3; flex-basis: 100%; justify-content: space-between; }
+  nav.groups button { flex: 1; padding: 7px 4px; }
+  nav.tabs { order: 4; flex-basis: 100%; }
   nav.tabs button { flex: 1 0 auto; padding: 7px 10px; }
 }
 @media (max-width: 520px) {
@@ -235,9 +244,15 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div class="brand"><span class="logo" aria-hidden="true">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M3 2v12M8 4v10M13 1v9"/><path d="M1.5 6h3M6.5 7h3M11.5 4h3"/></svg>
     </span>Stock Agent</div>
+    <nav class="groups" aria-label="Sections">
+      <button data-group="trade">Trade</button><button data-group="practice">Practice</button>
+      <button data-group="invest">Invest</button><button data-group="more">Settings</button>
+    </nav>
+    <span class="mkt" id="mkt" title="NSE equity market hours, 9:15 am to 3:30 pm IST, Monday to Friday (holidays not included)"><i></i><span>NSE</span></span>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
       <button role="tab" data-tab="longterm">Long-term picks</button>
+      <button role="tab" data-tab="screen" class="live-only">My screener</button>
       <button role="tab" data-tab="stock" class="live-only">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
@@ -312,6 +327,31 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     </div>
     <div class="tiles" id="j-tiles"></div>
     <div id="journal"></div>
+  </section>
+
+  <!-- ============ MY SCREENER ============ -->
+  <section class="page" id="page-screen">
+    <div class="head-row">
+      <div><h1>My screener</h1>
+        <p class="sub" id="ms-sub">Pick stocks with your own rules, see today's matches, and backtest the rules over ten years.</p></div>
+    </div>
+    <form class="card form" id="ms-form" style="max-width:none;gap:12px;margin-bottom:14px" autocomplete="off">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <div class="field"><label for="ms-preset">Start from</label><select id="ms-preset" style="width:auto"><option value="">My own rules</option></select></div>
+        <div class="field"><label for="ms-uni">Stocks</label><select id="ms-uni" style="width:auto"><option value="nifty50">Nifty 50</option><option value="nifty100">Nifty 100</option><option value="nifty200" selected>Nifty 200</option><option value="fno">F&amp;O stocks</option></select></div>
+      </div>
+      <div><b style="font-size:14px">Keep stocks where</b><div id="ms-rules" style="display:grid;gap:8px;margin-top:8px"></div>
+        <button type="button" class="btn small" id="ms-add" style="margin-top:8px">+ Add a rule</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <div class="field"><label for="ms-rank">Rank by</label><select id="ms-rank" style="width:auto"></select></div>
+        <div class="field"><label for="ms-dir">Order</label><select id="ms-dir" style="width:auto"><option value="1">highest first</option><option value="0">lowest first</option></select></div>
+        <div class="field"><label for="ms-top">Hold</label><select id="ms-top" style="width:auto"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select></div>
+        <div class="field"><label for="ms-reb">Rebalance</label><select id="ms-reb" style="width:auto"><option value="M">monthly</option><option value="Q" selected>quarterly</option><option value="H">half-yearly</option><option value="Y">yearly</option></select></div>
+        <button class="btn primary" id="ms-run" type="submit">Run screen</button>
+      </div>
+    </form>
+    <div class="progress" id="ms-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="ms-out"></div>
   </section>
 
   <!-- ============ CHECK MY TRADE ============ -->
@@ -490,7 +530,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select style="width:auto" class="live-only" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
         <select style="width:auto" class="live-only" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
-        <select style="width:auto" class="live-only" id="f-rebal" aria-label="Rebalance"><option value="Q" selected>Quarterly</option><option value="M">Monthly</option></select>
+        <select style="width:auto" class="live-only" id="f-rebal" aria-label="Rebalance every"><option value="M">Rebalance monthly</option><option value="Q" selected>Rebalance quarterly</option><option value="H">Rebalance half-yearly</option><option value="Y">Rebalance yearly</option></select>
         <button class="btn primary" id="f-run">Build fund</button>
       </div>
     </div>
@@ -734,8 +774,29 @@ $("#theme").onclick = () => {
   if (window._lastGoal) drawFan(window._lastGoal);
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
+const TAB_GROUPS = { trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
+  practice: ["paper", "journal", "track", "lab"], invest: ["fund", "goals", "rebalance"], more: ["settings", "help"] };
+const groupOf = t => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(t)) || "trade";
+const _lastInGroup = {};
+function showGroup(g) {
+  $$("nav.groups button").forEach(b => b.setAttribute("aria-pressed", b.dataset.group === g));
+  $$("nav.tabs button").forEach(b => b.classList.toggle("off", groupOf(b.dataset.tab) !== g));
+}
+$$("nav.groups button").forEach(b => b.onclick = () => {
+  const g = b.dataset.group;      // open the tab last used in this section, else its first one this version has
+  const first = TAB_GROUPS[g].find(t => !(STATIC && $(`nav.tabs button[data-tab="${t}"]`).classList.contains("live-only")));
+  showTab(_lastInGroup[g] || first);
+});
+function marketChip() {
+  const now = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000), mins = now.getHours() * 60 + now.getMinutes();
+  const open = now.getDay() > 0 && now.getDay() < 6 && mins >= 555 && mins < 930;
+  const el = $("#mkt"); el.classList.toggle("open", open); $("span", el).textContent = open ? "NSE open" : "NSE closed";
+}
+marketChip(); setInterval(marketChip, 60000);
 function showTab(name) {
-  if (STATIC && ["stock", "paper", "settings", "check"].includes(name)) name = "picks";
+  if (STATIC && ["stock", "paper", "settings", "check", "screen"].includes(name)) name = "picks";
+  _lastInGroup[groupOf(name)] = name;
+  showGroup(groupOf(name));
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") loadJournal();
@@ -1102,6 +1163,15 @@ function renderMarket(res, box) {
   const crypto = res.market === "crypto";
   const chg = v => v == null ? "–" : `<span class="${v >= 0 ? "chg up" : "chg down"}">${spct(v)}</span>`;
   let html = res.check_text ? `<div class="notice ${res.check && res.check.avg_ret <= 0 ? "error" : ""}">${esc(res.check_text)}</div>` : "";
+  const ideas = crypto ? res.rows.filter(r => r.idea) : [];
+  if (ideas.length) html += `<div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Crypto trades, most likely to win first</h2>
+    <p class="sub" style="font-size:13px;margin:0 0 8px">Each idea: buy now, stop 2× the coin's average daily range below, target 3× above, sell after 10 days if neither is hit. Sized so the stop loses at most your risk limit. "Chance" is how often this exact trade won on past days with the same trend and volatility as today; break-even needs ${pct(ideas[0].idea.breakeven)}.</p>
+    <table class="num"><thead><tr><th>#</th><th>Coin</th><th class="r">Entry</th><th class="r">Stop</th><th class="r">Target</th><th class="r">Chance</th><th class="r">All history</th><th class="r">Avg result</th><th class="r">Buy</th><th></th></tr></thead><tbody>
+    ${ideas.map((r, i) => { const d = r.idea; return `<tr><td>${i + 1}</td><td><b>${esc(r.name)}</b><div class="sub" style="font-size:12px">${esc(r.symbol)} · ${esc(d.trend || "")}trend</div></td>
+      <td class="r">$${pxj(d.entry)}</td><td class="r">$${pxj(d.stop)}</td><td class="r">$${pxj(d.target)}</td>
+      <td class="r"><b class="${d.chance >= d.breakeven ? "chg up" : ""}">${pct(d.chance)}</b></td><td class="r">${pct(d.win_all)}</td>
+      <td class="r ${d.avg_ret >= 0 ? "chg up" : "chg down"}">${spct(d.avg_ret, 1)}</td><td class="r">${d.units >= 1 ? d.units.toFixed(3) : d.units.toPrecision(3)}<div class="sub" style="font-size:12px">${money(d.value_inr)}</div></td>
+      <td class="r" style="white-space:nowrap">${STATIC ? "" : `<button class="btn small" data-cick="${esc(r.symbol)}">Check</button> <button class="btn small" data-cipp="${esc(r.symbol)}">Paper</button>`}</td></tr>`; }).join("")}</tbody></table></div>`;
   html += `<div class="grid">` + res.rows.map(r => {
     const p = r.plan;
     let order = `<div class="order"><div class="line2">No active setup on the last ${crypto ? "two days" : "two 15-minute bars"}.</div></div>`;
@@ -1134,6 +1204,11 @@ function renderMarket(res, box) {
   }).join("") + `</div><p class="sub" style="font-size:12.5px;margin-top:10px">USD/INR ${res.usd_inr.toFixed(2)} · costs assumed ${(res.cost * 100).toFixed(2)}% per round trip · not investment advice</p>`;
   box.innerHTML = html;
   $$("[data-mpaper]", box).forEach(b => b.onclick = () => paperFromMarket(res, res.rows.find(r => r.symbol === b.dataset.mpaper)));
+  const ideaOf = sym => res.rows.find(r => r.symbol === sym).idea, exitDay = () => { const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10); };
+  $$("[data-cick]", box).forEach(b => b.onclick = () => { const d = ideaOf(b.dataset.cick);
+    ckFill({ instrument: "crypto", product: "positional", symbol: b.dataset.cick, side: "buy", stop: d.stop, target: d.target, hold: d.hold_days }); });
+  $$("[data-cipp]", box).forEach(b => b.onclick = () => { const d = ideaOf(b.dataset.cipp);
+    ppFill({ instrument: "crypto", product: "positional", symbol: b.dataset.cipp, qty: +d.units.toPrecision(6), stop: d.stop, target: d.target, exit_by: exitDay(), note: "Crypto trade idea" }); });
 }
 
 /* ---------------- model fund ---------------- */
@@ -1156,6 +1231,7 @@ function renderFund(r) {
       <div class="card tile"><div class="k">Nifty 50 index fund, after tax</div><div class="v num">${spct(a.nifty_cagr)}</div><div class="sub" style="font-size:12.5px">a year, same period</div></div>
       <div class="card tile"><div class="k">Trading per year</div><div class="v num">${pct(r.turnover_per_year)}</div><div class="sub" style="font-size:12.5px">of the portfolio; each sale at a profit is taxed</div></div>
     </div>
+    ${r.breakdown ? profitPie(r) : ""}
     <div class="card"><h2>Growth of ₹1</h2><div class="chart-wrap" id="fund-chart"></div>
       <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Model fund</span>
         <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--s1)"></i>Model fund after your tax</span>
@@ -1212,6 +1288,36 @@ function drawFund(r) {
     tip.style.left = Math.max(0, Math.min(rc.width - tip.offsetWidth, p > rc.width / 2 ? p - tip.offsetWidth - 12 : p + 12)) + "px"; tip.style.top = "10px";
   });
   $("#fhit2", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
+}
+
+/* where the model fund's gross profit went: a donut + table, for the person's capital */
+function profitPie(r) {
+  const b = r.breakdown, C = r.capital || 200000, css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const parts = [["You keep (net profit)", b.net_profit, "--up"], ["Capital-gains tax", b.taxes, "--down"],
+                 ["Trading costs (brokerage, STT, spread)", b.costs, "--warn"], ["Growth lost on money paid out", b.compounding_lost, "--muted"]];
+  const total = parts.reduce((a, p) => a + Math.max(p[1], 0), 0) || 1;
+  let ang = -Math.PI / 2, arcs = "";
+  const R = 70, r0 = 44, cx = 90, cy = 90;
+  for (const [, val, col] of parts) {
+    const frac = Math.max(val, 0) / total; if (frac <= 0) continue;
+    const a1 = ang + frac * 2 * Math.PI, big = frac > 0.5 ? 1 : 0, p = (rad, a) => `${cx + rad * Math.cos(a)} ${cy + rad * Math.sin(a)}`;
+    arcs += `<path d="M${p(R, ang)} A${R} ${R} 0 ${big} 1 ${p(R, a1 - 1e-6)} L${p(r0, a1 - 1e-6)} A${r0} ${r0} 0 ${big} 0 ${p(r0, ang)} Z" fill="${v(col)}" stroke="${v("--surface")}" stroke-width="2"/>`;
+    ang = a1;
+  }
+  const keep = Math.max(b.net_profit, 0) / total;
+  const rows = parts.map(([k, val, col]) => `<tr><td><i class="sw" style="background:${v(col)};width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:6px"></i>${k}</td><td class="r">${money(val * C)}</td><td class="r">${pct(Math.max(val, 0) / total)}</td></tr>`).join("");
+  const reb = { M: "monthly", Q: "quarterly", H: "half-yearly", Y: "yearly" }[r.rules.rebalance] || "";
+  return `<div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Where the profit went, for your ${money(C)}</h2>
+    <p class="sub" style="font-size:13.5px;margin:0 0 10px">Over ${b.years.toFixed(1)} years, rebalancing ${reb}, the portfolio itself made ${money(b.gross_profit * C)} before any costs or tax. This is how it splits if you run it yourself.</p>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+      <svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Donut chart of net profit, tax, costs and lost growth">${arcs}
+        <text x="90" y="86" text-anchor="middle" font-size="22" font-weight="700" fill="${v("--ink")}">${pct(keep)}</text>
+        <text x="90" y="106" text-anchor="middle" font-size="11" fill="${v("--muted")}">you keep</text></svg>
+      <div class="table-scroll" style="flex:1 1 280px"><table class="num"><tbody>${rows}
+        <tr><td><b>Gross profit</b></td><td class="r"><b>${money(b.gross_profit * C)}</b></td><td class="r">100%</td></tr></tbody></table></div>
+    </div>
+    <div class="notice" style="margin:12px 0 0;font-size:13.5px"><b>Same rules inside a mutual fund?</b> A fund pays no tax on its own rebalancing (you are taxed once, when you redeem) but charges an expense ratio every year. At ${pct(b.mf_expense_ratio, 1)} a year it would have charged about ${money(b.mf_expenses * C)} and left you ${money((b.mf_net_growth_of_1 - 1) * C)} after tax, against ${money(b.net_profit * C)} doing it yourself. Less frequent rebalancing means less tax and fewer costs: compare the four rebalancing choices above.</div>
+  </div>`;
 }
 
 /* ---------------- goals ---------------- */
@@ -1649,6 +1755,96 @@ function renderLab(res) {
   $("#lab-sub").innerHTML = `Ten years of Nifty 50 signals, data to <b>${fmtDate(o.as_of)}</b> · ${o.signals.toLocaleString("en-IN")} signal trades · strategy ${esc(o.strategy)}`;
   $("#lab").innerHTML = `<div class="notice"><b>What these checks do.</b> <b>Walk-forward</b>: every year is judged by rules chosen only from earlier years. <b>Purge + embargo</b>: training trades that overlap the test year are dropped. <b>Meta-label filter</b>: a second model learns from trend, momentum, volatility, RSI, volume and the market which signals tend to win; it is also tested walk-forward. <b>PBO</b>: how often the best-looking pattern turns out below median on other years. <b>False discovery</b>: which patterns beat a random day once luck from testing many is removed. <b>Bootstrap</b>: a range for the average trade. ${o.model && o.model.validated ? "The filter improved unseen years, so each pick now shows <b>Filter: keep</b> or <b>Filter: skip</b>." : "The filter did not reliably improve unseen years, so it is not shown on the picks."}</div>
     ${labPart(o, "Picks traded as options (as the app suggests)")}${labPart(sp, "The same signals traded as shares (0.1% costs)")}`;
+}
+
+/* ---------------- my screener ---------------- */
+const MS_METRICS = { price: ["Price (₹)", "level"], ret_1m: ["Return, 1 month", "pct"], ret_3m: ["Return, 3 months", "pct"], ret_6m: ["Return, 6 months", "pct"],
+  ret_12m: ["Return, 12 months", "pct"], from_high: ["Distance from 52-week high", "pct"], vs_sma50: ["Price vs 50-day average", "pct"],
+  vs_sma200: ["Price vs 200-day average", "pct"], sma50_vs_200: ["50-day vs 200-day average", "pct"], rsi14: ["RSI (14 days)", "level"],
+  vol_1y: ["Volatility, 1 year", "pct"], max_dd_1y: ["Worst fall in the last year", "pct"], beta_1y: ["Beta to Nifty, 1 year", "level"], value_cr: ["Traded value a day (₹ crore)", "level"] };
+const MS_PRESETS = {
+  "Momentum leaders": { filters: [["vs_sma200", ">", 0], ["value_cr", ">", 20]], rank_by: "ret_6m", desc: true },
+  "Near 52-week high": { filters: [["from_high", ">", -5], ["ret_12m", ">", 20]], rank_by: "ret_3m", desc: true },
+  "Pullback in an uptrend": { filters: [["vs_sma200", ">", 0], ["rsi14", "<", 40]], rank_by: "ret_12m", desc: true },
+  "Low volatility": { filters: [["beta_1y", "<", 0.9]], rank_by: "vol_1y", desc: false } };
+const msOpts = sel => Object.entries(MS_METRICS).map(([k, [l]]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("");
+function msRule(m = "ret_6m", op = ">", v = 0) {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center";
+  row.innerHTML = `<select data-r="metric" style="width:auto;flex:1 1 200px">${msOpts(m)}</select>
+    <select data-r="op" style="width:auto"><option value=">" ${op === ">" ? "selected" : ""}>is above</option><option value="<" ${op === "<" ? "selected" : ""}>is below</option></select>
+    <input type="number" step="any" data-r="value" value="${v}" style="width:110px"><span class="sub" data-r="unit" style="min-width:16px"></span>
+    <button type="button" class="btn small" title="Remove rule" data-r="x">✕</button>`;
+  const unit = () => { $("[data-r=unit]", row).textContent = MS_METRICS[$("[data-r=metric]", row).value][1] === "pct" ? "%" : ""; };
+  $("[data-r=metric]", row).onchange = unit; unit();
+  $("[data-r=x]", row).onclick = () => row.remove();
+  $("#ms-rules").appendChild(row);
+}
+$("#ms-preset").innerHTML += Object.keys(MS_PRESETS).map(k => `<option>${k}</option>`).join("");
+$("#ms-rank").innerHTML = msOpts("ret_6m");
+$("#ms-add").onclick = () => msRule();
+$("#ms-preset").onchange = () => { const p = MS_PRESETS[$("#ms-preset").value]; if (!p) return;
+  $("#ms-rules").innerHTML = ""; p.filters.forEach(f => msRule(...f)); $("#ms-rank").value = p.rank_by; $("#ms-dir").value = p.desc ? "1" : "0"; };
+$("#ms-preset").value = "Momentum leaders"; $("#ms-preset").onchange();
+$("#ms-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const filters = $$("#ms-rules > div").map(r => { const m = $("[data-r=metric]", r).value, v = +$("[data-r=value]", r).value;
+    return { metric: m, op: $("[data-r=op]", r).value, value: MS_METRICS[m][1] === "pct" ? v / 100 : v }; });
+  const body = { universe: $("#ms-uni").value, filters, rank_by: $("#ms-rank").value, descending: $("#ms-dir").value === "1", top: +$("#ms-top").value, rebalance: $("#ms-reb").value };
+  try { localStorage.setItem("sa-myscreen", JSON.stringify(body)); } catch (e) {}
+  $("#ms-run").disabled = true; $("#ms-out").innerHTML = "";
+  try { renderMyScreen(await runJob(api("/api/myscreen", { method: "POST", body }), $("#ms-progress"))); }
+  catch (e) { $("#ms-out").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
+  $("#ms-run").disabled = false;
+};
+try { const saved = JSON.parse(localStorage.getItem("sa-myscreen") || "null");
+  if (saved) { $("#ms-preset").value = ""; $("#ms-rules").innerHTML = ""; saved.filters.forEach(f => msRule(f.metric, f.op, MS_METRICS[f.metric][1] === "pct" ? Math.round(f.value * 10000) / 100 : f.value));
+    $("#ms-uni").value = saved.universe; $("#ms-rank").value = saved.rank_by; $("#ms-dir").value = saved.descending ? "1" : "0"; $("#ms-top").value = saved.top; $("#ms-reb").value = saved.rebalance; } } catch (e) {}
+function msVal(k, v) { if (v == null) return "–"; return MS_METRICS[k][1] === "pct" ? spct(v, 1) : k === "price" ? money(v, "₹", 2) : (+v).toFixed(k === "value_cr" ? 0 : 2); }
+function renderMyScreen(r) {
+  const bt = r.backtest, m = bt.metrics, cols = [...new Set([r.screen.rank_by, ...r.screen.filters.map(f => f.metric)])].filter(k => k !== "price").slice(0, 4);
+  const reb = { M: "monthly", Q: "quarterly", H: "half-yearly", Y: "yearly" }[r.screen.rebalance];
+  const tile = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
+  $("#ms-sub").innerHTML = `Data to <b>${fmtDate(r.as_of)}</b> · ${r.universe_size} stocks checked · <b>${r.matches}</b> pass your rules today`;
+  $("#ms-out").innerHTML = `
+    <div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Today's picks · ${money(r.per_stock)} each</h2>
+      ${r.picks.length ? `<table class="num"><thead><tr><th>#</th><th>Stock</th><th class="r">Price</th>${cols.map(k => `<th class="r">${MS_METRICS[k][0]}</th>`).join("")}<th class="r">Shares</th><th></th></tr></thead><tbody>
+      ${r.picks.map((p, i) => `<tr><td>${i + 1}</td><td><b>${esc(bare(p.ticker))}</b><div class="sub" style="font-size:12px">${esc(p.industry || "")}</div></td><td class="r">${money(p.price, "₹", 2)}</td>
+        ${cols.map(k => `<td class="r">${msVal(k, p[k])}</td>`).join("")}<td class="r">${p.shares}</td>
+        <td class="r" style="white-space:nowrap"><button class="btn small" data-msck="${i}">Check</button> <button class="btn small" data-mspp="${i}">Paper</button></td></tr>`).join("")}</tbody></table>`
+      : `<p class="sub">No stock passes these rules today. Loosen a rule and run again.</p>`}</div>
+    <div class="tiles">
+      ${tile("Your screen, a year", spct(m.screen.cagr), `${bt.yearly.length} years · rebalanced ${reb}`, cls(m.screen.cagr))}
+      ${tile("Nifty 50, a year", spct(m.nifty.cagr), "same period")}
+      ${tile("All these stocks, equal weight", spct(m.equal_weight.cagr), "shows how much is survivorship")}
+      ${tile("Worst fall", pct(m.screen.max_drawdown), `Nifty ${pct(m.nifty.max_drawdown)}`, "chg down")}
+      ${tile("Picks that rose", pct(bt.hit_rate), `${pct(bt.beat_nifty_rate)} beat the Nifty in their holding period`)}
+      ${tile("Trading a year", pct(bt.turnover_per_year), bt.periods_in_cash ? `${bt.periods_in_cash} periods with no match (cash)` : "of the portfolio")}
+    </div>
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Growth of ₹1</h2><div class="chart-wrap" id="ms-chart"></div>
+      <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Your screen</span><span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All stocks, equal weight</span><span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>Nifty 50</span></div></div>
+    <div class="card table-scroll"><h2 style="margin-top:0">Year by year</h2><table class="num"><thead><tr><th>Year</th><th class="r">Your screen</th><th class="r">Equal weight</th><th class="r">Nifty</th></tr></thead><tbody>
+      ${bt.yearly.map(y => `<tr><td>${y.year}</td><td class="r ${cls(y.screen)}"><b>${spct(y.screen)}</b></td><td class="r">${spct(y.equal_weight)}</td><td class="r">${spct(y.nifty)}</td></tr>`).join("")}</tbody></table>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, 0.25% cost on every rupee traded, before tax. Stocks are today's index members, so past results are flattered.</p></div>`;
+  msChart(bt.curve);
+  $$("[data-msck]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.msck];
+    ckFill({ instrument: "stock", product: "delivery", symbol: p.ticker, side: "buy", stop: p.price * 0.9, target: p.price * 1.2, hold: { M: 21, Q: 63, H: 126, Y: 250 }[r.screen.rebalance] }); });
+  $$("[data-mspp]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.mspp]; ppFill({ instrument: "stock", product: "delivery", symbol: p.ticker, qty: Math.max(p.shares, 1), note: "My screener" }); });
+}
+function msChart(curve) {
+  const wrap = $("#ms-chart"); if (!wrap || !curve.length) return;
+  const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  const W = Math.max(320, Math.round(wrap.clientWidth || 760)), H = 240, m = { l: 8, r: 54, t: 12, b: 24 };
+  const keys = [["screen", "--s1"], ["equal_weight", "--s2"], ["nifty", "--s3"]];
+  const lo = Math.log(Math.min(...curve.flatMap(p => keys.map(([k]) => p[k])))), hi = Math.log(Math.max(...curve.flatMap(p => keys.map(([k]) => p[k]))));
+  const X = i => m.l + (W - m.l - m.r) * i / (curve.length - 1), Y = x => m.t + (H - m.t - m.b) * (1 - (Math.log(x) - lo) / ((hi - lo) || 1));
+  let g = "";
+  [0.5, 1, 2, 3, 5, 10, 20].filter(x => Math.log(x) >= lo && Math.log(x) <= hi).forEach(x => {
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(x)}" y2="${Y(x)}" stroke="${v(x === 1 ? "--axis" : "--grid")}"/><text x="${W - m.r + 6}" y="${Y(x) + 4}" font-size="11" fill="${v("--muted")}">₹${x}</text>`; });
+  [0, Math.floor(curve.length / 2), curve.length - 1].forEach(i => { g += `<text x="${X(i)}" y="${H - 6}" font-size="11" fill="${v("--muted")}" text-anchor="${i === 0 ? "start" : i === curve.length - 1 ? "end" : "middle"}">${curve[i].date.slice(0, 7)}</text>`; });
+  const lines = keys.map(([k, col]) => `<path d="${curve.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(p[k]).toFixed(1)}`).join(" ")}" fill="none" stroke="${v(col)}" stroke-width="${k === "screen" ? 2.5 : 1.5}"/>`).join("");
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of 1 rupee: your screen, equal weight and Nifty"><rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${lines}</svg>`;
 }
 
 /* ---------------- check my trade ---------------- */

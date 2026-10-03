@@ -19,6 +19,7 @@ from . import llm
 from . import longterm
 from . import lots
 from . import markets
+from . import myscreen
 from . import news
 from . import options
 from . import paper

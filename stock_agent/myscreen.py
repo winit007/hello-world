@@ -1,0 +1,188 @@
+"""My screener: pick stocks with your own rules, see today's matches, and backtest the rules.
+
+Every metric is computed from daily prices up to the day in question only, so the backtest never uses the
+future: on each rebalance date the filters and ranking are applied to that day's values, the top N are held in
+equal weight until the next rebalance, and 0.25% is charged on every rupee traded. Compared with the Nifty 50 ETF
+and with holding every stock of the universe in equal weight (which shows how much is just survivorship:
+today's index members are the companies that survived).
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
+
+from .fund import COST, REBALANCE, _metrics, _rebalance_dates
+
+METRICS = {
+    "price": ("Price (₹)", "level"),
+    "ret_1m": ("Return, 1 month", "pct"),
+    "ret_3m": ("Return, 3 months", "pct"),
+    "ret_6m": ("Return, 6 months", "pct"),
+    "ret_12m": ("Return, 12 months", "pct"),
+    "from_high": ("Distance from 52-week high", "pct"),
+    "vs_sma50": ("Price vs 50-day average", "pct"),
+    "vs_sma200": ("Price vs 200-day average", "pct"),
+    "sma50_vs_200": ("50-day vs 200-day average", "pct"),
+    "rsi14": ("RSI (14 days)", "level"),
+    "vol_1y": ("Volatility, 1 year", "pct"),
+    "max_dd_1y": ("Worst fall in the last year", "pct"),
+    "beta_1y": ("Beta to Nifty, 1 year", "level"),
+    "value_cr": ("Traded value a day (₹ crore)", "level"),
+}
+
+PRESETS = {
+    "Momentum leaders": {"filters": [{"metric": "vs_sma200", "op": ">", "value": 0}, {"metric": "value_cr", "op": ">", "value": 20}],
+                         "rank_by": "ret_6m", "descending": True},
+    "Near 52-week high": {"filters": [{"metric": "from_high", "op": ">", "value": -0.05}, {"metric": "ret_12m", "op": ">", "value": 0.2}],
+                          "rank_by": "ret_3m", "descending": True},
+    "Pullback in an uptrend": {"filters": [{"metric": "vs_sma200", "op": ">", "value": 0}, {"metric": "rsi14", "op": "<", "value": 40}],
+                               "rank_by": "ret_12m", "descending": True},
+    "Low volatility": {"filters": [{"metric": "beta_1y", "op": "<", "value": 0.9}],
+                       "rank_by": "vol_1y", "descending": False},
+}
+
+
+@dataclass
+class Screen:
+    filters: list[dict] = field(default_factory=list)      # [{"metric", "op": ">"/"<", "value"}]
+    rank_by: str = "ret_6m"
+    descending: bool = True
+    top: int = 10
+    rebalance: str = "Q"
+
+    def validate(self) -> None:
+        for f in self.filters:
+            if f.get("metric") not in METRICS or f.get("op") not in (">", "<"):
+                raise ValueError(f"Bad rule: {f}")
+            float(f["value"])
+        if self.rank_by not in METRICS:
+            raise ValueError("Unknown ranking metric")
+        if not 1 <= int(self.top) <= 50:
+            raise ValueError("Hold between 1 and 50 stocks")
+        if self.rebalance not in REBALANCE:
+            raise ValueError("Rebalance monthly, quarterly, half-yearly or yearly")
+
+
+def _rsi(c: pd.DataFrame, n: int = 14) -> pd.DataFrame:
+    d = c.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
+    rsi = 100 - 100 / (1 + up / dn.where(dn > 0))
+    return rsi.mask((dn == 0) & up.notna(), 100.0)
+
+
+def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series) -> dict[str, pd.DataFrame]:
+    """Every metric for every stock and day, each value using only data up to that day."""
+    r = closes.pct_change()
+    br = bench.reindex(closes.index).ffill().pct_change()
+    sma50, sma200 = closes.rolling(50, min_periods=45).mean(), closes.rolling(200, min_periods=180).mean()
+    high = closes.rolling(252, min_periods=200).max()
+    cov = r.rolling(252, min_periods=200).cov(br)
+    var = br.rolling(252, min_periods=200).var()
+    dd = closes / closes.rolling(252, min_periods=200).max() - 1
+    return {
+        "price": closes,
+        "ret_1m": closes / closes.shift(21) - 1, "ret_3m": closes / closes.shift(63) - 1,
+        "ret_6m": closes / closes.shift(126) - 1, "ret_12m": closes / closes.shift(252) - 1,
+        "from_high": closes / high - 1, "vs_sma50": closes / sma50 - 1, "vs_sma200": closes / sma200 - 1,
+        "sma50_vs_200": sma50 / sma200 - 1, "rsi14": _rsi(closes),
+        "vol_1y": r.rolling(252, min_periods=200).std() * math.sqrt(252),
+        "max_dd_1y": dd.rolling(252, min_periods=200).min(),
+        "beta_1y": cov.div(var, axis=0),
+        "value_cr": values.rolling(60, min_periods=40).median() / 1e7,
+    }
+
+
+def snapshot(frames: dict[str, pd.DataFrame], date) -> pd.DataFrame:
+    rows = {k: f.loc[:date].iloc[-1] for k, f in frames.items()}
+    return pd.DataFrame(rows).dropna(subset=["price", "ret_12m", "vol_1y"])
+
+
+def apply(snap: pd.DataFrame, sc: Screen) -> pd.DataFrame:
+    ok = pd.Series(True, index=snap.index)
+    for f in sc.filters:
+        col = snap[f["metric"]]
+        ok &= (col > float(f["value"])) if f["op"] == ">" else (col < float(f["value"]))
+    return snap[ok & snap[sc.rank_by].notna()].sort_values(sc.rank_by, ascending=not sc.descending)
+
+
+def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Series, sc: Screen, progress=None) -> dict:
+    daily = closes.pct_change()
+    dates = [d for d in _rebalance_dates(closes.index, sc.rebalance) if len(closes.loc[:d]) >= 260]
+    if len(dates) < 3:
+        raise ValueError("Not enough history to backtest")
+    nav, ew, bn, held, hits, beats, turns = [1.0], [1.0], [1.0], [], [], [], []
+    seg_s, seg_e, seg_b = [], [], []          # daily values, so volatility and worst fall see every day
+    prev: dict[str, float] = {}
+    log = []
+    for k, (d0, d1) in enumerate(zip(dates[:-1], dates[1:])):
+        if progress and k % 6 == 0:
+            progress(f"Backtesting {d0:%b %Y}", 0.4 + 0.5 * k / len(dates))
+        snap = snapshot(frames, d0)
+        picks = list(apply(snap, sc).index[: int(sc.top)])
+        period = daily.loc[(daily.index > d0) & (daily.index <= d1)]
+        grow_all = (1 + period[snap.index].fillna(0)).prod()
+        b = float(bench.loc[:d1].iloc[-1] / bench.loc[:d0].iloc[-1] - 1)
+        if picks:
+            target = {t: 1 / len(picks) for t in picks}
+            traded = sum(abs(target.get(t, 0) - prev.get(t, 0)) for t in set(target) | set(prev))
+            g = grow_all[picks]
+            r = float(g.mean() - 1) - COST * traded
+            path = (1 + period[picks].fillna(0)).cumprod().mean(axis=1) * (1 - COST * traded)
+            hits += [float(x) > 1 for x in g]
+            beats += [float(x) - 1 > b for x in g]
+            drift = g / g.sum()
+            prev = drift.to_dict()
+            turns.append(traded / 2)
+        else:                                   # nothing passed the rules: sit in cash
+            r, traded = 0.0, sum(prev.values())
+            prev = {}
+            path = pd.Series(1.0, index=period.index)
+        seg_s.append(path * nav[-1])
+        seg_e.append((1 + period[snap.index].fillna(0)).cumprod().mean(axis=1) * ew[-1])
+        bseg = bench.reindex(closes.index).ffill()
+        seg_b.append(bseg.loc[period.index] / bseg.loc[:d0].iloc[-1] * bn[-1])
+        nav.append(nav[-1] * (1 + r))
+        ew.append(ew[-1] * (1 + float(grow_all.mean() - 1)))
+        bn.append(bn[-1] * (1 + b))
+        held.append(len(picks))
+        log.append({"date": str(d0.date()), "picks": picks})
+    start = pd.DataFrame({"screen": [1.0], "equal_weight": [1.0], "nifty": [1.0]}, index=[dates[0]])
+    daily_curve = pd.concat([start, pd.DataFrame({"screen": pd.concat(seg_s), "equal_weight": pd.concat(seg_e),
+                                                  "nifty": pd.concat(seg_b)})])
+    curve = daily_curve.resample("W-FRI").last().dropna()      # weekly points for the chart
+    yearly = []
+    for y, g in daily_curve.groupby(daily_curve.index.year):
+        prev_row = daily_curve[daily_curve.index < g.index[0]].tail(1)
+        base = prev_row.iloc[0] if len(prev_row) else g.iloc[0]
+        yearly.append({"year": int(y), **{c: float(g[c].iloc[-1] / base[c] - 1) for c in daily_curve.columns}})
+    per_year = REBALANCE[sc.rebalance][1]
+    return {"curve": [{"date": str(d.date()), **{c: float(v) for c, v in row.items()}} for d, row in curve.iterrows()],
+            "metrics": {c: _metrics(daily_curve[c], 252) for c in daily_curve.columns},
+            "hit_rate": float(np.mean(hits)) if hits else None, "beat_nifty_rate": float(np.mean(beats)) if beats else None,
+            "avg_held": float(np.mean(held)) if held else 0.0, "periods_in_cash": int(sum(1 for h in held if h == 0)),
+            "turnover_per_year": float(np.mean(turns) * per_year) if turns else 0.0, "yearly": yearly,
+            "last_picks": log[-1]["picks"] if log else []}
+
+
+def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
+        sectors: dict | None = None, progress=None) -> dict:
+    sc.validate()
+    progress = progress or (lambda m, f: None)
+    progress("Computing the metrics", 0.35)
+    frames = metric_frames(closes, values, bench)
+    today = closes.index[-1]
+    snap = snapshot(frames, today)
+    matches = apply(snap, sc)
+    top = matches.head(int(sc.top))
+    per = capital / max(len(top), 1)
+    rows = [{"ticker": t, "industry": (sectors or {}).get(t, ""), **{k: (None if pd.isna(v) else float(v)) for k, v in row.items()},
+             "shares": int(per // row["price"]) if row["price"] > 0 else 0} for t, row in top.iterrows()]
+    bt = backtest(closes, frames, bench, sc, progress)
+    progress("Done", 1.0)
+    return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,
+            "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt,
+            "metrics_info": {k: {"label": v[0], "kind": v[1]} for k, v in METRICS.items()}}

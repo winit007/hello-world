@@ -78,9 +78,19 @@ def select(sc: pd.DataFrame, sectors: dict[str, str], rules: FundRules) -> list[
     return picks
 
 
+REBALANCE = {"M": ("monthly", 12), "Q": ("quarterly", 4), "H": ("half-yearly", 2), "Y": ("yearly", 1)}
+MF_EXPENSE = 0.01      # a typical actively managed equity fund's expense ratio (direct plans ~0.5-1%, regular ~1.5-2%)
+
+
 def _rebalance_dates(idx: pd.DatetimeIndex, freq: str) -> list[pd.Timestamp]:
+    """Last trading day of every month, quarter, half-year or year."""
     s = pd.Series(idx, index=idx)
-    key = idx.to_period("Q" if freq == "Q" else "M")
+    if freq == "H":
+        key = [f"{d.year}-{(d.month - 1) // 6}" for d in idx]
+    elif freq == "Y":
+        key = idx.year
+    else:
+        key = idx.to_period("Q" if freq == "Q" else "M")
     return list(s.groupby(key).max())
 
 
@@ -89,6 +99,10 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, rules.rebalance) if len(closes.loc[:d]) >= 260]
     nav, ew_nav, bench_nav, turnover, holdings_log = [1.0], [1.0], [1.0], [], []
+    gross_nav = [1.0]          # the same portfolio with no costs and no tax
+    seg_f, seg_e, seg_b = [], [], []   # daily values: volatility and worst fall must see every day, not just rebalances
+    bench_d = bench.reindex(closes.index).ffill()
+    costs_paid = 0.0           # trading costs in the taxed account, in growth-of-1 units
     nav_dates = [dates[0]]
     prev = {}
     # after-tax account for a person doing this themselves: positions with cost and buy date
@@ -109,7 +123,8 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         period = daily.loc[(daily.index > d0) & (daily.index <= d1)]
         # buy-and-hold inside the period: weights drift with prices
         grow = (1 + period[picks].fillna(0)).prod()
-        r = float((grow * pd.Series(target)).sum() - 1) - COST * traded
+        r_gross = float((grow * pd.Series(target)).sum() - 1)
+        r = r_gross - COST * traded
         elig = sc.index
         ew = float((1 + period[elig].fillna(0)).prod().mean() - 1)
         b = float((1 + bench.loc[(bench.index > d0) & (bench.index <= d1)].pct_change().fillna(0)).prod() - 1) \
@@ -137,6 +152,7 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         else:
             loss_cf = net
         tax_paid += tax
+        costs_paid += COST * traded * acct
         acct -= tax + COST * traded * acct
         for t, w_ in target.items():                     # buy up to target with what is left
             want = w_ * acct
@@ -150,7 +166,11 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
             lots[t][0] *= float(grow.get(t, 1.0))
         tax_nav.append(sum(v[0] for v in lots.values()))
 
+        seg_f.append((1 + period[picks].fillna(0)).cumprod().mul(pd.Series(target)).sum(axis=1) * (1 - COST * traded) * nav[-1])
+        seg_e.append((1 + period[elig].fillna(0)).cumprod().mean(axis=1) * ew_nav[-1])
+        seg_b.append(bench_d.loc[period.index] / bench_d.loc[:d0].iloc[-1] * bench_nav[-1])
         nav.append(nav[-1] * (1 + r))
+        gross_nav.append(gross_nav[-1] * (1 + r_gross))
         ew_nav.append(ew_nav[-1] * (1 + ew))
         bench_nav.append(bench_nav[-1] * (1 + b))
         nav_dates.append(d1)
@@ -158,7 +178,7 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         prev = (drift / drift.sum()).to_dict()
         holdings_log.append({"date": str(d0.date()), "picks": picks})
     curve = pd.DataFrame({"fund": nav, "equal_weight": ew_nav, "nifty": bench_nav}, index=pd.DatetimeIndex(nav_dates))
-    per_year = 12 if rules.rebalance == "M" else 4
+    per_year = REBALANCE.get(rules.rebalance, ("", 4))[1]
     years = (curve.index[-1] - curve.index[0]).days / 365.25
     # selling everything at the end, after tax, against an index fund taxed once at the end
     unreal = sum(v[0] - v[1] for v in lots.values())
@@ -168,9 +188,24 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
     after_tax = {"fund_growth_of_1": fund_after, "fund_cagr": fund_after ** (1 / years) - 1,
                  "nifty_growth_of_1": nifty_after, "nifty_cagr": nifty_after ** (1 / years) - 1,
                  "tax_paid_along_the_way": tax_paid}
+    # where the gross profit went, per rupee invested at the start
+    gross_profit = gross_nav[-1] - 1
+    taxes = tax_paid + end_tax
+    net_profit = fund_after - 1
+    drag = max(gross_profit - net_profit - taxes - costs_paid, 0.0)     # growth lost on money paid out
+    mf_after = 1 + (curve["fund"].iloc[-1] * (1 - MF_EXPENSE) ** years - 1) * (1 - LTCG)
+    breakdown = {"years": years, "gross_growth_of_1": gross_nav[-1], "gross_profit": gross_profit,
+                 "net_profit": net_profit, "taxes": taxes, "tax_end": end_tax, "costs": costs_paid,
+                 "compounding_lost": drag, "mf_expense_ratio": MF_EXPENSE, "mf_net_growth_of_1": mf_after,
+                 # a fund pays no tax on its own rebalancing (you are taxed once, on redemption) but charges its
+                 # expense ratio every year: what that ratio costs, per rupee invested
+                 "mf_expenses": float(curve["fund"].iloc[-1] * (1 - (1 - MF_EXPENSE) ** years))}
     curve["fund_after_tax"] = tax_nav
-    return {"curve": curve, "metrics": {c: _metrics(curve[c], per_year) for c in ("fund", "equal_weight", "nifty")},
-            "after_tax": after_tax,
+    daily_nav = pd.concat([pd.DataFrame({"fund": [1.0], "equal_weight": [1.0], "nifty": [1.0]}, index=[dates[0]]),
+                           pd.DataFrame({"fund": pd.concat(seg_f), "equal_weight": pd.concat(seg_e),
+                                         "nifty": pd.concat(seg_b)})]) if seg_f else curve[["fund", "equal_weight", "nifty"]]
+    return {"curve": curve, "metrics": {c: _metrics(daily_nav[c], 252) for c in ("fund", "equal_weight", "nifty")},
+            "after_tax": after_tax, "breakdown": breakdown,
             "turnover_per_year": float(np.mean(turnover) * per_year) if turnover else 0.0,
             "beat_nifty_12m": _beat(curve["fund"], curve["nifty"], per_year),
             "beat_equal_12m": _beat(curve["fund"], curve["equal_weight"], per_year),

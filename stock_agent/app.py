@@ -309,7 +309,42 @@ def run_market(market: str, settings: dict, progress) -> dict:
 
     res = markets.scan(market, float(settings["capital"]), float(settings["risk"]) / 100, False, CACHE,
                        progress=progress)
-    return {**res, "rows": [clean(r) for r in res["rows"]], "check_text": markets.check_line(res)}
+    rows = [clean(r) for r in res["rows"]]
+    if market == "crypto":
+        progress("Trade ideas: replaying each one over the coin's history", 0.95)
+        for r in rows:
+            r["idea"] = crypto_idea(r["symbol"], float(settings["capital"]), float(settings["risk"]) / 100,
+                                    res.get("usd_inr") or 90.0)
+        rows.sort(key=lambda r: -((r.get("idea") or {}).get("chance") or 0))
+    return {**res, "rows": rows, "check_text": markets.check_line(res)}
+
+
+def crypto_idea(symbol: str, capital: float, risk_pct: float, usd_inr: float) -> dict | None:
+    """A concrete long trade for a coin: stop 2 x ATR below, target 3 x ATR above, hold up to 10 days, sized so the
+    stop loses at most the risk budget, with its win rate replayed over the coin's history."""
+    from . import tradecheck
+    from .data import _cache_path, read_cached
+    from .sizing import atr
+
+    try:
+        df = read_cached(_cache_path(CACHE, symbol, "10y", "1d"))
+        last, a = float(df["Close"].iloc[-1]), float(atr(df, 14))
+        stop, target = last - 2 * a, last + 3 * a
+        if stop <= 0:
+            return None
+        res = tradecheck.check(df, "crypto", "buy", last, stop, target, 10)
+    except Exception:
+        return None
+    al, lk = res["all"], res["like_today"]
+    per_coin_risk = (last - stop) * usd_inr
+    units = (capital * risk_pct) / per_coin_risk if per_coin_risk > 0 else 0
+    units = min(units, capital * 0.25 / (last * usd_inr))           # never more than a quarter of the capital
+    chance = (lk or al)["win_rate"]
+    return {"entry": last, "stop": stop, "target": target, "hold_days": 10, "atr": a, "units": round(units, 6),
+            "value_inr": units * last * usd_inr, "risk_inr": units * per_coin_risk, "chance": chance,
+            "win_all": al["win_rate"], "trades_all": al["trades"], "win_like": lk["win_rate"] if lk else None,
+            "trades_like": lk["trades"] if lk else 0, "avg_ret": al["avg_ret"], "breakeven": res["breakeven"],
+            "trend": res["today"]["trend"], "volatility": res["today"]["volatility"]}
 
 
 def run_goal(body: dict, progress) -> dict:
@@ -353,7 +388,7 @@ def run_fund(body: dict, settings: dict, progress) -> dict:
 
     rules = fund.FundRules(universe=body.get("universe", "nifty200"), size=int(body.get("size", 25)),
                            rebalance=body.get("rebalance", "Q"))
-    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) or rules.rebalance not in ("M", "Q"):
+    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) or rules.rebalance not in ("M", "Q", "H", "Y"):
         raise ValueError("Unsupported fund settings")
     res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress)
     curve = res.pop("curve")
@@ -464,6 +499,21 @@ def run_check(body: dict, progress) -> dict:
     return clean({**res, "symbol": sym, "instrument": inst, "product": product, "side": body.get("side", "buy"),
                   "entry": entry, "stop": num("stop"), "target": num("target"), "option": option,
                   "last_price": float(df["Close"].iloc[-1]), "hold": hold})
+
+
+def run_myscreen(body: dict, settings: dict, progress) -> dict:
+    from . import fund, myscreen
+
+    uni = body.get("universe", "nifty200")
+    if uni not in ("nifty50", "nifty100", "nifty200", "fno"):
+        raise ValueError("Unsupported universe")
+    sc = myscreen.Screen(filters=list(body.get("filters") or []), rank_by=body.get("rank_by", "ret_6m"),
+                         descending=bool(body.get("descending", True)), top=int(body.get("top") or 10),
+                         rebalance=body.get("rebalance", "Q"))
+    sc.validate()
+    closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni), False, CACHE, progress)
+    res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress)
+    return clean({**res, "universe": uni})
 
 
 def run_longterm(settings: dict, progress) -> dict:
@@ -918,6 +968,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"job": start_job("screen", run_screen, {**load_settings(), **body})})
             if url.path == "/api/goal":
                 return self._send(200, {"job": start_job("goal", run_goal, body)})
+            if url.path == "/api/myscreen":
+                return self._send(200, {"job": start_job("myscreen", run_myscreen, body, load_settings())})
             if url.path == "/api/check":
                 return self._send(200, {"job": start_job("check", run_check, body)})
             if url.path == "/api/fund":

@@ -45,7 +45,10 @@ python -m stock_agent shortcut   :: puts a "Stock Agent" icon on your desktop; d
 ```
 
 The app runs on your own computer and opens at `http://127.0.0.1:8765`. Keep the black window
-that appears open while you use it; close it to stop the app. It has five pages:
+that appears open while you use it; close it to stop the app. The pages sit in four groups along the
+top: **Trade** (picks, long-term picks, my screener, check my trade, lookup, crypto, commodities, IPOs),
+**Practice** (paper trading, my trades, track record, backtest lab), **Invest** (model fund, goals,
+rebalance) and **Settings** (settings, help). A chip next to them shows whether NSE is open now.
 
 | Page | What it does |
 |---|---|
@@ -53,6 +56,7 @@ that appears open while you use it; close it to stop the app. It has five pages:
 | **Stock lookup** | Type any symbol (TCS.NS, AAPL) for its verdict, a 6-month candlestick chart with patterns and your stop/targets marked, its best candlestick rules and its latest news. |
 | **Track record** | What every pick would have made if you had taken it: profit or loss for each day, a running total, and the outcome of each pick (target, stop, time exit). *Rebuild last 10 days* fills in history straight away. |
 | **Long-term picks** | Ten shares to buy and hold for about a year, ranked by their chance of being higher 12 months later. The chance averages two ten-year records: stocks ranked like it by the model fund's momentum-plus-steadiness score, and the stock's own record. Shows the typical and bad-case year, shares for an equal slice of your capital, and the Nifty 50 index fund's record for comparison (higher after a year 85% of the time). |
+| **My screener** | Your own rules to pick stocks: add filters such as *12-month return above 20%*, *price above the 200-day average*, *RSI below 40*, *beta below 0.9*, *traded value above ₹20 crore a day* (14 measures), choose what to rank by, how many to hold and how often to rebalance (monthly, quarterly, half-yearly, yearly). It shows today's matches with shares for your capital and backtests the same rules over the Nifty 200 with costs, against the Nifty and an equal-weight basket. Four ready-made presets; your screen is remembered. |
 | **Check my trade** | Describe any trade (shares positional or intraday, options bought or written, crypto, commodities): symbol, side, entry, stop-loss, target, how long you hold. It replays that exact trade from every past day of the instrument (daily candles over ten years, or 15-minute candles over 60 days for intraday) and shows the win rate with a 90% range, the win rate in conditions like today (same trend and volatility band), the win rate your risk/reward needs to break even, how often the target or the stop came first, and the average result after costs. **Check win rate** on any pick or in Paper trading fills it in. |
 | **Paper trading** | A practice account with virtual money (your capital from Settings; reset any time). Buy or short NSE shares, buy or sell NSE stock options, trade crypto and MCX commodities at live prices with real lot sizes, slippage and charges. Stop-loss and target close positions automatically, intraday trades square off at 3:20 pm, and it tracks your win rate, P&L, charges and worst drop. *Paper trade* on any card fills in the order. |
 | **My trades** | *Add to my trades* from any pick, then enter the price you sold at to close it. Shows your win rate and total profit or loss. |
@@ -429,6 +433,12 @@ targets. Each tab opens with its own out-of-sample strategy check. On the data a
 neither showed an edge (crypto 44% won, -0.43% per trade; commodities 40% won, -0.05% per trade).
 Commodity prices are the US futures; MCX follows them in rupees with import duty, so levels are approximate.
 
+The Crypto tab also lists a **crypto trade for every coin, most likely to win first**: entry at the last
+price, stop 2 ATR below, target 3 ATR above, a 10-day hold, coins sized for your risk (at most a quarter
+of your capital in one coin). The chance is the replayed win rate of that exact trade over the coin's
+history (in conditions like today when there are enough of them, as in *Check my trade*); this
+risk/reward breaks even at a 40% win rate. Each row has *Check* and *Paper trade* buttons.
+
 ## Model fund: a stock portfolio built like a factor fund
 
 ```bash
@@ -436,7 +446,7 @@ python -m stock_agent fund --universe nifty200 --size 25 --rebalance Q --capital
 ```
 
 The *Model fund* tab works the way systematic fund houses run factor funds. On each rebalance date
-(quarter or month end) it ranks the liquid Nifty 200 stocks by risk-adjusted 12-1 month momentum (the
+(month, quarter, half-year or year end; your choice) it ranks the liquid Nifty 200 stocks by risk-adjusted 12-1 month momentum (the
 return from 12 months ago to 1 month ago, divided by volatility) plus half a weight of low volatility,
 holds the top 25 in equal weight with at most 5 from one industry, and lists today's portfolio with
 the number of shares for your capital (stocks whose single share costs more than an equal slot are
@@ -454,6 +464,14 @@ in 61% of 12-month periods, and lagged badly in 2025 (-2% against +12% for the N
 190% a year, and unlike a mutual fund you pay tax on every profitable sale. Index funds that track NSE's
 factor indices (such as Nifty 200 Momentum 30 or Nifty Alpha Low-Volatility 30) run this kind of strategy
 without that tax drag.
+
+**Where the profit went.** A pie under the results splits the gross profit (the rules with no tax and no
+costs) into what you keep, tax paid along the way and at the end, trading costs, and the growth lost
+because tax money stopped compounding, and shows what the same rules would leave inside a mutual fund
+(1% a year expense ratio, no tax on its internal trades, 12.5% long-term tax once when you sell).
+Rebalancing less often trades less and defers tax: on the October 2026 data, monthly made 18.4% a year
+after tax, quarterly 20.8%, half-yearly 21.0% and yearly 24.8%. Worst fall and volatility are measured
+on daily values whatever the rebalance period.
 
 ## Long-term goals and rebalancing
 
@@ -528,7 +546,7 @@ python -m stock_agent research RELIANCE.NS TCS.NS INFY.NS --period 10y
 
 ```
 stock_agent/
-  data.py       price download + CSV cache (offline mode)
+  data.py       price download + CSV cache (offline mode); repairs one-off bad ticks from Yahoo
   patterns.py   22 candlestick detectors in plain pandas
   backtest.py   forward-return evaluation, Wilson ranking, cross-ticker pooling
   news.py       Google News + Yahoo RSS, filing-spam filter, VADER sentiment, themes
@@ -540,6 +558,7 @@ stock_agent/
   ipo.py        new listings since their IPO, and IPO news
   markets.py    crypto (daily) and intraday commodity (15-minute) scans with MCX lot sizing
   fund.py       model factor fund: momentum + low-volatility ranking, backtest with costs and tax
+  myscreen.py   My screener: your own filters and ranking, today's matches and a backtest of the rules
   planner.py    long-term goal planner (allocation, Monte Carlo, required monthly investment)
   rebalance.py  current vs target mix, full rebalance and new-money-only trades
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit

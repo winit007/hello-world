@@ -259,7 +259,7 @@ def cmd_fund(args) -> int:
     m, a = r["metrics"], r["after_tax"]
     c = r["curve"]
     print(f"Model fund: top {args.size} of {r['universe_size']} {args.universe} stocks, rebalanced "
-          f"{'monthly' if args.rebalance == 'M' else 'quarterly'} · backtest {c.index[0].date()} to {c.index[-1].date()}")
+          f"{fund.REBALANCE[args.rebalance][0]} · backtest {c.index[0].date()} to {c.index[-1].date()}")
     for k, label in (("fund", "Model fund"), ("equal_weight", "All stocks, equal weight"), ("nifty", "Nifty 50 ETF")):
         print(f"  {label:<26} {m[k]['cagr']:+.1%} a year · worst fall {m[k]['max_drawdown']:.0%} · ₹1 became ₹{m[k]['growth_of_1']:.2f}")
     print(f"  After tax (you trading it): {a['fund_cagr']:+.1%} a year vs Nifty index fund {a['nifty_cagr']:+.1%}")
@@ -432,7 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     fp = sub.add_parser("fund", help="model factor fund: today's 25 stocks and an honest backtest")
     fp.add_argument("--universe", choices=["nifty200", "nifty100", "fno"], default="nifty200")
     fp.add_argument("--size", type=int, default=25)
-    fp.add_argument("--rebalance", choices=["M", "Q"], default="Q")
+    fp.add_argument("--rebalance", choices=["M", "Q", "H", "Y"], default="Q")
     fp.add_argument("--capital", type=float, default=200000)
     fp.add_argument("--offline", action="store_true")
     fp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)

@@ -157,3 +157,18 @@ class TermuxTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GlitchTests(unittest.TestCase):
+    def test_short_lived_split_glitch_is_repaired_but_real_moves_are_kept(self):
+        from stock_agent.data import fix_glitches
+
+        idx = pd.bdate_range("2019-12-16", periods=8)
+        close = [100, 101, 102, 10.2, 10.3, 103, 104, 105]      # two bad days at a tenth of the price
+        df = pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": 1.0}, index=idx)
+        fixed = fix_glitches(df)
+        self.assertLess(fixed["Close"].pct_change().abs().max(), 0.05)
+        self.assertEqual(fixed["Close"].iloc[3], 102.0)
+        crash = [100, 101, 40, 41, 42, 43, 44, 45]                # a real collapse that never comes back
+        df2 = pd.DataFrame({"Open": crash, "High": crash, "Low": crash, "Close": crash, "Volume": 1.0}, index=idx)
+        pd.testing.assert_frame_equal(fix_glitches(df2), df2)
