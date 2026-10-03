@@ -118,7 +118,7 @@ class KiteFlowTests(unittest.TestCase):
         self.k = K.Kite(self.home)
         self.k.update_config("key1", "sec1", practice=False)
         self.k.complete_login("req1")
-        self.open_patch = mock.patch.object(K, "market_open", return_value=True)
+        self.open_patch = mock.patch("stock_agent.broker_base.market_open", return_value=True)
         self.open_patch.start()
         # checklist inputs: a positive strategy check and no results date, so no test touches Yahoo
         from stock_agent import checklist, tradetest
@@ -162,7 +162,7 @@ class KiteFlowTests(unittest.TestCase):
 
     def test_preview_blocks_unaffordable_and_closed_market(self):
         self.assertTrue(any("above your" in b for b in self.pv(capital=50_000)["blockers"]))
-        with mock.patch.object(K, "market_open", return_value=False):
+        with mock.patch("stock_agent.broker_base.market_open", return_value=False):
             self.assertTrue(any("Market is closed" in b for b in self.pv(capital=1_000_000)["blockers"]))
         with self.assertRaises(K.KiteError):
             K.place(self.k, self.pv(capital=50_000))
@@ -227,7 +227,7 @@ class KiteFlowTests(unittest.TestCase):
         FakeKite.state["no_data"] = True
         pv = self.pv(capital=1_000_000)
         self.assertIsNone(pv["live"])
-        self.assertTrue(any("no live quotes" in w for w in pv["warnings"]))
+        self.assertTrue(any("no live quotes" in w.lower() for w in pv["warnings"]))
         self.assertAlmostEqual(pv["limit"], PLAN["premium"], places=1)
 
     def test_exit_now_cancels_gtts_and_sells(self):
