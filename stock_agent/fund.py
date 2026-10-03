@@ -10,8 +10,9 @@ Every rebalance date (month or quarter end):
   3. Hold the top 25, equal weight, at most 5 from one industry.
 These definitions are textbook and fixed in advance; nothing is tuned on the backtest.
 
-Backtest: daily total-return prices (dividends included), positions held between rebalance dates,
-0.25% cost on every rupee traded (brokerage, STT, spread and impact). Two benchmarks: the Nifty 50 ETF
+Backtest: daily total-return prices (dividends included), positions held between rebalance dates, and
+real trading costs for your capital (costs.py: STT, stamp duty, exchange and DP charges, brokerage, plus the
+bid-ask spread and market impact from each stock's traded value). Two benchmarks: the Nifty 50 ETF
 (NIFTYBEES), and an equal-weight basket of the whole universe. The second one matters: today's index
 members are, by definition, the companies that survived and grew, so any portfolio drawn from them looks
 good in hindsight (survivorship bias). The factor strategy is only adding value if it beats that basket.
@@ -24,12 +25,13 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from . import costs as C
 from .data import DEFAULT_CACHE, _cache_path, read_cached, refresh_many
 from .screener import load_universe
 from .universes import get_universe, industries
 
 BENCHMARK = "NIFTYBEES.NS"
-COST = 0.0025
+COST = 0.0025          # the old flat estimate, still used where no capital is known
 STCG, LTCG = 0.20, 0.125      # Indian listed-equity capital-gains tax (held under / over 12 months)
 
 
@@ -95,7 +97,7 @@ def _rebalance_dates(idx: pd.DatetimeIndex, freq: str) -> list[pd.Timestamp]:
 
 
 def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sectors: dict[str, str],
-             rules: FundRules, progress=None) -> dict:
+             rules: FundRules, progress=None, capital: float = 200_000, per_order: float = 0.0) -> dict:
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, rules.rebalance) if len(closes.loc[:d]) >= 260]
     nav, ew_nav, bench_nav, turnover, holdings_log = [1.0], [1.0], [1.0], [], []
@@ -103,6 +105,8 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
     seg_f, seg_e, seg_b = [], [], []   # daily values: volatility and worst fall must see every day, not just rebalances
     bench_d = bench.reindex(closes.index).ffill()
     costs_paid = 0.0           # trading costs in the taxed account, in growth-of-1 units
+    charges_paid = 0.0         # the statutory part of costs_paid (the rest is spread and impact)
+    orders = 0
     nav_dates = [dates[0]]
     prev = {}
     # after-tax account for a person doing this themselves: positions with cost and buy date
@@ -117,14 +121,17 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         if sc.empty:
             continue
         picks = select(sc, sectors, rules)
-        target = {t: 1 / len(picks) for t in picks}
+        target = C.with_band(prev, {t: 1 / len(picks) for t in picks})
         traded = sum(abs(target.get(t, 0) - prev.get(t, 0)) for t in set(target) | set(prev))
         turnover.append(traded / 2)
+        adv, dvol = C.liquidity(closes, values, d0)
+        cc = C.rebalance_cost(prev, target, capital * nav[-1], adv, dvol, per_order)
+        cost_f, orders = cc["fraction"], orders + cc["orders"]
         period = daily.loc[(daily.index > d0) & (daily.index <= d1)]
         # buy-and-hold inside the period: weights drift with prices
         grow = (1 + period[picks].fillna(0)).prod()
         r_gross = float((grow * pd.Series(target)).sum() - 1)
-        r = r_gross - COST * traded
+        r = r_gross - cost_f
         elig = sc.index
         ew = float((1 + period[elig].fillna(0)).prod().mean() - 1)
         b = float((1 + bench.loc[(bench.index > d0) & (bench.index <= d1)].pct_change().fillna(0)).prod() - 1) \
@@ -152,8 +159,9 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         else:
             loss_cf = net
         tax_paid += tax
-        costs_paid += COST * traded * acct
-        acct -= tax + COST * traded * acct
+        costs_paid += cost_f * acct
+        charges_paid += cost_f * acct * (cc["charges"] / max(cc["charges"] + cc["spread_impact"], 1e-12))
+        acct -= tax + cost_f * acct
         for t, w_ in target.items():                     # buy up to target with what is left
             want = w_ * acct
             val, cost, bought = lots.get(t, [0.0, 0.0, d0.toordinal()])
@@ -166,7 +174,7 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
             lots[t][0] *= float(grow.get(t, 1.0))
         tax_nav.append(sum(v[0] for v in lots.values()))
 
-        seg_f.append((1 + period[picks].fillna(0)).cumprod().mul(pd.Series(target)).sum(axis=1) * (1 - COST * traded) * nav[-1])
+        seg_f.append((1 + period[picks].fillna(0)).cumprod().mul(pd.Series(target)).sum(axis=1) * (1 - cost_f) * nav[-1])
         seg_e.append((1 + period[elig].fillna(0)).cumprod().mean(axis=1) * ew_nav[-1])
         seg_b.append(bench_d.loc[period.index] / bench_d.loc[:d0].iloc[-1] * bench_nav[-1])
         nav.append(nav[-1] * (1 + r))
@@ -196,7 +204,8 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
     mf_after = 1 + (curve["fund"].iloc[-1] * (1 - MF_EXPENSE) ** years - 1) * (1 - LTCG)
     breakdown = {"years": years, "gross_growth_of_1": gross_nav[-1], "gross_profit": gross_profit,
                  "net_profit": net_profit, "taxes": taxes, "tax_end": end_tax, "costs": costs_paid,
-                 "compounding_lost": drag, "mf_expense_ratio": MF_EXPENSE, "mf_net_growth_of_1": mf_after,
+                 "compounding_lost": drag, "charges": charges_paid, "spread_impact": costs_paid - charges_paid,
+                 "orders_per_year": orders / years if years else 0.0, "capital": capital, "mf_expense_ratio": MF_EXPENSE, "mf_net_growth_of_1": mf_after,
                  # a fund pays no tax on its own rebalancing (you are taxed once, on redemption) but charges its
                  # expense ratio every year: what that ratio costs, per rupee invested
                  "mf_expenses": float(curve["fund"].iloc[-1] * (1 - (1 - MF_EXPENSE) ** years))}
@@ -255,10 +264,10 @@ def load(rules: FundRules, offline: bool = False, cache_dir=DEFAULT_CACHE, progr
 
 
 def run(rules: FundRules = FundRules(), capital: float = 200_000, offline: bool = False, cache_dir=DEFAULT_CACHE,
-        progress=None) -> dict:
+        progress=None, per_order: float = 0.0) -> dict:
     progress = progress or (lambda m, f: None)
     closes, values, bench, sectors = load(rules, offline, cache_dir, progress)
-    bt = backtest(closes, values, bench, sectors, rules, progress)
+    bt = backtest(closes, values, bench, sectors, rules, progress, capital, per_order)
 
     # today's portfolio
     today = closes.index[-1]

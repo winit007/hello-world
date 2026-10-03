@@ -1326,7 +1326,9 @@ function drawFund(r) {
 function profitPie(r) {
   const b = r.breakdown, C = r.capital || 200000, css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
   const parts = [["You keep (net profit)", b.net_profit, "--up"], ["Capital-gains tax", b.taxes, "--down"],
-                 ["Trading costs (brokerage, STT, spread)", b.costs, "--warn"], ["Growth lost on money paid out", b.compounding_lost, "--muted"]];
+                 ...(b.charges != null ? [["Charges (STT, stamp duty, DP, brokerage)", b.charges, "--warn"], ["Spread and market impact", b.spread_impact, "--s3"]]
+                                       : [["Trading costs (brokerage, STT, spread)", b.costs, "--warn"]]),
+                 ["Growth lost on money paid out", b.compounding_lost, "--muted"]];
   const total = parts.reduce((a, p) => a + Math.max(p[1], 0), 0) || 1;
   let ang = -Math.PI / 2, arcs = "";
   const R = 70, r0 = 44, cx = 90, cy = 90;
@@ -1340,7 +1342,7 @@ function profitPie(r) {
   const rows = parts.map(([k, val, col]) => `<tr><td><i class="sw" style="background:${v(col)};width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:6px"></i>${k}</td><td class="r">${money(val * C)}</td><td class="r">${pct(Math.max(val, 0) / total)}</td></tr>`).join("");
   const reb = { M: "monthly", Q: "quarterly", H: "half-yearly", Y: "yearly" }[r.rules.rebalance] || "";
   return `<div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Where the profit went, for your ${money(C)}</h2>
-    <p class="sub" style="font-size:13.5px;margin:0 0 10px">Over ${b.years.toFixed(1)} years, rebalancing ${reb}, the portfolio itself made ${money(b.gross_profit * C)} before any costs or tax. This is how it splits if you run it yourself.</p>
+    <p class="sub" style="font-size:13.5px;margin:0 0 10px">Over ${b.years.toFixed(1)} years, rebalancing ${reb}, the portfolio itself made ${money(b.gross_profit * C)} before any costs or tax. This is how it splits if you run it yourself${b.orders_per_year ? ` (about ${Math.round(b.orders_per_year)} buy and sell orders a year)` : ""}.</p>
     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
       <svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Donut chart of net profit, tax, costs and lost growth">${arcs}
         <text x="90" y="86" text-anchor="middle" font-size="22" font-weight="700" fill="${v("--ink")}">${pct(keep)}</text>

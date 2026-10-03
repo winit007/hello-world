@@ -39,6 +39,7 @@ WEB = Path(__file__).with_name("web")
 DEFAULT_SETTINGS = {
     "capital": 200000, "risk": 2.0, "universe": "nifty50", "custom": "", "horizon": 5,
     "affordable_only": False, "top": 10, "broker": "kite",
+    "brokerage": 0.0,          # delivery brokerage per order in ₹ (0 at Zerodha; up to 20 elsewhere)
 }
 
 _lock = threading.Lock()
@@ -390,7 +391,8 @@ def run_fund(body: dict, settings: dict, progress) -> dict:
                            rebalance=body.get("rebalance", "Q"))
     if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) or rules.rebalance not in ("M", "Q", "H", "Y"):
         raise ValueError("Unsupported fund settings")
-    res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress)
+    res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress,
+                   per_order=float(settings.get("brokerage") or 0))
     curve = res.pop("curve")
     res["curve"] = [{"date": str(d.date()), **{k: float(v) for k, v in row.items()}} for d, row in curve.iterrows()]
     res.pop("log", None)
@@ -512,7 +514,8 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
                          rebalance=body.get("rebalance", "Q"))
     sc.validate()
     closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni), False, CACHE, progress)
-    res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress)
+    res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress,
+                       per_order=float(settings.get("brokerage") or 0))
     return clean({**res, "universe": uni})
 
 
@@ -962,6 +965,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["risk"] = min(max(float(s["risk"]), 0.1), 20.0)
                 s["horizon"] = int(s["horizon"]) if int(s["horizon"]) in (3, 5, 10) else 5
                 s["top"] = min(max(int(s["top"]), 1), 20)
+                s["brokerage"] = min(max(float(s.get("brokerage") or 0), 0.0), 100.0)
                 _write_json(SETTINGS_FILE, s)
                 return self._send(200, s)
             if url.path == "/api/screen":

@@ -2,7 +2,8 @@
 
 Every metric is computed from daily prices up to the day in question only, so the backtest never uses the
 future: on each rebalance date the filters and ranking are applied to that day's values, the top N are held in
-equal weight until the next rebalance, and 0.25% is charged on every rupee traded. Compared with the Nifty 50 ETF
+equal weight until the next rebalance, and every trade pays real costs for your capital (costs.py: charges,
+DP fee, spread and impact). Compared with the Nifty 50 ETF
 and with holding every stock of the universe in equal weight (which shows how much is just survivorship:
 today's index members are the companies that survived).
 """
@@ -14,7 +15,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .fund import COST, REBALANCE, _metrics, _rebalance_dates
+from . import costs as C
+from .fund import REBALANCE, _metrics, _rebalance_dates
 
 METRICS = {
     "price": ("Price (₹)", "level"),
@@ -109,7 +111,8 @@ def apply(snap: pd.DataFrame, sc: Screen) -> pd.DataFrame:
     return snap[ok & snap[sc.rank_by].notna()].sort_values(sc.rank_by, ascending=not sc.descending)
 
 
-def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Series, sc: Screen, progress=None) -> dict:
+def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Series, sc: Screen, progress=None,
+             values: pd.DataFrame | None = None, capital: float = 200_000, per_order: float = 0.0) -> dict:
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, sc.rebalance) if len(closes.loc[:d]) >= 260]
     if len(dates) < 3:
@@ -118,6 +121,8 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
     seg_s, seg_e, seg_b = [], [], []          # daily values, so volatility and worst fall see every day
     prev: dict[str, float] = {}
     log = []
+    values = values if values is not None else closes * 0 + 1e9
+    cost_tot = {"charges": 0.0, "spread_impact": 0.0}        # per rupee at the start
     for k, (d0, d1) in enumerate(zip(dates[:-1], dates[1:])):
         if progress and k % 6 == 0:
             progress(f"Backtesting {d0:%b %Y}", 0.4 + 0.5 * k / len(dates))
@@ -127,20 +132,29 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
         grow_all = (1 + period[snap.index].fillna(0)).prod()
         b = float(bench.loc[:d1].iloc[-1] / bench.loc[:d0].iloc[-1] - 1)
         if picks:
-            target = {t: 1 / len(picks) for t in picks}
+            target = C.with_band(prev, {t: 1 / len(picks) for t in picks})
             traded = sum(abs(target.get(t, 0) - prev.get(t, 0)) for t in set(target) | set(prev))
+            adv, dvol = C.liquidity(closes, values, d0)
+            cc = C.rebalance_cost(prev, target, capital * nav[-1], adv, dvol, per_order)
+            for k_ in cost_tot:
+                cost_tot[k_] += cc[k_] / capital
             g = grow_all[picks]
-            r = float(g.mean() - 1) - COST * traded
-            path = (1 + period[picks].fillna(0)).cumprod().mean(axis=1) * (1 - COST * traded)
+            w = pd.Series(target)[picks]
+            r = float((g * w).sum() - 1) - cc["fraction"]
+            path = (1 + period[picks].fillna(0)).cumprod().mul(w).sum(axis=1) * (1 - cc["fraction"])
             hits += [float(x) > 1 for x in g]
             beats += [float(x) - 1 > b for x in g]
-            drift = g / g.sum()
+            drift = g * w / (g * w).sum()
             prev = drift.to_dict()
             turns.append(traded / 2)
-        else:                                   # nothing passed the rules: sit in cash
-            r, traded = 0.0, sum(prev.values())
+        else:                                   # nothing passed the rules: sell everything, sit in cash
+            adv, dvol = C.liquidity(closes, values, d0)
+            cc = C.rebalance_cost(prev, {}, capital * nav[-1], adv, dvol, per_order)
+            for k_ in cost_tot:
+                cost_tot[k_] += cc[k_] / capital
+            r = -cc["fraction"]
             prev = {}
-            path = pd.Series(1.0, index=period.index)
+            path = pd.Series(1.0 + r, index=period.index)
         seg_s.append(path * nav[-1])
         seg_e.append((1 + period[snap.index].fillna(0)).cumprod().mean(axis=1) * ew[-1])
         bseg = bench.reindex(closes.index).ffill()
@@ -165,11 +179,12 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
             "hit_rate": float(np.mean(hits)) if hits else None, "beat_nifty_rate": float(np.mean(beats)) if beats else None,
             "avg_held": float(np.mean(held)) if held else 0.0, "periods_in_cash": int(sum(1 for h in held if h == 0)),
             "turnover_per_year": float(np.mean(turns) * per_year) if turns else 0.0, "yearly": yearly,
-            "last_picks": log[-1]["picks"] if log else []}
+            "last_picks": log[-1]["picks"] if log else [],
+            "costs": {**cost_tot, "capital": capital}}
 
 
 def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
-        sectors: dict | None = None, progress=None) -> dict:
+        sectors: dict | None = None, progress=None, per_order: float = 0.0) -> dict:
     sc.validate()
     progress = progress or (lambda m, f: None)
     progress("Computing the metrics", 0.35)
@@ -181,7 +196,7 @@ def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen
     per = capital / max(len(top), 1)
     rows = [{"ticker": t, "industry": (sectors or {}).get(t, ""), **{k: (None if pd.isna(v) else float(v)) for k, v in row.items()},
              "shares": int(per // row["price"]) if row["price"] > 0 else 0} for t, row in top.iterrows()]
-    bt = backtest(closes, frames, bench, sc, progress)
+    bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order)
     progress("Done", 1.0)
     return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,
             "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt,
