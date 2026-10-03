@@ -1596,7 +1596,9 @@ function ppPreviewHtml(pv) {
     ${row("Charges", money(pv.charges, "₹", 2))}
     ${pv.risk_at_stop != null ? row("Loss if the stop is hit", money(pv.risk_at_stop)) : row("Loss if the stop is hit", "no stop set")}
     ${(pv.notes || []).map(n => `<div class="line2" style="margin-top:6px">${esc(n)}</div>`).join("")}
-    ${pv.warnings.map(w => `<div class="line2" style="margin-top:6px;color:var(--warn-text)">⚠ ${esc(w)}</div>`).join("")}</div>`;
+    ${pv.warnings.map(w => `<div class="line2" style="margin-top:6px;color:var(--warn-text)">⚠ ${esc(w)}</div>`).join("")}
+    ${pv.fit ? `<div class="notice" style="margin:10px 0 0;font-size:13.5px">💡 <b>To fit your cash:</b> ${esc(pv.fit.text)}
+      ${pv.fit.order ? `<div style="margin-top:8px"><button class="btn small primary" type="button" id="pp-fit">Use this</button></div>` : ""}</div>` : ""}</div>`;
 }
 $("#pp-form").onsubmit = async ev => {
   ev.preventDefault(); ppClearPreview();
@@ -1604,6 +1606,14 @@ $("#pp-form").onsubmit = async ev => {
   try {
     const pv = await api("/api/paper/preview", { method: "POST", body: ppBody() });
     _ppPreview = pv; $("#pp-pv").innerHTML = ppPreviewHtml(pv); $("#pp-place").disabled = !pv.can_place;
+    const fb = $("#pp-fit");
+    if (fb) fb.onclick = () => {
+      const o = pv.fit.order;
+      if (o.qty != null) $("#pp-qty").value = o.qty;
+      if (o.lots != null) $("#pp-qty").value = o.lots;
+      if (o.strike != null) $("#pp-strike").value = o.strike;
+      $("#pp-form").requestSubmit();
+    };
   } catch (e) { $("#pp-pv").innerHTML = `<div class="notice error pp-pv" style="margin-bottom:0">${esc(e.message)}</div>`; }
 };
 $("#pp-place").onclick = async () => {

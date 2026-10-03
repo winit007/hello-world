@@ -296,8 +296,10 @@ class Account:
         warnings = []
         if not market_open(inst):
             warnings.append("Market is closed: orders fill only during market hours")
+        fit = None
         if blocked + fee > self.data["cash"]:
             warnings.append(f"Not enough virtual cash: needs ₹{blocked + fee:,.0f}, you have ₹{self.data['cash']:,.0f}")
+            fit = self._fit(pos, spot, qty, lot, side, self.data["cash"])
         risk = abs(spot - stop) * qty * (fill / spot if inst != "option" else 1) if stop else None
         if inst == "option" and stop:
             at_stop = self._unit_price(pos, stop)
@@ -306,7 +308,60 @@ class Account:
                 "fill": round(fill, 4), "value": round(value, 2), "blocked": round(blocked, 2), "charges": fee,
                 "margin_rate": margin_rate, "stop": stop, "target": target, "risk_at_stop": risk,
                 "exit_by": o.get("exit_by") or None, "entry_bar": entry_bar, "warnings": warnings, "notes": notes,
-                "can_place": not warnings}
+                "fit": fit, "can_place": not warnings}
+
+    def _cost(self, pos: dict, spot: float, qty: float, side: str) -> float:
+        """Cash an order needs: money blocked (full price or margin) plus charges."""
+        inst, short = pos["instrument"], side == "sell"
+        unit = self._unit_price(pos, spot)
+        value = unit * (1 - SLIPPAGE[inst] if short else 1 + SLIPPAGE[inst]) * qty
+        if inst == "option" and short:
+            blocked = SHORT_OPTION_MARGIN * spot * qty
+        else:
+            blocked = value * MARGIN.get((inst, pos["product"]), 1.0)
+        return blocked + charges(inst, pos["product"], side, value)
+
+    def _fit(self, pos: dict, spot: float, qty: float, lot: int, side: str, cash: float) -> dict | None:
+        """The biggest version of this order the cash covers: fewer shares, coins or lots, or for a bought
+        option that is too dear even as one lot, a cheaper strike further from the price."""
+        from .sizing import money
+
+        inst = pos["instrument"]
+        if inst in ("stock", "crypto"):
+            per = self._cost(pos, spot, 1, side)
+            q = cash / per if per > 0 else 0
+            q = int(q) if inst == "stock" else int(q * 1e6) / 1e6
+            while q > 0 and self._cost(pos, spot, q, side) > cash:
+                q = q - 1 if inst == "stock" else round(q * 0.99, 6)
+            if q <= 0:
+                return None
+            word = "shares" if inst == "stock" else "coins"
+            return {"order": {"qty": q}, "text": f"Buy {q:g} {word} instead: needs {money(self._cost(pos, spot, q, side), '₹')}."}
+        lots = int(round(qty / lot))
+        for n in range(lots - 1, 0, -1):                     # fewer lots
+            if self._cost(pos, spot, n * lot, side) <= cash:
+                return {"order": {"lots": n}, "text": f"Trade {n} lot{'s' if n > 1 else ''} instead: needs "
+                                                      f"{money(self._cost(pos, spot, n * lot, side), '₹')}."}
+        if inst != "option" or side == "sell":
+            one = self._cost(pos, spot, lot, side)
+            return {"order": None, "text": f"Even 1 lot needs {money(one, '₹')}. Add virtual money with Reset account "
+                                           f"or choose a smaller contract."}
+        from .sizing import strike_step
+
+        step = strike_step(spot) * (1 if pos["option_type"] == "CE" else -1)
+        for k in range(1, 16):                              # cheaper strikes, further out of the money
+            strike = pos["strike"] + k * step
+            if strike <= 0:
+                break
+            alt = {**pos, "strike": strike}
+            need = self._cost(alt, spot, lot, side)
+            if need <= cash:
+                prem = self._unit_price(alt, spot) * (1 + SLIPPAGE["option"])
+                return {"order": {"strike": strike, "lots": 1},
+                        "text": f"Buy 1 lot of the {strike:g} {pos['option_type']} instead: premium about ₹{prem:,.2f}, "
+                                f"needs {money(need, '₹')}. It is further from the share price, so it needs a bigger "
+                                f"move and wins less often."}
+        return {"order": None, "text": "No strike of this option fits your cash. Add virtual money with Reset account."}
 
     def place(self, o: dict) -> dict:
         pv = self.preview(o)

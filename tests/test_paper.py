@@ -236,6 +236,41 @@ class PaperTests(unittest.TestCase):
         self.assertIn("no limit", pv["notes"][0])
         self.assertGreater(pv["risk_at_stop"], 0)
 
+    def test_fit_suggests_fewer_shares_that_the_cash_covers(self):
+        self.acct().reset(25_000)
+        pv = self.acct().preview({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": 30})
+        self.assertFalse(pv["can_place"])
+        q = pv["fit"]["order"]["qty"]
+        self.assertEqual(q, 24)                                   # 25 x 1000.5 + charges > 25,000
+        ok = self.acct().preview({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": q})
+        self.assertTrue(ok["can_place"])
+        self.assertIsNone(ok["fit"])
+
+    def test_fit_suggests_a_cheaper_strike_for_a_dear_option(self):
+        self.acct().reset(25_000)
+        order = {"instrument": "option", "symbol": "RELIANCE", "side": "buy", "product": "positional", "lots": 1,
+                 "option_type": "CE", "strike": 900, "expiry": "2026-10-27"}            # deep in the money: ~₹50,000
+        with mock.patch("stock_agent.lots.lot_size", return_value=(500, "test")), \
+                mock.patch("stock_agent.data.load_prices", side_effect=OSError("offline")):
+            pv = self.acct().preview(order)
+            fit = pv["fit"]["order"]
+            self.assertGreater(fit["strike"], 900)                # further out of the money for a call
+            self.assertIn("wins less often", pv["fit"]["text"])
+            ok = self.acct().preview({**order, **fit})
+            put = self.acct().preview({**order, "option_type": "PE", "strike": 1100})
+        self.assertTrue(ok["can_place"])
+        self.assertLess(put["fit"]["order"]["strike"], 1100)      # cheaper puts are lower strikes
+
+    def test_fit_for_lots_and_when_nothing_fits(self):
+        self.px.set("CL=F", [80.0])
+        self.acct().reset(50_000)
+        pv = self.acct().preview({"instrument": "commodity", "symbol": "CL=F", "side": "buy", "product": "intraday", "lots": 10})
+        self.assertEqual(pv["fit"]["order"], {"lots": 6})        # a lot blocks ₹7,200 + charges: 7 lots > ₹50,000
+        self.acct().reset(5_000)
+        pv = self.acct().preview({"instrument": "commodity", "symbol": "CL=F", "side": "buy", "product": "intraday", "lots": 1})
+        self.assertIsNone(pv["fit"]["order"])
+        self.assertIn("Even 1 lot", pv["fit"]["text"])
+
     def test_reset_and_persistence(self):
         a = self.acct()
         a.place({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": 1})
