@@ -34,6 +34,7 @@ from . import rebalance
 from . import report
 from . import robust
 from . import screener
+from . import sip
 from . import sizing
 from . import tracker
 from . import tradecheck

@@ -19,6 +19,7 @@ from . import attribution as A
 from . import costs as C
 from . import fundamentals as F
 from . import pit
+from . import sip as S
 from .fund import REBALANCE, _metrics, _rebalance_dates
 
 METRICS = {
@@ -251,7 +252,8 @@ def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen
     bt_note = None
     try:
         bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order, pit_n)
-        bt.pop("daily")
+        daily = bt.pop("daily")
+        bt["sip"] = S.report(daily["screen"], daily["nifty"])
     except ValueError as exc:
         bt, bt_note = None, str(exc)
     progress("Done", 1.0)

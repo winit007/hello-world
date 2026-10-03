@@ -285,6 +285,9 @@ def run(rules: FundRules = FundRules(), capital: float = 200_000, offline: bool 
     progress = progress or (lambda m, f: None)
     closes, values, bench, sectors = load(rules, offline, cache_dir, progress)
     bt = backtest(closes, values, bench, sectors, rules, progress, capital, per_order)
+    from . import sip as S
+
+    bt["sip"] = S.report(bt["daily"]["fund"], bt["daily"]["nifty"])
 
     # today's portfolio
     today = closes.index[-1]
