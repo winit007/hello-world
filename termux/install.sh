@@ -32,7 +32,7 @@ pipi() { python -m pip install --disable-pip-version-check "$@" </dev/null ||
          python -m pip install --disable-pip-version-check --break-system-packages "$@" </dev/null; }
 
 say "Installing the small Python libraries"
-pipi requests feedparser vaderSentiment qrcode
+pipi requests feedparser vaderSentiment qrcode tzdata   # tzdata: Android has no time-zone database
 
 say "Installing Stock Agent"
 # --no-deps: yfinance needs curl_cffi, which does not build on Android; the app has its own Yahoo client

@@ -13,6 +13,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta, timezone
 import pandas as pd
 import requests
 
@@ -66,6 +67,20 @@ def _get(symbol: str, params: dict, retries: int = 4) -> dict:
     raise YahooError(f"{symbol}: {last}")
 
 
+def _exchange_tz(meta: dict):
+    """The exchange's time zone; a fixed UTC offset when the zone database is missing (Android has none)."""
+    name = meta.get("exchangeTimezoneName")
+    if name:
+        try:
+            from zoneinfo import ZoneInfo
+
+            ZoneInfo(name)
+            return name
+        except Exception:
+            pass
+    return timezone(timedelta(seconds=int(meta.get("gmtoffset") or 0)))
+
+
 def chart(symbol: str, period: str = "1y", interval: str = "1d", adjust: bool = True) -> tuple[pd.DataFrame, dict]:
     """(OHLCV frame, meta) for one symbol. Daily bars are indexed by plain dates; intraday bars by time in
     the exchange's time zone."""
@@ -82,7 +97,7 @@ def chart(symbol: str, period: str = "1y", interval: str = "1d", adjust: bool = 
     q = res["indicators"]["quote"][0]
     df = pd.DataFrame({"Open": q.get("open"), "High": q.get("high"), "Low": q.get("low"),
                        "Close": q.get("close"), "Volume": q.get("volume")},
-                      index=pd.to_datetime(ts, unit="s", utc=True).tz_convert(meta.get("exchangeTimezoneName") or "UTC"))
+                      index=pd.to_datetime(ts, unit="s", utc=True).tz_convert(_exchange_tz(meta)))
     if adjust and interval.endswith(("d", "wk", "mo")):
         adj = (res["indicators"].get("adjclose") or [{}])[0].get("adjclose")
         if adj:

@@ -70,6 +70,19 @@ class YahooClientTests(unittest.TestCase):
         self.assertEqual(list(df["Close"]), [1.0, 2.0])
         self.assertEqual(str(df.index.tz), "America/New_York")
 
+    def test_missing_zone_database_falls_back_to_the_utc_offset(self):
+        from datetime import timedelta, timezone
+        from zoneinfo import ZoneInfoNotFoundError
+
+        t0 = 1790000000 - 1790000000 % 300
+        body = payload([t0, t0 + 300], [1.0, 2.0], tz="America/New_York")
+        body["chart"]["result"][0]["meta"]["gmtoffset"] = -14400
+        p, _ = self.get(Resp(body))
+        with p, mock.patch("zoneinfo.ZoneInfo", side_effect=ZoneInfoNotFoundError("No time zone found")):
+            df, _ = yahoo.chart("AAPL", "5d", "5m")
+        self.assertEqual(df.index.tz, timezone(timedelta(hours=-4)))
+        self.assertEqual(df.index[0], pd.Timestamp(t0, unit="s", tz="UTC"))
+
     def test_rate_limit_is_retried_on_the_other_host(self):
         t0 = 1790000000
         p, sess = self.get(Resp({}, 429), Resp(payload([t0], [5.0])))
