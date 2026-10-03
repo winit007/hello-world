@@ -32,10 +32,12 @@ from . import patterns
 from . import planner
 from . import publish
 from . import rebalance
+from . import risk
 from . import report
 from . import robust
 from . import screener
 from . import sip
+from . import tax
 from . import sizing
 from . import tracker
 from . import tradecheck

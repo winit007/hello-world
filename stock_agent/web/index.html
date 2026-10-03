@@ -140,6 +140,16 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .empty { text-align: center; padding: 40px 16px; color: var(--ink-2); }
 .empty .et { color: var(--ink); display: block; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.state { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 32px 16px; color: var(--ink-2); }
+.state .et { color: var(--ink); font-size: 16px; font-weight: 700; }
+.state .state-ic { font-size: 22px; line-height: 1; color: var(--muted); }
+.state.error { border-color: var(--down-soft); } .state.error .state-ic { color: var(--down); }
+.state .state-tx { max-width: 60ch; font-size: 14px; }
+.spin { width: 22px; height: 22px; border: 3px solid var(--grid); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 140%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); transition: transform .2s; z-index: 50; max-width: calc(100vw - 32px); }
+#toast.show { transform: translate(-50%, 0); } #toast.bad { background: var(--down); color: #fff; }
 .notice { border-radius: 12px; padding: 12px 14px; background: var(--accent-soft); color: var(--ink); font-size: 14px; margin-bottom: 14px; }
 .notice.warn { background: var(--warn-soft); }
 .notice.error { background: var(--down-soft); }
@@ -200,6 +210,14 @@ dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--s
 dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
 .help-table td:first-child { width: 190px; }
+.hold-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
+.bars { display: grid; gap: 6px; }
+.bars .brow { display: grid; grid-template-columns: minmax(90px, 200px) 1fr 64px; gap: 10px; align-items: center; font-size: 13.5px; }
+.bars .sbar { height: 12px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bars .sbar i { display: block; height: 100%; background: var(--s1); border-radius: 4px; }
+.heat td { text-align: center; font-size: 12.5px; padding: 6px 4px; }
+.idea { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--grid); }
+.idea:first-child { border-top: 0; }
 .wf { display: grid; gap: 6px; }
 .wf-row { display: grid; grid-template-columns: minmax(120px, 260px) 1fr 70px; gap: 10px; align-items: center; font-size: 13.5px; }
 .wf-bar { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; }
@@ -279,6 +297,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
       <button role="tab" data-tab="check" class="live-only">Check my trade</button>
+      <button role="tab" data-tab="risk" class="live-only">Portfolio risk</button>
       <button role="tab" data-tab="track">Track record</button>
       <button role="tab" data-tab="lab">Backtest lab</button>
       <button role="tab" data-tab="ipo">New IPOs</button>
@@ -287,6 +306,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="fund">Model fund</button>
       <button role="tab" data-tab="goals">Goals</button>
       <button role="tab" data-tab="rebalance">Rebalance</button>
+      <button role="tab" data-tab="tax" class="live-only">Holdings &amp; tax</button>
       <button role="tab" data-tab="settings" class="live-only">Settings</button>
       <button role="tab" data-tab="help">Help</button>
     </nav>
@@ -546,6 +566,53 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div id="commodities"></div>
   </section>
 
+  <!-- ============ PORTFOLIO RISK ============ -->
+  <section class="page" id="page-risk">
+    <div class="head-row">
+      <div><h1>Portfolio risk</h1>
+        <p class="sub" id="risk-sub">Everything you hold in one view: money at risk at your stops, how much moves with the market, what a 5% Nifty fall would do, and where you are concentrated.</p></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <label class="switch"><input type="checkbox" id="rk-paper" checked> Paper trading</label>
+        <label class="switch"><input type="checkbox" id="rk-journal" checked> My trades</label>
+        <label class="switch"><input type="checkbox" id="rk-holdings" checked> My holdings</label>
+        <button class="btn primary" id="rk-run">Measure risk</button>
+      </div>
+    </div>
+    <div class="progress" id="risk-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="risk"></div>
+  </section>
+
+  <!-- ============ HOLDINGS & TAX ============ -->
+  <section class="page" id="page-tax">
+    <div class="head-row">
+      <div><h1>Holdings &amp; tax</h1>
+        <p class="sub">Your long-term shares and ETFs with what you paid, the capital-gains tax for this financial year, and what to sell or hold before 31 March to pay less.</p></div>
+    </div>
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">My holdings</h2>
+      <form class="hold-form" id="h-form" autocomplete="off">
+        <div class="field"><label for="h-sym">Symbol</label><input id="h-sym" type="text" placeholder="TCS or NIFTYBEES" required list="symbols"></div>
+        <div class="field"><label for="h-qty">Quantity</label><input id="h-qty" type="number" min="0" step="any" required></div>
+        <div class="field"><label for="h-price">Bought at (₹)</label><input id="h-price" type="number" min="0" step="any" required></div>
+        <div class="field"><label for="h-date">Bought on</label><input id="h-date" type="date" required></div>
+        <div class="field"><label for="h-stop">Stop-loss (optional)</label><input id="h-stop" type="number" min="0" step="any"></div>
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      <div id="holdings" style="margin-top:12px"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Gains booked elsewhere this year (optional)</h2>
+      <p class="sub" style="font-size:13px;margin:0 0 8px">Add profits or losses already booked outside this app (enter losses as negative), and losses carried forward from earlier years, for an accurate tax figure.</p>
+      <div class="hold-form">
+        <div class="field"><label for="tx-st">Short-term, ₹</label><input id="tx-st" type="number" step="any" value="0"></div>
+        <div class="field"><label for="tx-lt">Long-term, ₹</label><input id="tx-lt" type="number" step="any" value="0"></div>
+        <div class="field"><label for="tx-cfst">Short-term loss carried forward, ₹</label><input id="tx-cfst" type="number" min="0" step="any" value="0"></div>
+        <div class="field"><label for="tx-cflt">Long-term loss carried forward, ₹</label><input id="tx-cflt" type="number" min="0" step="any" value="0"></div>
+        <button class="btn" id="tx-run" type="button">Update tax</button>
+      </div>
+    </div>
+    <div class="progress" id="tax-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+    <div id="tax"></div>
+  </section>
+
   <!-- ============ MODEL FUND ============ -->
   <section class="page" id="page-fund">
     <div class="head-row">
@@ -789,6 +856,20 @@ const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
 const lakh = x => { if (x == null || !isFinite(x)) return "–"; const a = Math.abs(x), sg = x < 0 ? "-" : "";
   return a >= 1e7 ? `${sg}₹${(a / 1e7).toFixed(a >= 1e9 ? 0 : 2)} Cr` : a >= 1e5 ? `${sg}₹${(a / 1e5).toFixed(2)} L` : money(x); };
 const px2 = x => x == null ? "–" : Number(x).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* one look for empty, error and loading states everywhere, with a Try again button where it helps */
+const _retry = {};
+function stateBox(kind, title, text, retry) {
+  const id = retry ? "r" + Math.random().toString(36).slice(2, 8) : null; if (id) _retry[id] = retry;
+  const icon = { error: "⚠", empty: "○", loading: "" }[kind] || "";
+  return `<div class="card state ${kind}" role="${kind === "error" ? "alert" : "status"}">${kind === "loading" ? '<span class="spin" aria-hidden="true"></span>' : `<span class="state-ic" aria-hidden="true">${icon}</span>`}
+    <span class="et">${esc(title)}</span>${text ? `<span class="state-tx">${esc(text)}</span>` : ""}${id ? `<button type="button" class="btn small" data-retry="${id}">Try again</button>` : ""}</div>`;
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-retry]"); if (b && _retry[b.dataset.retry]) { const f = _retry[b.dataset.retry]; delete _retry[b.dataset.retry]; f(); } });
+/* short messages after an action, read out by screen readers */
+function toast(msg, bad = false) {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); document.body.appendChild(t); }
+  t.textContent = msg; t.className = bad ? "show bad" : "show"; clearTimeout(t._h); t._h = setTimeout(() => { t.className = ""; }, bad ? 6000 : 2600);
+}
 const big = x => `<span title="${money(x)}">${lakh(x)}</span>`;
 const money = (x, c = "₹", d = 0) => x == null ? "–" : (Number(x) < 0 ? "-" : "") + c + Math.abs(Number(x)).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
@@ -836,7 +917,7 @@ $("#theme").onclick = () => {
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
 const TAB_GROUPS = { trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
-  practice: ["paper", "journal", "track", "lab"], invest: ["fund", "goals", "rebalance"], more: ["settings", "help"] };
+  practice: ["paper", "journal", "risk", "track", "lab"], invest: ["fund", "goals", "rebalance", "tax"], more: ["settings", "help"] };
 const groupOf = t => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(t)) || "trade";
 const _lastInGroup = {};
 function showGroup(g) {
@@ -855,12 +936,14 @@ function marketChip() {
 }
 marketChip(); setInterval(marketChip, 60000);
 function showTab(name) {
-  if (STATIC && ["stock", "paper", "settings", "check", "screen"].includes(name)) name = "picks";
+  if (STATIC && ["stock", "paper", "settings", "check", "screen", "risk", "tax"].includes(name)) name = "picks";
   _lastInGroup[groupOf(name)] = name;
   showGroup(groupOf(name));
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
   if (name === "journal") { loadJournal(); loadOrders(); }
+  if (name === "tax" && !window._taxLoaded) { window._taxLoaded = true; loadTax(); }
+  if (name === "risk" && !window._lastRisk) loadRisk();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
   if (name === "lab" && !window._lastLab) loadLab(STATIC);
@@ -1293,6 +1376,114 @@ function renderMarket(res, box) {
     ckFill({ instrument: "crypto", product: "positional", symbol: b.dataset.cick, side: "buy", stop: d.stop, target: d.target, hold: d.hold_days }); });
   $$("[data-cipp]", box).forEach(b => b.onclick = () => { const d = ideaOf(b.dataset.cipp);
     ppFill({ instrument: "crypto", product: "positional", symbol: b.dataset.cipp, qty: +d.units.toPrecision(6), stop: d.stop, target: d.target, exit_by: exitDay(), note: "Crypto trade idea" }); });
+}
+
+
+/* ---------------- portfolio risk ---------------- */
+async function loadRisk() {
+  const include = [["paper", "#rk-paper"], ["journal", "#rk-journal"], ["holdings", "#rk-holdings"]].filter(([, id]) => $(id).checked).map(([k]) => k);
+  const btn = $("#rk-run"); btn.disabled = true;
+  try { const r = await runJob(api("/api/risk", { method: "POST", body: { include } }), $("#risk-progress")); window._lastRisk = r; renderRisk(r); }
+  catch (e) { $("#risk").innerHTML = stateBox("error", "Could not measure the risk", e.message, loadRisk); }
+  btn.disabled = false;
+}
+$("#rk-run").onclick = loadRisk;
+function renderRisk(r) {
+  if (r.empty) { $("#risk").innerHTML = stateBox("empty", "Nothing to measure yet", "Open a paper trade, log a trade in My trades, or add your shares under Holdings & tax, then press Measure risk."); return; }
+  const C = r.capital, ofC = v => C ? ` · ${pct(Math.abs(v) / C, 1)} of capital` : "";
+  const t = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  const ok = r.positions.filter(p => !p.error), maxS = Math.max(...r.sectors.map(x => x.share), 0.01);
+  const heat = r.correlation ? `<div class="table-scroll"><table class="heat num"><thead><tr><th></th>${r.correlation.symbols.map(s => `<th>${esc(s)}</th>`).join("")}</tr></thead><tbody>
+    ${r.correlation.matrix.map((row, i) => `<tr><th style="text-align:left">${esc(r.correlation.symbols[i])}</th>${row.map((v, j) => `<td style="background:${i === j ? "var(--surface-2)" : `color-mix(in srgb, ${v >= 0 ? "var(--down)" : "var(--up)"} ${Math.round(Math.abs(v) * 60)}%, transparent)`}">${i === j ? "" : v.toFixed(2)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "";
+  $("#risk-sub").innerHTML = `${ok.length} position${ok.length === 1 ? "" : "s"} · capital ${money(C)} (from Settings) · prices to ${fmtDate(new Date().toISOString().slice(0, 10))}`;
+  $("#risk").innerHTML = `
+    ${r.warnings.length ? `<div class="notice warn"><b>Check these.</b><ul class="reasons" style="margin:6px 0 0">${r.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : `<div class="notice">Nothing stands out: risk at the stops, single positions, sectors and correlation are all within the usual limits.</div>`}
+    <div class="tiles">
+      ${ok.some(p => p.loss_at_stop != null) ? t("If every stop is hit", big(r.risk_at_stops), `${C ? pct(-r.risk_at_stops / C, 1) + " of capital; keep under 6%" : ""}`, r.risk_at_stops < 0 ? "chg down" : "")
+        : t("If every stop is hit", "–", "no stop-losses set on these positions")}
+      ${t("Exposure to prices", big(r.gross), `net ${lakh(r.net)} after shorts and puts${ofC(r.gross)}`)}
+      ${t("Beta-weighted", big(r.beta_exposure), "rupees of Nifty you effectively own")}
+      ${t("If the Nifty falls 5%", big(r.down5), `rises 5%: ${r.up5 >= 0 ? "+" : ""}${lakh(r.up5)}`, r.down5 < 0 ? "chg down" : "chg up")}
+      ${t("A bad day (95%)", r.var95 == null ? "–" : big(-r.var95), r.var95 == null ? "needs 100 days of prices" : `1 day in 20 loses more; on those days about ${lakh(-r.es95)}`, "chg down")}
+    </div>
+    <div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Positions</h2>
+      <table class="num"><thead><tr><th>Position</th><th>Sector</th><th class="r">Value</th><th class="r">Exposure</th><th class="r">Beta</th><th class="r">At its stop</th><th class="r">Nifty −5%</th></tr></thead><tbody>
+      ${r.positions.map(p => p.error ? `<tr><td colspan="7"><b>${esc(p.label)}</b> <span class="sub">${esc(p.error)}</span></td></tr>` : `<tr><td><b>${esc(p.label)}</b><div class="sub" style="font-size:12px">${esc(p.source)}${p.approx ? " · approximate (no contract details)" : ""}</div></td><td>${esc(p.sector)}</td>
+        <td class="r">${money(p.value)}</td><td class="r">${money(p.exposure)}</td><td class="r">${p.beta.toFixed(2)}</td>
+        <td class="r ${p.loss_at_stop < 0 ? "chg down" : ""}">${p.loss_at_stop == null ? (p.missing_stop ? '<span class="pill put" style="font-size:11px">no stop</span>' : "–") : money(p.loss_at_stop)}</td>
+        <td class="r ${p.down5 < 0 ? "chg down" : "chg up"}">${money(p.down5)}</td></tr>`).join("")}</tbody></table>
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Exposure is how many rupees move with the share: the full value for shares, delta × share value for options, negative for shorts and bought puts. Options are re-priced with Black-Scholes at the share's recent volatility.</p></div>
+    <div class="cols">
+      <div class="card"><h2 style="margin-top:0">Where the money is</h2><div class="bars">
+        ${r.sectors.map(x => `<div class="brow"><div>${esc(x.sector)}</div><div class="sbar"><i style="width:${x.share / maxS * 100}%;${x.share > 0.35 ? "background:var(--warn)" : ""}"></i></div><div class="r num">${pct(x.share, 0)}</div></div>`).join("")}</div>
+        <p class="sub" style="font-size:12.5px;margin-top:8px">Share of total exposure by sector; above 35% is flagged.</p></div>
+      <div class="card"><h2 style="margin-top:0">Do they move together?</h2>${heat || '<p class="sub">Needs two or more different shares.</p>'}
+        ${r.avg_correlation != null ? `<p class="sub" style="font-size:12.5px;margin-top:8px">Average correlation ${r.avg_correlation.toFixed(2)} over the last year (1 = always together, 0 = unrelated). Above 0.6 the positions act like one big bet.</p>` : ""}</div>
+    </div>`;
+}
+
+/* ---------------- holdings & tax ---------------- */
+async function loadTax() {
+  try { const h = await api("/api/holdings"); renderHoldings(h.holdings, null); } catch (e) {}
+  runTax();
+}
+async function runTax() {
+  const body = { extra_st: +$("#tx-st").value || 0, extra_lt: +$("#tx-lt").value || 0, cf_st: +$("#tx-cfst").value || 0, cf_lt: +$("#tx-cflt").value || 0 };
+  try { const r = await runJob(api("/api/tax", { method: "POST", body }), $("#tax-progress")); window._lastTax = r; renderHoldings(r.holdings, r); renderTax(r); }
+  catch (e) { $("#tax").innerHTML = stateBox("error", "Could not work out the tax", e.message, runTax); }
+}
+$("#tx-run").onclick = runTax;
+$("#h-date").value = new Date().toISOString().slice(0, 10);
+$("#h-form").onsubmit = async ev => {
+  ev.preventDefault();
+  try {
+    await api("/api/holdings", { method: "POST", body: { symbol: $("#h-sym").value, qty: +$("#h-qty").value, buy_price: +$("#h-price").value, buy_date: $("#h-date").value, stop: $("#h-stop").value } });
+    $("#h-sym").value = $("#h-qty").value = $("#h-price").value = $("#h-stop").value = ""; toast("Holding added"); runTax(); window._lastRisk = null;
+  } catch (e) { toast(e.message, true); }
+};
+function renderHoldings(rows, r) {
+  const box = $("#holdings");
+  if (!rows || !rows.length) { box.innerHTML = `<p class="sub" style="margin:0">No holdings yet. Add the shares and ETFs you own with the price and date you bought them.</p>`; return; }
+  box.innerHTML = `<div class="table-scroll"><table class="num"><thead><tr><th>Holding</th><th class="r">Qty</th><th class="r">Bought at</th><th>Bought on</th><th class="r">Now</th><th class="r">Gain</th><th>Tax type</th><th></th></tr></thead><tbody>
+    ${rows.map(h => `<tr><td><b>${esc(bare(h.symbol))}</b></td><td class="r">${(+h.qty).toLocaleString("en-IN")}</td><td class="r">${px2(h.buy_price)}</td><td>${fmtDate(h.buy_date)} ${h.buy_date.slice(0, 4)}</td>
+      <td class="r">${h.price == null ? "…" : px2(h.price)}</td><td class="r ${h.gain > 0 ? "chg up" : h.gain < 0 ? "chg down" : ""}">${h.gain == null ? "…" : money(h.gain)}</td>
+      <td>${h.long_term == null ? "" : h.long_term ? "long-term" : `short-term<div class="sub" style="font-size:11.5px">long-term from ${fmtDate(h.long_term_from)} ${h.long_term_from.slice(0, 4)}</div>`}</td>
+      <td class="r" style="white-space:nowrap"><button class="btn small" data-hsell="${h.id}">Sell</button> <button class="btn small" data-hdel="${h.id}" aria-label="Remove ${esc(bare(h.symbol))}">✕</button></td></tr>`).join("")}</tbody></table></div>`;
+  $$("[data-hdel]", box).forEach(b => b.onclick = async () => { if (!confirm("Remove this holding? (Use Sell instead if you sold it, so the tax is counted.)")) return;
+    await api("/api/holdings/" + b.dataset.hdel, { method: "DELETE" }); runTax(); window._lastRisk = null; });
+  $$("[data-hsell]", box).forEach(b => b.onclick = () => { const h = rows.find(x => x.id === b.dataset.hsell); sellHolding(h); });
+}
+function sellHolding(h) {
+  const dlg = $("#dlg"), f = $("#dlg-form");
+  f.innerHTML = `<h2>Record a sale: ${esc(bare(h.symbol))}</h2><p class="sub">This app does not place the order; it records the sale so this year's tax is right.</p>
+    <div class="form" style="gap:10px;margin-top:10px"><div class="two"><div class="field"><label for="s-qty">Quantity sold</label><input id="s-qty" type="number" step="any" value="${h.qty}"></div>
+    <div class="field"><label for="s-price">Price</label><input id="s-price" type="number" step="any" value="${h.price ?? ""}"></div></div>
+    <div class="field"><label for="s-date">Date</label><input id="s-date" type="date" value="${new Date().toISOString().slice(0, 10)}"></div></div>
+    <div class="actions"><button class="btn" value="cancel">Cancel</button><button class="btn primary" id="s-ok" value="default">Record sale</button></div>`;
+  dlg.showModal();
+  $("#s-ok").onclick = async ev => { ev.preventDefault();
+    try { await api(`/api/holdings/${h.id}/sell`, { method: "POST", body: { qty: +$("#s-qty").value, price: +$("#s-price").value, date: $("#s-date").value } }); dlg.close(); toast("Sale recorded"); runTax(); window._lastRisk = null; }
+    catch (e) { toast(e.message, true); } };
+}
+function renderTax(r) {
+  const t = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  const n = r.tax_now, all = r.if_sold_all;
+  const ideas = r.ideas.map(i => `<div class="idea"><div><span class="pill ${i.kind === "loss" ? "put" : i.kind === "gain" ? "call" : ""}" style="font-size:11px">${{ loss: "Book a loss", gain: "Use the exemption", wait: "Wait" }[i.kind]}</span> ${esc(i.text)}</div>
+    <div class="r num"><b class="chg up">${i.tax_saved > 0 ? "saves " + money(i.tax_saved) : ""}</b>${i.cost ? `<div class="sub" style="font-size:12px">costs about ${money(i.cost)}</div>` : ""}</div></div>`).join("");
+  $("#tax").innerHTML = `
+    <div class="tiles">
+      ${t(`Tax so far, FY ${r.fy}`, big(n.tax), `on booked gains: short-term ${money(r.realised_st)}, long-term ${money(r.realised_lt)}`)}
+      ${t("Long-term exemption left", big(n.exempt_left), "of ₹1.25 lakh: gains up to this are tax-free")}
+      ${t("If you sold everything today", big(all.tax), `unrealised: short-term ${lakh(r.unrealised_st)}, long-term ${lakh(r.unrealised_lt)}`)}
+      ${t("Days to 31 March", String(r.days_left), "after that this year's chances are gone")}
+    </div>
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">What to do before 31 March</h2>
+      ${ideas || '<p class="sub" style="margin:0">Nothing to do: no losses worth booking, no unused exemption to fill, and no gains about to turn long-term.</p>'}
+      <p class="sub" style="font-size:12.5px;margin-top:10px">India has no wash-sale rule, so you can sell and buy back the next day; the buy date and price reset. Avoid selling and buying back the same day (treated as intraday trading). Costs include STT, DP charge and the spread both ways.</p></div>
+    ${r.fno ? `<div class="notice" style="font-size:13.5px">Closed option trades in My trades this year: ${money(r.fno)}. Futures and options profits are business income taxed at your slab rate, not capital gains, so they are not included above.</div>` : ""}
+    ${r.realised.rows.length ? `<div class="card table-scroll"><h2 style="margin-top:0">Sales this year</h2><table class="num"><thead><tr><th>Date</th><th>Holding</th><th class="r">Qty</th><th class="r">Bought at</th><th class="r">Sold at</th><th class="r">Gain</th><th>Type</th></tr></thead><tbody>
+      ${r.realised.rows.map(x => `<tr><td>${fmtDate(x.date)} ${x.date.slice(0, 4)}</td><td>${esc(bare(x.symbol))}</td><td class="r">${x.qty}</td><td class="r">${px2(x.buy_price)}</td><td class="r">${px2(x.price)}</td><td class="r ${x.gain >= 0 ? "chg up" : "chg down"}">${money(x.gain)}</td><td>${x.long_term ? "long-term" : "short-term"}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <p class="sub" style="font-size:12.5px;margin-top:10px">Rates for listed shares and equity funds: 20% short-term (held 12 months or less), 12.5% long-term above ₹1.25 lakh a year. Cess and surcharge are not included. A planning aid, not tax advice.</p>`;
 }
 
 /* ---------------- model fund ---------------- */

@@ -29,6 +29,8 @@ HOME = Path(os.environ.get("STOCK_AGENT_HOME", Path.home() / ".stock_agent"))
 CACHE = HOME / "cache"
 SETTINGS_FILE = HOME / "settings.json"
 JOURNAL_FILE = HOME / "journal.json"
+HOLDINGS_FILE = HOME / "holdings.json"
+SALES_FILE = HOME / "holdings_sales.json"
 LEDGER_FILE = HOME / "track.json"
 GOAL_FILE = HOME / "goal.json"
 PORTFOLIO_FILE = HOME / "portfolio.json"
@@ -672,6 +674,123 @@ def journal_op(method: str, path: str, body: dict) -> dict:
         return {"entries": entries, "summary": journal_summary(entries)}
 
 
+def _norm_symbol(sym: str) -> str:
+    sym = (sym or "").strip().upper()
+    if not sym:
+        raise ValueError("Enter a symbol")
+    if "." not in sym and "-" not in sym and "=" not in sym and not sym.startswith("^"):
+        sym += ".NS"                     # plain NSE symbols: TCS -> TCS.NS
+    return sym
+
+
+def holdings_op(method: str, path: str, body: dict) -> dict:
+    """My holdings: long-term shares and ETFs with buy price and date (used by Portfolio risk and Tax)."""
+    with _lock:
+        rows = _read_json(HOLDINGS_FILE, [])
+        parts = path.strip("/").split("/")
+        if method == "POST" and len(parts) == 2:
+            qty, price = float(body.get("qty") or 0), float(body.get("buy_price") or 0)
+            if qty <= 0 or price <= 0:
+                raise ValueError("Enter the quantity and the price you bought at")
+            bd = str(body.get("buy_date") or date.today().isoformat())[:10]
+            date.fromisoformat(bd)
+            rows.append({"id": uuid.uuid4().hex[:8], "symbol": _norm_symbol(body.get("symbol")), "name": str(body.get("name") or "")[:60],
+                         "qty": qty, "buy_price": price, "buy_date": bd,
+                         "stop": float(body["stop"]) if body.get("stop") not in (None, "") else None, "note": str(body.get("note") or "")[:120]})
+        elif len(parts) == 4 and parts[3] == "sell":          # record a sale (for tax), reduce the holding
+            h = next((x for x in rows if x["id"] == parts[2]), None)
+            if h is None:
+                raise KeyError("holding not found")
+            qty, price = float(body.get("qty") or 0), float(body.get("price") or 0)
+            if not 0 < qty <= float(h["qty"]) or price <= 0:
+                raise ValueError(f"Sell between 1 and {h['qty']:g} at a price above zero")
+            d = str(body.get("date") or date.today().isoformat())[:10]
+            date.fromisoformat(d)
+            sales = _read_json(SALES_FILE, [])
+            sales.append({"id": uuid.uuid4().hex[:8], "symbol": h["symbol"], "qty": qty, "price": price, "date": d,
+                          "buy_price": h["buy_price"], "buy_date": h["buy_date"]})
+            _write_json(SALES_FILE, sales)
+            h["qty"] = float(h["qty"]) - qty
+            if h["qty"] <= 1e-9:
+                rows.remove(h)
+        elif len(parts) == 3:
+            h = next((x for x in rows if x["id"] == parts[2]), None)
+            if h is None:
+                raise KeyError("holding not found")
+            if method == "DELETE":
+                rows.remove(h)
+            else:
+                for k in ("qty", "buy_price", "stop"):
+                    if k in body:
+                        h[k] = float(body[k]) if body[k] not in (None, "") else None
+                for k in ("buy_date", "name", "note"):
+                    if k in body:
+                        h[k] = str(body[k])
+        _write_json(HOLDINGS_FILE, rows)
+        return {"holdings": rows, "sales": _read_json(SALES_FILE, [])}
+
+
+def _closes(symbols: list[str], progress=None) -> dict:
+    """Ten years of daily closes for these symbols (from the cache, refreshed first)."""
+    from .data import _cache_path, read_cached, refresh_many
+
+    symbols = sorted(set(symbols))
+    refresh_many(symbols, "10y", "1d", CACHE, progress=progress)
+    out = {}
+    for s_ in symbols:
+        path = _cache_path(CACHE, s_, "10y", "1d")
+        if path.exists():
+            try:
+                out[s_] = read_cached(path)["Close"]
+            except Exception:
+                continue
+    return out
+
+
+def run_tax(body: dict, settings: dict, progress) -> dict:
+    from . import costs, tax
+
+    holdings, sales = _read_json(HOLDINGS_FILE, []), _read_json(SALES_FILE, [])
+    progress("Loading prices", 0.1)
+    hist = _closes([h["symbol"] for h in holdings], progress=lambda m, f: progress(m, 0.1 + 0.7 * f))
+    prices = {k: float(v.dropna().iloc[-1]) for k, v in hist.items() if len(v.dropna())}
+    fy0, fy1 = tax.fy_bounds(date.today())
+    fno = sum(float(e.get("pnl") or 0) for e in _read_json(JOURNAL_FILE, [])
+              if e.get("status") == "closed" and e.get("closed") and fy0 <= date.fromisoformat(e["closed"]) <= fy1
+              and not (e.get("kite") or {}).get("practice"))
+    num = lambda k: float(body.get(k) or 0)
+    sell = lambda v: costs.trade_cost(v, "sell", 1e9, 0.015)["charges"] + costs.trade_cost(v, "sell", 1e9, 0.015)["spread_impact"]
+    out = tax.plan(holdings, prices, sales, num("extra_st"), num("extra_lt"), num("cf_st"), num("cf_lt"), fno, sell_cost=sell)
+    progress("Done", 1.0)
+    return clean({**out, "sales": sales})
+
+
+def run_risk(body: dict, settings: dict, progress) -> dict:
+    from . import risk
+    from .universes import industries
+
+    include = set(body.get("include") or ["paper", "journal", "holdings"])
+    progress("Collecting your positions", 0.05)
+    acct = paper_account() if "paper" in include else None
+    journal = _read_json(JOURNAL_FILE, []) if "journal" in include else []
+    holdings = _read_json(HOLDINGS_FILE, []) if "holdings" in include else []
+    syms = [p["symbol"] for p in (acct.data.get("positions", []) if acct else [])]
+    syms += [e["ticker"] for e in journal if e.get("status") == "open" and e.get("ticker")]
+    syms += [h["symbol"] for h in holdings]
+    progress("Loading prices", 0.15)
+    hist = _closes(syms + ["NIFTYBEES.NS", "USDINR=X"], progress=lambda m, f: progress(m, 0.15 + 0.6 * f))
+    fx = float(hist["USDINR=X"].dropna().iloc[-1]) if "USDINR=X" in hist else 85.0
+
+    def vol_of(sym):
+        r = hist[sym].pct_change().dropna() if sym in hist else pd.Series(dtype=float)
+        return max(float(r.iloc[-20:].std()), float(r.iloc[-60:].std())) * math.sqrt(252) * 1.1 if len(r) > 60 else 0.3
+    positions = (risk.from_paper(acct) if acct else []) + risk.from_journal(journal, vol_of) + risk.from_holdings(holdings, fx)
+    progress("Measuring the risk", 0.8)
+    out = risk.analyze(positions, hist, hist.get("NIFTYBEES.NS", pd.Series(dtype=float)), float(settings["capital"]), industries(True))
+    progress("Done", 1.0)
+    return clean({**out, "include": sorted(include)})
+
+
 def kite_place(body: dict) -> dict:
     from . import kite as K
 
@@ -901,6 +1020,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/journal":
                 entries = _read_json(JOURNAL_FILE, [])
                 return self._send(200, {"entries": entries, "summary": journal_summary(entries)})
+            if url.path == "/api/holdings":
+                return self._send(200, {"holdings": _read_json(HOLDINGS_FILE, []), "sales": _read_json(SALES_FILE, [])})
             if url.path == "/api/orders":
                 from . import orders
 
@@ -1007,6 +1128,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"job": start_job("rebalance", run_rebalance, body)})
             if url.path.startswith("/api/journal"):
                 return self._send(200, journal_op("POST", url.path, body))
+            if url.path.startswith("/api/holdings"):
+                try:
+                    return self._send(200, holdings_op("POST", url.path, body))
+                except (ValueError, KeyError) as exc:
+                    return self._send(400, {"error": str(exc).strip("'")})
+            if url.path == "/api/tax":
+                return self._send(200, {"job": start_job("tax", run_tax, body, load_settings())})
+            if url.path == "/api/risk":
+                return self._send(200, {"job": start_job("risk", run_risk, body, load_settings())})
             if url.path.startswith("/api/paper/"):
                 from .paper import PaperError
 
@@ -1025,7 +1155,10 @@ class Handler(BaseHTTPRequestHandler):
         if not (self._host_ok() and self._key_ok() and self._token_ok()):
             return self._send(403, {"error": "missing app token; reload the page"})
         try:
-            return self._send(200, journal_op("DELETE", urlparse(self.path).path, {}))
+            path = urlparse(self.path).path
+            if path.startswith("/api/holdings/"):
+                return self._send(200, holdings_op("DELETE", path, {}))
+            return self._send(200, journal_op("DELETE", path, {}))
         except Exception as exc:
             return self._send(500, {"error": str(exc)})
 
