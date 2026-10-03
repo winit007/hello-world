@@ -15,6 +15,9 @@ if [ -z "${PREFIX:-}" ] || [ ! -d "$PREFIX" ] || ! command -v pkg >/dev/null 2>&
   echo "This installer is for Termux on Android. On a PC, use: python -m pip install $ZIP"; exit 1
 fi
 
+# A running copy of the app would keep the old code loaded: stop it first (run this from any Termux window)
+if pkill -f "stock_agent app" 2>/dev/null; then say "Stopped the running Stock Agent; start it again with: stock-agent"; sleep 1; fi
+
 # Package steps read from /dev/null: with `curl | bash` a prompt would otherwise swallow the rest of this script
 APT=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 say "Updating Termux packages"
@@ -53,7 +56,7 @@ termux-wake-lock 2>/dev/null || true          # keep scans running while the scr
 python -m stock_agent app --port 8765 "$@"
 code=$?
 termux-wake-unlock 2>/dev/null || true
-if [ "$code" -ne 0 ] && [ "$code" -ne 130 ]; then   # 130 = stopped with Ctrl+C
+if [ "$code" -ne 0 ] && [ "$code" -ne 130 ] && [ "$code" -ne 143 ]; then   # 130 Ctrl+C, 143 stopped by the installer
   echo; echo "Stock Agent stopped with an error (code $code). Take a screenshot of this screen."
   read -r -p "Press Enter to close. " _ || true
 fi
