@@ -529,7 +529,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <span class="hint">Separate symbols with commas. NSE stocks end in .NS.</span></div>
       <div class="two">
         <div class="field"><label for="s-top">Number of picks</label>
-          <select id="s-top"><option>3</option><option selected>5</option><option>10</option></select></div>
+          <select id="s-top"><option>3</option><option>5</option><option selected>10</option><option>15</option></select></div>
         <div class="field" style="align-content:end"><label class="switch"><input type="checkbox" id="s-afford"> Only trades I can afford</label></div>
       </div>
       <div><button class="btn primary">Save settings</button> <span id="s-saved" class="sub" style="display:inline;margin-left:8px"></span></div>
@@ -769,6 +769,9 @@ function renderPicks(res) {
   if (res.validation_text) html += `<div class="notice ${res.validation && res.validation.test_avg_ret <= 0 ? "error" : ""}">${esc(res.validation_text)}</div>`;
   if (blocked && !s.affordable_only) html += `<div class="notice warn">${blocked} of ${res.picks.length} picks don't fit your risk limit of ${money(s.capital * s.risk / 100, c)} per trade.${STATIC ? " The phone version is sized for ₹2,00,000 at 2% risk; these need a bigger budget or a wider stop." : " Tick <b>Only trades I can afford</b> to see only tradeable ones."}</div>`;
   if (st.as_of && st.as_of !== new Date().toISOString().slice(0, 10)) html += `<div class="notice">These picks use market data from ${fmtDate(st.as_of)}. ${STATIC ? "The evening run refreshes them after 4:15 pm IST on weekdays." : "If today is a trading day, scan again after 3:30 pm IST for fresh picks."}</div>`;
+  const chance = p => p.win_chance ?? Math.min(Math.max(p.success + (p.news_effect || 0), 0), 1);
+  res.picks.sort((a, b) => chance(b) - chance(a));      // most likely to win first
+  html += `<p class="sub" style="margin:0 0 10px;font-size:13.5px">Ranked by <b>chance of winning</b>, highest first. Cards that don't fit your risk limit are still ranked, so you can see where the best odds are.</p>`;
   html += `<div class="grid">` + res.picks.map((p, i) => {
     const c2 = cur(p.ticker), warns = (p.notes || []).map(n => `<span class="pill warn">⚠ ${esc(n)}</span>`).join("");
     const scale = x => Math.max(0, Math.min(100, x * 100));
@@ -778,9 +781,10 @@ function renderPicks(res) {
         <div class="price num"><b>${money(p.last_close, c2, 2)}</b><div class="sub" style="font-size:12.5px">trend ${esc(p.trend)}</div></div></div>
       <div class="setup">${esc(p.pattern)} on ${fmtDate(p.signal_date)}</div>
       <div class="meter">
-        <div class="meter-row"><span>Past trades won</span><span><b class="num">${pct(p.success)}</b> vs ${pct(p.baseline)} on a random day</span></div>
-        <div class="track" title="Blue: share of past signals that made money as this exact trade. Grey tick: the same trade started on an ordinary day.">
-          <div class="fill" style="width:${scale(p.success)}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
+        <div class="meter-row"><span>Chance of winning</span><span><b class="num">${pct(chance(p))}</b> vs ${pct(p.baseline)} on a random day</span></div>
+        <div class="track" title="Blue: estimated chance this trade makes money (past trades won, adjusted by the news). Grey tick: the same trade started on an ordinary day.">
+          <div class="fill" style="width:${scale(chance(p))}%"></div><div class="basemark" style="left:${scale(p.baseline)}%"></div></div>
+        <div class="sub num" style="font-size:12px">${pct(p.success)} of past trades won${p.news_effect ? ` · news ${p.news_effect > 0 ? "+" : "−"}${Math.abs(Math.round(p.news_effect * 100))} pts` : ""}</div>
       </div>
       <div class="stats num"><span>Past signals <b>${p.n}</b></span><span>Last 3 years <b>${p.recent_n ? pct(p.recent_win_rate) : "–"}</b></span>
         ${p.plan && p.plan.instrument === "stock" ? `<span>Avg result <b>${p.avg_r == null ? "–" : (p.avg_r >= 0 ? "+" : "") + p.avg_r.toFixed(2) + "× stop"}</b></span>` : `<span>Avg option return <b>${spct(p.avg_return, 0)}</b></span>`}<span>News <b>${p.news_count ? (p.news_mean >= 0 ? "+" : "") + p.news_mean.toFixed(2) : "–"}</b></span></div>

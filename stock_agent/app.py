@@ -37,7 +37,7 @@ WEB = Path(__file__).with_name("web")
 
 DEFAULT_SETTINGS = {
     "capital": 200000, "risk": 2.0, "universe": "nifty50", "custom": "", "horizon": 5,
-    "affordable_only": False, "top": 5,
+    "affordable_only": False, "top": 10,
 }
 
 _lock = threading.Lock()
@@ -253,7 +253,7 @@ def run_screen(settings: dict, progress) -> dict:
     for p in picks:
         d = clean(p)
         d.pop("plan", None)
-        d.update(side=p.side, edge=p.edge, plan=plan_dict(p.plan))
+        d.update(side=p.side, edge=p.edge, win_chance=p.win_chance, plan=plan_dict(p.plan))
         out.append(d)
     from .screener import validation_line
     from .tradetest import load_validation
@@ -751,6 +751,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["capital"] = max(float(s["capital"]), 1000.0)
                 s["risk"] = min(max(float(s["risk"]), 0.1), 20.0)
                 s["horizon"] = int(s["horizon"]) if int(s["horizon"]) in (3, 5, 10) else 5
+                s["top"] = min(max(int(s["top"]), 1), 20)
                 _write_json(SETTINGS_FILE, s)
                 return self._send(200, s)
             if url.path == "/api/screen":

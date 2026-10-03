@@ -28,8 +28,10 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(stats["as_of"], str(frames["S0"].index[-1].date()))
         self.assertLessEqual(len(picks), 5)
         self.assertEqual(picks, ranked[:5])
-        scores = [p.score for p in ranked]
-        self.assertEqual(scores, sorted(scores, reverse=True))
+        chances = [p.win_chance for p in ranked]          # most likely to win first
+        self.assertEqual(chances, sorted(chances, reverse=True))
+        for p in ranked:
+            self.assertAlmostEqual(p.win_chance, min(max(p.success + p.news_effect, 0), 1))
         for p in ranked:
             self.assertGreater(p.avg_return, 0)
             self.assertTrue(0 <= p.success <= 1)
@@ -42,6 +44,16 @@ class ScreenTests(unittest.TestCase):
         brief = screener.render_brief(picks, stats, 5, 5, "test")
         self.assertEqual(sum(1 for l in brief.splitlines() if l[:2] in {f"{i}." for i in range(1, 6)}), len(picks))
         self.assertIn("Sit out", screener.render_brief([], stats, 5, 5))
+        self.assertIn("most likely to win first", brief.splitlines()[0])
+        if picks:
+            self.assertIn(f"chance of winning {picks[0].win_chance:.0%}", brief)
+
+    def test_news_moves_the_win_chance_within_bounds(self):
+        p = screener.Pick("X", "Hammer", "bullish", "2024-01-01", 1, 5, 10, .6, .55, .58, .5, .01)
+        p.news_effect = 0.08
+        self.assertAlmostEqual(p.win_chance, 0.66)
+        p.news_effect = 0.6
+        self.assertEqual(p.win_chance, 1.0)
 
     def test_news_tilts_score(self):
         p = screener.Pick("X", "Hammer", "bullish", "2024-01-01", 1, 5, 10, .6, .55, .58, .5, .01)

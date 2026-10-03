@@ -64,6 +64,12 @@ class Pick:
     def edge(self) -> float:
         return self.success - self.baseline
 
+    @property
+    def win_chance(self) -> float:
+        """Estimated chance this trade makes money: the shrunk past win rate, moved up to ±10 points by
+        the news. Picks are ranked by it, highest first."""
+        return float(min(max(self.success + self.news_effect, 0.0), 1.0))
+
 
 def _trend(close: pd.Series) -> str:
     s20, s50, last = close.rolling(20).mean().iloc[-1], close.rolling(50).mean().iloc[-1], close.iloc[-1]
@@ -253,7 +259,7 @@ def screen(
         if p.news_aligned <= -0.2:
             p.notes.append("news leans against the trade")
         ranked.append(p)
-    ranked.sort(key=lambda p: p.score, reverse=True)
+    ranked.sort(key=lambda p: (p.win_chance, p.edge), reverse=True)   # most likely to win first
     if size:
         from . import options, sizing
 
@@ -290,7 +296,7 @@ def screen(
 
 def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon: int, top: int) -> str:
     as_of = stats.get("as_of") or max((p.signal_date for p in ranked), default="")
-    md = [f"# Top {top} setups", "",
+    md = [f"# Top {top} setups, most likely to win first", "",
           f"*Market data to {as_of} · {stats['loaded']} stocks scanned · {stats['candidates']} with an active "
           f"setup that has a historical edge · holding period {horizon} trading days*", ""]
     if validation_line():
@@ -301,14 +307,14 @@ def render_markdown(picks: list[Pick], ranked: list[Pick], stats: dict, horizon:
         return "\n".join(md)
     if len(picks) < top:
         md += [f"Only {len(picks)} stocks qualify today; the rest have no setup with an edge.", ""]
-    md += ["| # | Stock | Trade | Setup | Signal | Success rate | Baseline | Stock history | Last 3y | Universe | Avg move | News | Score |",
+    md += ["| # | Stock | Trade | Setup | Signal | Chance of winning | Past trades won | Baseline | Stock history | Last 3y | Universe | Avg move | News |",
            "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for i, p in enumerate(picks, 1):
         own = f"{p.raw_win_rate:.0%} of {p.n}" if p.n else "none"
         news = f"{p.news_mean:+.2f} ({p.news_count})" if p.news_count else "n/a"
         recent = f"{p.recent_win_rate:.0%} of {p.recent_n}" if p.recent_n else "none"
-        md.append(f"| {i} | **{p.ticker}** | BUY {p.side} | {p.pattern} | {p.signal_date} | **{p.success:.0%}** | "
-                  f"{p.baseline:.0%} | {own} | {recent} | {p.pooled_win_rate:.0%} | {p.avg_return:+.2%} | {news} | {p.score:.3f} |")
+        md.append(f"| {i} | **{p.ticker}** | BUY {p.side} | {p.pattern} | {p.signal_date} | **{p.win_chance:.0%}** | "
+                  f"{p.success:.0%} | {p.baseline:.0%} | {own} | {recent} | {p.pooled_win_rate:.0%} | {p.avg_return:+.2%} | {news} |")
     sized = [p for p in picks if p.plan is not None]
     if sized:
         from .sizing import money
@@ -384,7 +390,7 @@ def validation_line() -> str:
 def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, universe: str = "") -> str:
     """Short plain-text version for a phone notification or email."""
     as_of = stats.get("as_of") or max((p.signal_date for p in picks), default="today")
-    head = f"Top {top} {universe} setups · data to {as_of} · {horizon}-day hold".replace("  ", " ")
+    head = f"Top {top} {universe} setups, most likely to win first · data to {as_of} · {horizon}-day hold".replace("  ", " ")
     if not picks:
         return head + "\nNo stock has an active setup with a historical edge today. Sit out."
     lines = [head]
@@ -396,7 +402,8 @@ def render_brief(picks: list[Pick], stats: dict, horizon: int, top: int, univers
         result = (f"avg {p.avg_r:+.2f}x the stop distance on the shares" if shares and p.avg_r == p.avg_r
                   else f"avg {p.avg_return:+.0%} on the option")
         lines.append(f"{i}. {p.ticker.split('.')[0]} BUY {what} @ {p.last_close:.2f} · {p.pattern} ({p.signal_date[5:]}) · "
-                     f"{p.success:.0%} of past trades won (random day {p.baseline:.0%}{recent}), {result}{news}")
+                     f"chance of winning {p.win_chance:.0%} ({p.success:.0%} of past trades won, random day "
+                     f"{p.baseline:.0%}{recent}), {result}{news}")
         if p.plan is not None:
             lines += p.plan.lines()
         if p.checklist:
