@@ -280,8 +280,12 @@ def cmd_fund(args) -> int:
         print("  Sell (dropped since last rebalance): " + ", ".join(t.replace(".NS", "") for t in r["dropped"]))
     if r["fit_note"]:
         print("  ! " + r["fit_note"])
-    print("\nToday's index members are the survivors, which flatters every backtest drawn from them; most of the gap over "
-          "the Nifty also shows up in the equal-weight basket. Not investment advice.")
+    if args.universe.startswith("nse_top"):
+        print("\nThe stock list was rebuilt on every date from all NSE stocks, so survivorship bias is much smaller "
+              "(delisted companies are still missing). Not investment advice.")
+    else:
+        print("\nToday's index members are the survivors, which flatters every backtest drawn from them; most of the gap "
+              "over the Nifty also shows up in the equal-weight basket. Try --universe nse_top200. Not investment advice.")
     return 0
 
 
@@ -437,7 +441,8 @@ def main(argv: list[str] | None = None) -> int:
         mp.set_defaults(func=cmd_market, market=mk)
 
     fp = sub.add_parser("fund", help="model factor fund: today's 25 stocks and an honest backtest")
-    fp.add_argument("--universe", choices=["nifty200", "nifty100", "fno"], default="nifty200")
+    fp.add_argument("--universe", choices=["nifty200", "nifty100", "nifty500", "fno", "nse_top100", "nse_top200", "nse_top500"],
+                    default="nifty200", help="nse_top200 = the 200 most-traded NSE stocks as they were on each date (fairer)")
     fp.add_argument("--size", type=int, default=25)
     fp.add_argument("--rebalance", choices=["M", "Q", "H", "Y"], default="Q")
     fp.add_argument("--benchmark", default="NIFTYBEES.NS", help="NIFTYBEES.NS, JUNIORBEES.NS, ^CNX200, ^CRSLDX, "

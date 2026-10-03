@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 
 import numpy as np
 import pandas as pd
@@ -121,6 +122,33 @@ class AttributionTests(unittest.TestCase):
         years = (idx[-1] - idx[0]).days / 365.25
         self.assertAlmostEqual(tr.iloc[-1] / 100, 1.012 ** years, places=9)
         self.assertTrue(A.total_return("NIFTYBEES.NS", flat).equals(flat))
+
+
+
+class PointInTimeTests(unittest.TestCase):
+    def test_members_follow_traded_value_and_use_only_the_past(self):
+        from stock_agent import pit
+
+        closes, values, _, _ = _universe(n=30, days=900)
+        values = pd.DataFrame(1e7, index=closes.index, columns=closes.columns)
+        values.iloc[:450, :5] = 1e9           # five stocks traded hugely early on, then shrank
+        values.iloc[450:, 5:10] = 1e9         # five others grew big later
+        early, late = closes.index[400], closes.index[880]
+        self.assertEqual(set(pit.members(closes, values, early, 5)), set(closes.columns[:5]))
+        self.assertEqual(set(pit.members(closes, values, late, 5)), set(closes.columns[5:10]))
+        pd.testing.assert_index_equal(pit.members(closes, values, early, 5),
+                                      pit.members(closes.loc[:early], values.loc[:early], early, 5))
+        self.assertTrue(set(closes.columns[:5]) <= set(pit.candidates(closes, values, 5)))
+
+    def test_fund_holds_only_that_days_members(self):
+        from stock_agent import pit
+
+        closes, values, bench, sectors = _universe(n=40, days=1300)
+        rules = fund.FundRules(universe="nse_top100", size=10)
+        with unittest.mock.patch.object(pit, "PIT", {"nse_top100": 15}):
+            d = closes.index[700]
+            sc = fund.scores(closes, values, d, rules)
+            self.assertLessEqual(set(sc.index), set(pit.members(closes, values, d, 15)))
 
 
 if __name__ == "__main__":

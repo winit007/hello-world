@@ -27,6 +27,9 @@ SOURCES = {
     "nifty50": (f"{NSE}/indices/ind_nifty50list.csv", "nifty50.csv"),
     "nifty100": (f"{NSE}/indices/ind_nifty100list.csv", "nifty100.csv"),
     "nifty200": (f"{NSE}/indices/ind_nifty200list.csv", "nifty200.csv"),
+    "nifty500": (f"{NSE}/indices/ind_nifty500list.csv", "nifty500.csv"),
+    "niftytotal": (f"{NSE}/indices/ind_niftytotalmarket_list.csv", "niftytotal.csv"),
+    "microcap250": (f"{NSE}/indices/ind_niftymicrocap250_list.csv", "microcap250.csv"),
     "nse_equity": (f"{NSE}/equities/EQUITY_L.csv", "nse_equity.csv"),
     "sp500": ("https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv", "sp500.csv"),
 }
@@ -39,7 +42,7 @@ US_MEGACAP = [
 ]
 
 NAMES = {
-    "nifty50": "Nifty 50", "nifty100": "Nifty 100", "nifty200": "Nifty 200", "fno": "All F&O stocks (NSE)",
+    "nifty50": "Nifty 50", "nifty100": "Nifty 100", "nifty200": "Nifty 200", "nifty500": "Nifty 500", "fno": "All F&O stocks (NSE)",
     "nse_all": "All NSE stocks", "sp500": "S&P 500 (US)", "us": "US mega caps",
 }
 CHOICES = list(NAMES)
@@ -87,7 +90,7 @@ def nse_equity(offline: bool = False) -> pd.DataFrame:
 
 
 def get_universe(name: str, offline: bool = False) -> list[str]:
-    if name in ("nifty50", "nifty100", "nifty200"):
+    if name in ("nifty50", "nifty100", "nifty200", "nifty500"):
         return [s + ".NS" for s in _frame(name, offline)["Symbol"]]
     if name == "fno":
         from .lots import load_nse_lots
@@ -106,9 +109,9 @@ def get_universe(name: str, offline: bool = False) -> list[str]:
 
 
 def industries(offline: bool = False) -> dict[str, str]:
-    """Yahoo symbol -> NSE industry, from the index lists (Nifty 200 covers the large and mid caps)."""
+    """Yahoo symbol -> NSE industry, from the index lists (Total Market and Microcap 250 cover ~1,000 stocks)."""
     out = {}
-    for key in ("nifty50", "nifty100", "nifty200"):
+    for key in ("microcap250", "niftytotal", "nifty500", "nifty50", "nifty100", "nifty200"):
         try:
             df = _frame(key, offline)
             out.update({s + ".NS": ind for s, ind in zip(df["Symbol"], df["Industry"])})

@@ -17,6 +17,7 @@ import pandas as pd
 
 from . import attribution as A
 from . import costs as C
+from . import pit
 from .fund import REBALANCE, _metrics, _rebalance_dates
 
 METRICS = {
@@ -99,9 +100,10 @@ def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series) 
     }
 
 
-def snapshot(frames: dict[str, pd.DataFrame], date) -> pd.DataFrame:
+def snapshot(frames: dict[str, pd.DataFrame], date, allowed=None) -> pd.DataFrame:
     rows = {k: f.loc[:date].iloc[-1] for k, f in frames.items()}
-    return pd.DataFrame(rows).dropna(subset=["price", "ret_12m", "vol_1y"])
+    snap = pd.DataFrame(rows).dropna(subset=["price", "ret_12m", "vol_1y"])
+    return snap if allowed is None else snap[snap.index.isin(allowed)]
 
 
 def apply(snap: pd.DataFrame, sc: Screen) -> pd.DataFrame:
@@ -113,7 +115,8 @@ def apply(snap: pd.DataFrame, sc: Screen) -> pd.DataFrame:
 
 
 def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Series, sc: Screen, progress=None,
-             values: pd.DataFrame | None = None, capital: float = 200_000, per_order: float = 0.0) -> dict:
+             values: pd.DataFrame | None = None, capital: float = 200_000, per_order: float = 0.0,
+             pit_n: int | None = None) -> dict:
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, sc.rebalance) if len(closes.loc[:d]) >= 260]
     if len(dates) < 3:
@@ -128,7 +131,7 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
     for k, (d0, d1) in enumerate(zip(dates[:-1], dates[1:])):
         if progress and k % 6 == 0:
             progress(f"Backtesting {d0:%b %Y}", 0.4 + 0.5 * k / len(dates))
-        snap = snapshot(frames, d0)
+        snap = snapshot(frames, d0, pit.members(closes, values, d0, pit_n) if pit_n else None)
         picks = list(apply(snap, sc).index[: int(sc.top)])
         period = daily.loc[(daily.index > d0) & (daily.index <= d1)]
         grow_all = (1 + period[snap.index].fillna(0)).prod()
@@ -193,19 +196,20 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
 
 
 def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
-        sectors: dict | None = None, progress=None, per_order: float = 0.0, benchmark: str = A.DEFAULT) -> dict:
+        sectors: dict | None = None, progress=None, per_order: float = 0.0, benchmark: str = A.DEFAULT,
+        pit_n: int | None = None) -> dict:
     sc.validate()
     progress = progress or (lambda m, f: None)
     progress("Computing the metrics", 0.35)
     frames = metric_frames(closes, values, bench)
     today = closes.index[-1]
-    snap = snapshot(frames, today)
+    snap = snapshot(frames, today, pit.members(closes, values, today, pit_n) if pit_n else None)
     matches = apply(snap, sc)
     top = matches.head(int(sc.top))
     per = capital / max(len(top), 1)
     rows = [{"ticker": t, "industry": (sectors or {}).get(t, ""), **{k: (None if pd.isna(v) else float(v)) for k, v in row.items()},
              "shares": int(per // row["price"]) if row["price"] > 0 else 0} for t, row in top.iterrows()]
-    bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order)
+    bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order, pit_n)
     bt.pop("daily")
     progress("Done", 1.0)
     return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,

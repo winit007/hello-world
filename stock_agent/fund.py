@@ -27,6 +27,7 @@ import pandas as pd
 
 from . import attribution as A
 from . import costs as C
+from . import pit
 from .data import DEFAULT_CACHE, _cache_path, read_cached, refresh_many
 from .screener import load_universe
 from .universes import get_universe, industries
@@ -56,6 +57,9 @@ def scores(closes: pd.DataFrame, values: pd.DataFrame, date: pd.Timestamp, rules
     ok = window.notna().sum() >= 240
     liquid = values.loc[:date].iloc[-60:].median() >= rules.min_turnover
     eligible = ok & liquid.reindex(ok.index).fillna(False)
+    n = pit.size(rules.universe)
+    if n:                                             # the biggest stocks as they were on that date
+        eligible &= eligible.index.isin(pit.members(closes, values, date, n))
     w = window.loc[:, eligible[eligible].index]
     if w.shape[1] < rules.size:
         return pd.DataFrame()
@@ -72,7 +76,7 @@ def scores(closes: pd.DataFrame, values: pd.DataFrame, date: pd.Timestamp, rules
 def select(sc: pd.DataFrame, sectors: dict[str, str], rules: FundRules) -> list[str]:
     picks, count = [], {}
     for t in sc.index:
-        ind = sectors.get(t, "Other")
+        ind = sectors.get(t) or t                     # no known industry: no cap (it is its own group)
         if count.get(ind, 0) >= rules.per_industry:
             continue
         picks.append(t)
@@ -257,7 +261,8 @@ def _yearly(curve: pd.DataFrame) -> list[dict]:
 def load(rules: FundRules, offline: bool = False, cache_dir=DEFAULT_CACHE, progress=None):
     """(closes, traded values, Nifty ETF closes, industries) for the rules' universe, ten years daily."""
     progress = progress or (lambda m, f: None)
-    tickers = get_universe(rules.universe, offline)
+    n = pit.size(rules.universe)
+    tickers = get_universe("nse_all" if n else rules.universe, offline)
     prices = load_universe(tickers, "10y", "1d", offline, cache_dir, log=lambda *a: None,
                            progress=lambda m, f: progress(m, f * 0.4))
     sym = rules.benchmark if rules.benchmark in A.BENCHMARKS else BENCHMARK
@@ -268,6 +273,10 @@ def load(rules: FundRules, offline: bool = False, cache_dir=DEFAULT_CACHE, progr
     values = pd.DataFrame({t: df["Close"] * df["Volume"] for t, df in prices.items()}).reindex(closes.index)
     closes = closes.loc[closes.index >= bench.index[0]]
     values = values.loc[closes.index]
+    if n:                                             # keep only stocks that were ever among the top n
+        progress("Finding the biggest stocks on each date", 0.42)
+        keep = pit.candidates(closes, values, n)
+        closes, values = closes[keep], values[keep]
     return closes, values, bench, industries(offline)
 
 

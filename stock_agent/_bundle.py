@@ -25,6 +25,7 @@ from . import myscreen
 from . import news
 from . import options
 from . import paper
+from . import pit
 from . import patterns
 from . import planner
 from . import publish

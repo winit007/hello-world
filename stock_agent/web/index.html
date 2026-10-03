@@ -350,7 +350,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <form class="card form" id="ms-form" style="max-width:none;gap:12px;margin-bottom:14px" autocomplete="off">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
         <div class="field"><label for="ms-preset">Start from</label><select id="ms-preset" style="width:auto"><option value="">My own rules</option></select></div>
-        <div class="field"><label for="ms-uni">Stocks</label><select id="ms-uni" style="width:auto"><option value="nifty50">Nifty 50</option><option value="nifty100">Nifty 100</option><option value="nifty200" selected>Nifty 200</option><option value="fno">F&amp;O stocks</option></select></div>
+        <div class="field"><label for="ms-uni">Stocks</label><select id="ms-uni" style="width:auto"><option value="nifty50">Nifty 50</option><option value="nifty100">Nifty 100</option><option value="nifty200" selected>Nifty 200</option><option value="nifty500">Nifty 500</option><option value="fno">F&amp;O stocks</option><option value="nse_top200">Top 200 NSE stocks at each date (fairer test)</option><option value="nse_top500">Top 500 NSE stocks at each date (fairer test)</option></select></div>
       </div>
       <div><b style="font-size:14px">Keep stocks where</b> <a href="#" id="ms-what" style="font-size:13px;margin-left:6px">What does each criterion mean?</a><div id="ms-rules" style="display:grid;gap:8px;margin-top:8px"></div>
         <button type="button" class="btn small" id="ms-add" style="margin-top:8px">+ Add a rule</button></div>
@@ -541,7 +541,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <div><h1>Model fund</h1>
         <p class="sub">A rules-based stock portfolio built like a systematic fund house's factor fund: momentum plus low volatility, equal weight, at most 5 stocks per industry.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select style="width:auto" class="live-only" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
+        <select style="width:auto" class="live-only" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200 (today's list)</option><option value="nifty100">Nifty 100 (today's list)</option><option value="nifty500">Nifty 500 (today's list)</option><option value="fno">F&amp;O stocks</option><option value="nse_top200">Top 200 NSE stocks at each date (fairer test)</option><option value="nse_top500">Top 500 NSE stocks at each date (fairer test)</option></select>
         <select style="width:auto" class="live-only" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
         <select style="width:auto" class="live-only" id="f-rebal" aria-label="Rebalance every"><option value="M">Rebalance monthly</option><option value="Q" selected>Rebalance quarterly</option><option value="H">Rebalance half-yearly</option><option value="Y">Rebalance yearly</option></select>
         <select style="width:auto" class="live-only" id="f-bench" aria-label="Compare with"><option value="NIFTYBEES.NS">vs Nifty 50</option><option value="JUNIORBEES.NS">vs Nifty Next 50</option><option value="^CNX200">vs Nifty 200</option><option value="^CRSLDX">vs Nifty 500</option><option value="^NSEMDCP50">vs Nifty Midcap 50</option><option value="NIFTYSMLCAP250.NS">vs Nifty Smallcap 250</option><option value="BANKBEES.NS">vs Nifty Bank</option></select>
@@ -706,7 +706,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <div class="table-scroll"><table class="help-table"><thead><tr><th>Criterion</th><th>What it means</th><th>Typical values</th><th>How traders use it</th></tr></thead><tbody id="ms-help-rows"></tbody></table></div>
         <h3 style="margin:16px 0 6px;font-size:15px">The other choices</h3>
         <table class="help-table"><tbody>
-          <tr><td><b>Stocks</b></td><td>Which list is checked: Nifty 50 (the 50 largest companies), Nifty 100, Nifty 200, or the F&amp;O stocks (those with futures and options). A bigger list gives more choice but includes smaller, more volatile companies.</td></tr>
+          <tr><td><b>Stocks</b></td><td>Which list is checked: Nifty 50 (the 50 largest companies), Nifty 100, 200 or 500, or the F&amp;O stocks (those with futures and options). A bigger list gives more choice but includes smaller, more volatile companies. These are <i>today's</i> lists, so the backtest only owns companies we already know survived. <b>Top 200 / 500 NSE stocks at each date</b> rebuilds the list on every rebalance date from all NSE stocks (the most traded at that time), which is a much fairer test; the first run downloads about 2,000 stocks and takes 10 to 15 minutes.</td></tr>
           <tr><td><b>Start from</b></td><td>Fills in a ready-made rule set (below) that you can then change. <b>My own rules</b> keeps what you typed.</td></tr>
           <tr><td><b>Rank by / Order</b></td><td>After the rules, the passing stocks are sorted by this measure. Use <b>highest first</b> for returns (strongest stocks on top) and <b>lowest first</b> for volatility or beta (calmest on top). For <i>Worst fall</i> and <i>Distance from 52-week high</i>, which are negative numbers, <b>highest first</b> means the smallest fall.</td></tr>
           <tr><td><b>Hold</b></td><td>How many of the top-ranked stocks you buy. Your capital is split equally: ₹2,00,000 and 10 stocks means about ₹20,000 each. Fewer stocks means bigger swings; 10 to 20 is usual.</td></tr>
@@ -1267,7 +1267,8 @@ function renderFund(r) {
   const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
   const row = (label, k) => `<tr><td>${label}</td><td class="r"><b>${spct(m[k].cagr)}</b></td><td class="r">${pct(m[k].vol)}</td><td class="r chg down">${pct(m[k].max_drawdown)}</td><td class="r">₹1 → ₹${m[k].growth_of_1.toFixed(2)}</td></tr>`;
   $("#fund").innerHTML = `
-    <div class="notice warn"><b>Read this first.</b> These stocks are today's index members, the companies that survived and grew, so any backtest drawn from them looks better than it was in real time. Holding <i>all</i> of them in equal weight returned ${spct(m.equal_weight.cagr)} a year; the factor rules added ${spct(m.fund.cagr - m.equal_weight.cagr)} a year on top and beat that basket in ${pct(r.beat_equal_12m)} of 12-month periods. Expect much less than the backtest.</div>
+    ${PIT_UNI(r.rules.universe) ? `<div class="notice"><b>Fairer test.</b> The stock list was rebuilt on every date from all NSE stocks: the most-traded ones at that time, including companies that later fell. Holding all of them in equal weight returned ${spct(m.equal_weight.cagr)} a year; the factor rules added ${spct(m.fund.cagr - m.equal_weight.cagr)} a year on top and beat that basket in ${pct(r.beat_equal_12m)} of 12-month periods. Companies that have since delisted are still missing, so expect a little less.</div>`
+    : `<div class="notice warn"><b>Read this first.</b> These stocks are today's index members, the companies that survived and grew, so any backtest drawn from them looks better than it was in real time. Holding <i>all</i> of them in equal weight returned ${spct(m.equal_weight.cagr)} a year; the factor rules added ${spct(m.fund.cagr - m.equal_weight.cagr)} a year on top and beat that basket in ${pct(r.beat_equal_12m)} of 12-month periods. For a fairer test choose <b>Top 200 NSE stocks at each date</b>.</div>`}
     <div class="tiles">
       <div class="card tile"><div class="k">Model fund, after your tax</div><div class="v num">${spct(a.fund_cagr)}</div><div class="sub" style="font-size:12.5px">a year, ${fmtDate(first)} ${first.slice(0, 4)} to ${last.slice(0, 4)}</div></div>
       <div class="card tile"><div class="k">${esc(bn)} index fund, after tax</div><div class="v num">${spct(a.nifty_cagr)}</div><div class="sub" style="font-size:12.5px">a year, same period</div></div>
@@ -1277,7 +1278,7 @@ function renderFund(r) {
     <div class="card"><h2>Growth of ₹1</h2><div class="chart-wrap" id="fund-chart"></div>
       <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Model fund</span>
         <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--s1)"></i>Model fund after your tax</span>
-        <span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All ${esc(r.rules.universe)} stocks, equal weight</span>
+        <span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All ${PIT_UNI(r.rules.universe) ? "top stocks of each date" : esc(r.rules.universe) + " stocks"}, equal weight</span>
         <span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>${esc(bn)}</span></div>
       <div class="table-scroll"><table class="num" style="margin-top:10px"><thead><tr><th></th><th class="r">A year</th><th class="r">Ups and downs</th><th class="r">Worst fall</th><th class="r">Growth</th></tr></thead><tbody>
         ${row("Model fund (before tax)", "fund")}${row("All stocks, equal weight", "equal_weight")}${row(esc(r.benchmark ? r.benchmark.label : "Nifty 50 ETF"), "nifty")}</tbody></table></div></div>
@@ -1333,6 +1334,7 @@ function drawFund(r) {
   $("#fhit2", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
 }
 
+const PIT_UNI = u => /^nse_top/.test(u || "");
 const BN = r => (r && r.benchmark && r.benchmark.short) || "Nifty 50";
 /* where the extra return over the benchmark came from, and how the strategy moves with it */
 function attribCard(a, bn, name) {
@@ -1936,7 +1938,7 @@ function renderMyScreen(r) {
     ${attribCard(bt.attribution, bn, "Your screen")}
     <div class="card table-scroll"><h2 style="margin-top:0">Year by year</h2><table class="num"><thead><tr><th>Year</th><th class="r">Your screen</th><th class="r">Equal weight</th><th class="r">${esc(bn)}</th></tr></thead><tbody>
       ${bt.yearly.map(y => `<tr><td>${y.year}</td><td class="r ${cls(y.screen)}"><b>${spct(y.screen)}</b></td><td class="r">${spct(y.equal_weight)}</td><td class="r">${spct(y.nifty)}</td></tr>`).join("")}</tbody></table>
-      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, real trading costs for your capital (about ${money(((bt.costs || {}).charges + (bt.costs || {}).spread_impact) * r.capital || 0)} over the whole test), before tax. Stocks are today's index members, so past results are flattered.</p></div>`;
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, real trading costs for your capital (about ${money(((bt.costs || {}).charges + (bt.costs || {}).spread_impact) * r.capital || 0)} over the whole test), before tax. ${PIT_UNI(r.universe) ? "The stock list was rebuilt on every date from all NSE stocks, so survivorship bias is much smaller (delisted companies are still missing)." : "Stocks are today's index members, so past results are flattered; choose <b>Top 200 NSE stocks at each date</b> for a fairer test."}</p></div>`;
   msChart(bt.curve);
   $$("[data-msck]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.msck];
     ckFill({ instrument: "stock", product: "delivery", symbol: p.ticker, side: "buy", stop: p.price * 0.9, target: p.price * 1.2, hold: { M: 21, Q: 63, H: 126, Y: 250 }[r.screen.rebalance] }); });

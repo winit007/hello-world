@@ -391,7 +391,9 @@ def run_fund(body: dict, settings: dict, progress) -> dict:
 
     rules = fund.FundRules(universe=body.get("universe", "nifty200"), size=int(body.get("size", 25)),
                            rebalance=body.get("rebalance", "Q"), benchmark=body.get("benchmark") or "NIFTYBEES.NS")
-    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) \
+    from . import pit
+
+    if (rules.universe not in ("nifty200", "nifty100", "nifty500", "fno") and not pit.size(rules.universe)) or not (10 <= rules.size <= 40) \
             or rules.rebalance not in ("M", "Q", "H", "Y") or rules.benchmark not in BENCHMARKS:
         raise ValueError("Unsupported fund settings")
     res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress,
@@ -510,8 +512,10 @@ def run_check(body: dict, progress) -> dict:
 def run_myscreen(body: dict, settings: dict, progress) -> dict:
     from . import fund, myscreen
 
+    from . import pit
+
     uni = body.get("universe", "nifty200")
-    if uni not in ("nifty50", "nifty100", "nifty200", "fno"):
+    if uni not in ("nifty50", "nifty100", "nifty200", "nifty500", "fno") and not pit.size(uni):
         raise ValueError("Unsupported universe")
     sc = myscreen.Screen(filters=list(body.get("filters") or []), rank_by=body.get("rank_by", "ret_6m"),
                          descending=bool(body.get("descending", True)), top=int(body.get("top") or 10),
@@ -524,7 +528,7 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
         raise ValueError("Unknown benchmark")
     closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni, benchmark=bm), False, CACHE, progress)
     res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress,
-                       per_order=float(settings.get("brokerage") or 0), benchmark=bm)
+                       per_order=float(settings.get("brokerage") or 0), benchmark=bm, pit_n=pit.size(uni))
     return clean({**res, "universe": uni})
 
 
