@@ -387,15 +387,19 @@ def run_rebalance(body: dict, progress) -> dict:
 def run_fund(body: dict, settings: dict, progress) -> dict:
     from . import fund
 
+    from .attribution import BENCHMARKS
+
     rules = fund.FundRules(universe=body.get("universe", "nifty200"), size=int(body.get("size", 25)),
-                           rebalance=body.get("rebalance", "Q"))
-    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) or rules.rebalance not in ("M", "Q", "H", "Y"):
+                           rebalance=body.get("rebalance", "Q"), benchmark=body.get("benchmark") or "NIFTYBEES.NS")
+    if rules.universe not in ("nifty200", "nifty100", "fno") or not (10 <= rules.size <= 40) \
+            or rules.rebalance not in ("M", "Q", "H", "Y") or rules.benchmark not in BENCHMARKS:
         raise ValueError("Unsupported fund settings")
     res = fund.run(rules, float(settings["capital"]), False, CACHE, progress=progress,
                    per_order=float(settings.get("brokerage") or 0))
     curve = res.pop("curve")
     res["curve"] = [{"date": str(d.date()), **{k: float(v) for k, v in row.items()}} for d, row in curve.iterrows()]
     res.pop("log", None)
+    res.pop("daily", None)
     return clean(res)
 
 
@@ -513,9 +517,14 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
                          descending=bool(body.get("descending", True)), top=int(body.get("top") or 10),
                          rebalance=body.get("rebalance", "Q"))
     sc.validate()
-    closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni), False, CACHE, progress)
+    from .attribution import BENCHMARKS
+
+    bm = body.get("benchmark") or "NIFTYBEES.NS"
+    if bm not in BENCHMARKS:
+        raise ValueError("Unknown benchmark")
+    closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni, benchmark=bm), False, CACHE, progress)
     res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress,
-                       per_order=float(settings.get("brokerage") or 0))
+                       per_order=float(settings.get("brokerage") or 0), benchmark=bm)
     return clean({**res, "universe": uni})
 
 

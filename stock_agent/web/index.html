@@ -190,6 +190,13 @@ dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--s
 dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
 .help-table td:first-child { width: 190px; }
+.wf { display: grid; gap: 6px; }
+.wf-row { display: grid; grid-template-columns: minmax(120px, 260px) 1fr 70px; gap: 10px; align-items: center; font-size: 13.5px; }
+.wf-bar { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; }
+.wf-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.wf-bar .wf-zero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }
+.wf-v { text-align: right; }
+@media (max-width: 640px) { .wf-row { grid-template-columns: 1fr 64px; } .wf-bar { grid-column: 1 / -1; grid-row: 2; } }
 .help-table th:nth-child(3), .help-table td:nth-child(3) { width: 180px; }
 @media (max-width: 640px) { .help-table thead { display: none; } .help-table tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--grid); }
   .help-table td { display: block; width: auto !important; border: 0; padding: 2px 0; }
@@ -351,6 +358,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <div class="field"><label for="ms-rank">Rank by</label><select id="ms-rank" style="width:auto"></select></div>
         <div class="field"><label for="ms-dir">Order</label><select id="ms-dir" style="width:auto"><option value="1">highest first</option><option value="0">lowest first</option></select></div>
         <div class="field"><label for="ms-top">Hold</label><select id="ms-top" style="width:auto"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select></div>
+        <div class="field"><label for="ms-bench">Compare with</label><select id="ms-bench" style="width:auto"><option value="NIFTYBEES.NS">Nifty 50</option><option value="JUNIORBEES.NS">Nifty Next 50</option><option value="^CNX200">Nifty 200</option><option value="^CRSLDX">Nifty 500</option><option value="^NSEMDCP50">Nifty Midcap 50</option><option value="NIFTYSMLCAP250.NS">Nifty Smallcap 250</option><option value="BANKBEES.NS">Nifty Bank</option></select></div>
         <div class="field"><label for="ms-reb">Rebalance</label><select id="ms-reb" style="width:auto"><option value="M">monthly</option><option value="Q" selected>quarterly</option><option value="H">half-yearly</option><option value="Y">yearly</option></select></div>
         <button class="btn primary" id="ms-run" type="submit">Run screen</button>
       </div>
@@ -536,6 +544,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <select style="width:auto" class="live-only" id="f-universe" aria-label="Universe"><option value="nifty200">Nifty 200</option><option value="nifty100">Nifty 100</option><option value="fno">F&amp;O stocks</option></select>
         <select style="width:auto" class="live-only" id="f-size" aria-label="Stocks"><option>15</option><option>20</option><option selected>25</option><option>30</option></select>
         <select style="width:auto" class="live-only" id="f-rebal" aria-label="Rebalance every"><option value="M">Rebalance monthly</option><option value="Q" selected>Rebalance quarterly</option><option value="H">Rebalance half-yearly</option><option value="Y">Rebalance yearly</option></select>
+        <select style="width:auto" class="live-only" id="f-bench" aria-label="Compare with"><option value="NIFTYBEES.NS">vs Nifty 50</option><option value="JUNIORBEES.NS">vs Nifty Next 50</option><option value="^CNX200">vs Nifty 200</option><option value="^CRSLDX">vs Nifty 500</option><option value="^NSEMDCP50">vs Nifty Midcap 50</option><option value="NIFTYSMLCAP250.NS">vs Nifty Smallcap 250</option><option value="BANKBEES.NS">vs Nifty Bank</option></select>
         <button class="btn primary" id="f-run">Build fund</button>
       </div>
     </div>
@@ -713,7 +722,8 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <h3 style="margin:16px 0 6px;font-size:15px">Reading the results</h3>
         <table class="help-table"><tbody>
           <tr><td><b>Your screen, a year</b></td><td>Average yearly growth (CAGR) if you had followed these rules over the backtest, after 0.25% trading cost, before tax.</td></tr>
-          <tr><td><b>Nifty 50, a year</b></td><td>The same for a Nifty 50 index fund, for comparison.</td></tr>
+          <tr><td><b>Benchmark, a year</b></td><td>The same for the index you chose under <b>Compare with</b> (Nifty 50 by default). Indices without an index fund have a typical dividend yield added, so the comparison is fair.</td></tr>
+          <tr><td><b>Where the extra return came from</b></td><td>The extra return over the benchmark split into three steps that add up: owning every stock of the list, your rules' picks, and trading costs. Below it: <b>beta</b> (how much it moves with the market), <b>alpha</b> (return not explained by that), <b>tracking error</b> (how far it strays), <b>information ratio</b> (extra return per unit of straying), and <b>up / down capture</b> (share of the benchmark's rising and falling months it caught).</td></tr>
           <tr><td><b>All these stocks, equal weight</b></td><td>Buying every stock in the list in equal money. The list is today's index members (the companies that survived), so this number is flattered. If your screen does not beat it, your rules are not adding anything.</td></tr>
           <tr><td><b>Worst fall</b></td><td>The biggest drop from a peak to a later low. Ask yourself whether you would have held on through it.</td></tr>
           <tr><td><b>Picks that rose</b></td><td>The share of picks that were higher at the next rebalance, and the share that beat the Nifty over the same period.</td></tr>
@@ -1247,20 +1257,20 @@ function renderMarket(res, box) {
 $("#f-run").onclick = async () => {
   const btn = $("#f-run"); btn.disabled = true;
   try {
-    const r = await runJob(api("/api/fund", { method: "POST", body: { universe: $("#f-universe").value, size: +$("#f-size").value, rebalance: $("#f-rebal").value } }), $("#fund-progress"));
+    const r = await runJob(api("/api/fund", { method: "POST", body: { universe: $("#f-universe").value, size: +$("#f-size").value, rebalance: $("#f-rebal").value, benchmark: $("#f-bench").value } }), $("#fund-progress"));
     window._lastFund = r; renderFund(r);
   } catch (e) { $("#fund").innerHTML = `<div class="notice error">${esc(e.message)}</div>`; }
   btn.disabled = false;
 };
 function renderFund(r) {
-  const m = r.metrics, a = r.after_tax, c = r.curve, first = c[0].date, last = c[c.length - 1].date;
+  const bn = BN(r), m = r.metrics, a = r.after_tax, c = r.curve, first = c[0].date, last = c[c.length - 1].date;
   const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
   const row = (label, k) => `<tr><td>${label}</td><td class="r"><b>${spct(m[k].cagr)}</b></td><td class="r">${pct(m[k].vol)}</td><td class="r chg down">${pct(m[k].max_drawdown)}</td><td class="r">₹1 → ₹${m[k].growth_of_1.toFixed(2)}</td></tr>`;
   $("#fund").innerHTML = `
     <div class="notice warn"><b>Read this first.</b> These stocks are today's index members, the companies that survived and grew, so any backtest drawn from them looks better than it was in real time. Holding <i>all</i> of them in equal weight returned ${spct(m.equal_weight.cagr)} a year; the factor rules added ${spct(m.fund.cagr - m.equal_weight.cagr)} a year on top and beat that basket in ${pct(r.beat_equal_12m)} of 12-month periods. Expect much less than the backtest.</div>
     <div class="tiles">
       <div class="card tile"><div class="k">Model fund, after your tax</div><div class="v num">${spct(a.fund_cagr)}</div><div class="sub" style="font-size:12.5px">a year, ${fmtDate(first)} ${first.slice(0, 4)} to ${last.slice(0, 4)}</div></div>
-      <div class="card tile"><div class="k">Nifty 50 index fund, after tax</div><div class="v num">${spct(a.nifty_cagr)}</div><div class="sub" style="font-size:12.5px">a year, same period</div></div>
+      <div class="card tile"><div class="k">${esc(bn)} index fund, after tax</div><div class="v num">${spct(a.nifty_cagr)}</div><div class="sub" style="font-size:12.5px">a year, same period</div></div>
       <div class="card tile"><div class="k">Trading per year</div><div class="v num">${pct(r.turnover_per_year)}</div><div class="sub" style="font-size:12.5px">of the portfolio; each sale at a profit is taxed</div></div>
     </div>
     ${r.breakdown ? profitPie(r) : ""}
@@ -1268,9 +1278,10 @@ function renderFund(r) {
       <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Model fund</span>
         <span><i class="sw" style="height:0;width:16px;border-top:2px dashed var(--s1)"></i>Model fund after your tax</span>
         <span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All ${esc(r.rules.universe)} stocks, equal weight</span>
-        <span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>Nifty 50 ETF</span></div>
+        <span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>${esc(bn)}</span></div>
       <div class="table-scroll"><table class="num" style="margin-top:10px"><thead><tr><th></th><th class="r">A year</th><th class="r">Ups and downs</th><th class="r">Worst fall</th><th class="r">Growth</th></tr></thead><tbody>
-        ${row("Model fund (before tax)", "fund")}${row("All stocks, equal weight", "equal_weight")}${row("Nifty 50 ETF", "nifty")}</tbody></table></div></div>
+        ${row("Model fund (before tax)", "fund")}${row("All stocks, equal weight", "equal_weight")}${row(esc(r.benchmark ? r.benchmark.label : "Nifty 50 ETF"), "nifty")}</tbody></table></div></div>
+    ${attribCard(r.attribution, bn, "The model fund")}
     <div class="cols">
       <div class="card table-scroll"><h2>Today's portfolio · ${fmtDate(r.as_of)} · for ${money(r.capital)}</h2>
         ${r.fit_note ? `<div class="notice warn" style="font-size:13.5px">${esc(r.fit_note)}</div>` : ""}
@@ -1279,8 +1290,8 @@ function renderFund(r) {
           <td class="r ${h.shares ? "" : "chg down"}">${h.shares}</td><td class="r">${money(h.price, "₹", 2)}</td><td class="r">${money(h.amount)}</td>
           <td class="r ${cls(h.momentum_12_1)}">${spct(h.momentum_12_1, 0)}</td><td class="r">${pct(h.volatility)}</td></tr>`).join("")}
         </tbody></table>
-        <p class="sub" style="font-size:13px;margin-top:8px">Invested ${money(r.invested)} of ${money(r.capital)}.${r.dropped.length ? ` Sell since the last rebalance: <b>${r.dropped.map(t => esc(bare(t))).join(", ")}</b>.` : ""} Rebalance on the last trading day of each ${r.rules.rebalance === "M" ? "month" : "quarter"}: sell what dropped out, buy what came in, top the rest back to equal amounts.</p></div>
-      <div class="card"><h2>Year by year</h2><div class="table-scroll"><table class="num"><thead><tr><th>Year</th><th class="r">Fund</th><th class="r">Equal weight</th><th class="r">Nifty</th></tr></thead><tbody>
+        <p class="sub" style="font-size:13px;margin-top:8px">Invested ${money(r.invested)} of ${money(r.capital)}.${r.dropped.length ? ` Sell since the last rebalance: <b>${r.dropped.map(t => esc(bare(t))).join(", ")}</b>.` : ""} Rebalance on the last trading day of each ${{ M: "month", Q: "quarter", H: "half-year (June and December)", Y: "year (December)" }[r.rules.rebalance] || "quarter"}: sell what dropped out, buy what came in, and top up only holdings more than 20% away from an equal amount.</p></div>
+      <div class="card"><h2>Year by year</h2><div class="table-scroll"><table class="num"><thead><tr><th>Year</th><th class="r">Fund</th><th class="r">Equal weight</th><th class="r">${esc(bn)}</th></tr></thead><tbody>
         ${r.yearly.map(y => `<tr><td>${y.year}${y.partial ? ' <span class="sub" style="font-size:11px">part</span>' : ""}</td><td class="r ${cls(y.fund)}">${spct(y.fund, 0)}</td><td class="r ${cls(y.equal_weight)}">${spct(y.equal_weight, 0)}</td><td class="r ${cls(y.nifty)}">${spct(y.nifty, 0)}</td></tr>`).join("")}
         </tbody></table></div>
         <h2 style="margin-top:14px">How a fund house would run it</h2>
@@ -1288,7 +1299,7 @@ function renderFund(r) {
           <li>Diversified: ${r.rules.size} stocks, equal weight, at most ${r.rules.per_industry} per industry.</li>
           <li>Rebalanced on a calendar, not on news.</li>
           <li>A mutual fund pays no tax when it trades; you do. NSE's factor indices (such as Nifty 200 Momentum 30 and Nifty Alpha Low-Volatility 30) are tracked by index funds that run this kind of strategy for you without that tax drag.</li></ul>
-        <p class="sub" style="font-size:12.5px">Costs: 0.25% of every rupee traded. Tax: 20% on gains held under a year, 12.5% after, losses carried forward; the index fund is taxed once at the end. Not investment advice.</p></div>
+        <p class="sub" style="font-size:12.5px">Costs: real charges for your capital (STT, stamp duty, exchange, DP and brokerage) plus the bid-ask spread and market impact from each stock's trading volume. Tax: 20% on gains held under a year, 12.5% after, losses carried forward; the index fund is taxed once at the end. Not investment advice.</p></div>
     </div>`;
   drawFund(r);
 }
@@ -1305,7 +1316,7 @@ function drawFund(r) {
   let lastYear = "";
   c.forEach((x, i) => { const yr = x.date.slice(0, 4); if (yr !== lastYear) { lastYear = yr; if (i > 0 && X(i) < W - m.r - 20) g += `<text x="${X(i)}" y="${H - 8}" font-size="11" fill="${v("--muted")}" text-anchor="middle">${yr}</text>`; } });
   const lines = keys.map(([k, col, dash]) => `<path d="${c.map((x, i) => `${i ? "L" : "M"}${X(i)} ${Y(x[k])}`).join(" ")}" fill="none" stroke="${v(col)}" stroke-width="2" ${dash ? `stroke-dasharray="${dash}"` : ""} stroke-linejoin="round"/>`).join("");
-  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of one rupee: model fund before and after tax, equal-weight basket and Nifty 50">
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of one rupee: model fund before and after tax, equal-weight basket and ${esc(BN(r))}">
     <rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${lines}
     <line id="fxh" y1="${m.t}" y2="${H - m.b}" stroke="${v("--axis")}" visibility="hidden"/>
     <rect id="fhit2" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
@@ -1314,7 +1325,7 @@ function drawFund(r) {
     const rc = svg.getBoundingClientRect(), sx = (e.clientX - rc.left) * W / rc.width;
     const i = Math.max(0, Math.min(c.length - 1, Math.round((sx - m.l) / ((W - m.l - m.r) / (c.length - 1))))), x = c[i];
     xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.setAttribute("visibility", "visible");
-    tip.innerHTML = `<div class="t">${fmtDate(x.date)} ${x.date.slice(0, 4)}</div>` + [["Model fund", "fund"], ["After your tax", "fund_after_tax"], ["Equal weight", "equal_weight"], ["Nifty 50", "nifty"]]
+    tip.innerHTML = `<div class="t">${fmtDate(x.date)} ${x.date.slice(0, 4)}</div>` + [["Model fund", "fund"], ["After your tax", "fund_after_tax"], ["Equal weight", "equal_weight"], [BN(r), "nifty"]]
       .map(([l, k]) => `<div class="r num"><span>${l}</span><b>₹${x[k].toFixed(2)}</b></div>`).join("");
     tip.style.display = "block"; const p = X(i) * rc.width / W;
     tip.style.left = Math.max(0, Math.min(rc.width - tip.offsetWidth, p > rc.width / 2 ? p - tip.offsetWidth - 12 : p + 12)) + "px"; tip.style.top = "10px";
@@ -1322,6 +1333,34 @@ function drawFund(r) {
   $("#fhit2", wrap).addEventListener("pointerleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); });
 }
 
+const BN = r => (r && r.benchmark && r.benchmark.short) || "Nifty 50";
+/* where the extra return over the benchmark came from, and how the strategy moves with it */
+function attribCard(a, bn, name) {
+  if (!a || a.extra == null) return "";
+  const steps = [[`${bn}`, a.benchmark_cagr, "base"], ["Owning every stock of this list (equal money)", a.universe, "step"],
+                 ["Your rules' picks, before costs", a.selection, "step"], ["Trading costs", a.costs, "step"], [name, a.strategy_cagr, "base"]];
+  const segs = []; let run = 0;
+  for (const [k, v, kind] of steps) { const from = kind === "base" ? 0 : run, to = kind === "base" ? v : run + v; run = to; segs.push([k, v, kind, from, to]); }
+  const lo = Math.min(0, ...segs.flatMap(x => [x[3], x[4]])), hi = Math.max(0.01, ...segs.flatMap(x => [x[3], x[4]])), X = q => (q - lo) / (hi - lo) * 100;
+  const bars = segs.map(([k, v, kind, from, to]) => {
+    const col = kind === "base" ? "var(--s3)" : v >= 0 ? "var(--up)" : "var(--down)";
+    return `<div class="wf-row"><div class="wf-k">${esc(k)}</div><div class="wf-bar"><i style="left:${X(Math.min(from, to))}%;width:${Math.max(X(Math.max(from, to)) - X(Math.min(from, to)), 0.4)}%;background:${col}"></i><b class="wf-zero" style="left:${X(0)}%"></b></div>
+      <div class="wf-v num ${kind === "step" ? (v >= 0 ? "chg up" : "chg down") : ""}">${kind === "step" ? spct(v, 1) : pct(v, 1)}</div></div>`; }).join("");
+  const st = (k, v, sub) => `<div class="card tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  const f2 = v => v == null || !isFinite(v) ? "–" : (+v).toFixed(2);
+  return `<div class="card" style="margin:14px 0"><h2 style="margin-top:0">Where the extra return came from</h2>
+    <p class="sub" style="font-size:13.5px;margin:0 0 10px">${esc(name)} made ${pct(a.strategy_cagr, 1)} a year against ${pct(a.benchmark_cagr, 1)} for the ${esc(bn)}: ${spct(a.extra, 1)} a year extra. The steps add up to it.</p>
+    <div class="wf">${bars}</div>
+    <p class="sub" style="font-size:12.5px;margin:8px 0 12px">A big <b>stock list</b> step mostly means the list itself did well, often because today's members are the survivors. Only the <b>picks</b> step is the rules' own skill.</p>
+    <div class="tiles" style="margin:0">
+      ${st("Beta", f2(a.beta), `moves ${f2(a.beta)}% when the ${esc(bn)} moves 1%`)}
+      ${st("Alpha", spct(a.alpha, 1), "a year, not explained by beta")}
+      ${st("Tracking error", pct(a.tracking_error, 1), `how far it strays from the ${esc(bn)}, a year`)}
+      ${st("Information ratio", f2(a.information_ratio), "extra return per unit of straying; above 0.5 is good")}
+      ${st("Up / down capture", `${a.up_capture == null ? "–" : Math.round(a.up_capture * 100)} / ${a.down_capture == null ? "–" : Math.round(a.down_capture * 100)}%`, "of the benchmark's rising / falling months")}
+      ${st("Months ahead", a.months_beaten == null ? "–" : pct(a.months_beaten, 0), `of months it beat the ${esc(bn)}`)}
+    </div></div>`;
+}
 /* where the model fund's gross profit went: a donut + table, for the person's capital */
 function profitPie(r) {
   const b = r.breakdown, C = r.capital || 200000, css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
@@ -1860,7 +1899,7 @@ $("#ms-form").onsubmit = async ev => {
   ev.preventDefault();
   const filters = $$("#ms-rules > div").map(r => { const m = $("[data-r=metric]", r).value, v = +$("[data-r=value]", r).value;
     return { metric: m, op: $("[data-r=op]", r).value, value: MS_METRICS[m][1] === "pct" ? v / 100 : v }; });
-  const body = { universe: $("#ms-uni").value, filters, rank_by: $("#ms-rank").value, descending: $("#ms-dir").value === "1", top: +$("#ms-top").value, rebalance: $("#ms-reb").value };
+  const body = { universe: $("#ms-uni").value, benchmark: $("#ms-bench").value, filters, rank_by: $("#ms-rank").value, descending: $("#ms-dir").value === "1", top: +$("#ms-top").value, rebalance: $("#ms-reb").value };
   try { localStorage.setItem("sa-myscreen", JSON.stringify(body)); } catch (e) {}
   $("#ms-run").disabled = true; $("#ms-out").innerHTML = "";
   try { renderMyScreen(await runJob(api("/api/myscreen", { method: "POST", body }), $("#ms-progress"))); }
@@ -1869,10 +1908,10 @@ $("#ms-form").onsubmit = async ev => {
 };
 try { const saved = JSON.parse(localStorage.getItem("sa-myscreen") || "null");
   if (saved) { $("#ms-preset").value = ""; $("#ms-rules").innerHTML = ""; saved.filters.forEach(f => msRule(f.metric, f.op, MS_METRICS[f.metric][1] === "pct" ? Math.round(f.value * 10000) / 100 : f.value));
-    $("#ms-uni").value = saved.universe; $("#ms-rank").value = saved.rank_by; $("#ms-dir").value = saved.descending ? "1" : "0"; $("#ms-top").value = saved.top; $("#ms-reb").value = saved.rebalance; } } catch (e) {}
+    $("#ms-uni").value = saved.universe; $("#ms-rank").value = saved.rank_by; $("#ms-dir").value = saved.descending ? "1" : "0"; $("#ms-top").value = saved.top; $("#ms-reb").value = saved.rebalance; if (saved.benchmark) $("#ms-bench").value = saved.benchmark; } } catch (e) {}
 function msVal(k, v) { if (v == null) return "–"; return MS_METRICS[k][1] === "pct" ? spct(v, 1) : k === "price" ? money(v, "₹", 2) : (+v).toFixed(k === "value_cr" ? 0 : 2); }
 function renderMyScreen(r) {
-  const bt = r.backtest, m = bt.metrics, cols = [...new Set([r.screen.rank_by, ...r.screen.filters.map(f => f.metric)])].filter(k => k !== "price").slice(0, 4);
+  const bn = BN(r), bt = r.backtest, m = bt.metrics, cols = [...new Set([r.screen.rank_by, ...r.screen.filters.map(f => f.metric)])].filter(k => k !== "price").slice(0, 4);
   const reb = { M: "monthly", Q: "quarterly", H: "half-yearly", Y: "yearly" }[r.screen.rebalance];
   const tile = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
   const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
@@ -1886,17 +1925,18 @@ function renderMyScreen(r) {
       : `<p class="sub">No stock passes these rules today. Loosen a rule and run again.</p>`}</div>
     <div class="tiles">
       ${tile("Your screen, a year", spct(m.screen.cagr), `${bt.yearly.length} years · rebalanced ${reb}`, cls(m.screen.cagr))}
-      ${tile("Nifty 50, a year", spct(m.nifty.cagr), "same period")}
+      ${tile(`${esc(bn)}, a year`, spct(m.nifty.cagr), "same period")}
       ${tile("All these stocks, equal weight", spct(m.equal_weight.cagr), "shows how much is survivorship")}
-      ${tile("Worst fall", pct(m.screen.max_drawdown), `Nifty ${pct(m.nifty.max_drawdown)}`, "chg down")}
-      ${tile("Picks that rose", pct(bt.hit_rate), `${pct(bt.beat_nifty_rate)} beat the Nifty in their holding period`)}
+      ${tile("Worst fall", pct(m.screen.max_drawdown), `${esc(bn)} ${pct(m.nifty.max_drawdown)}`, "chg down")}
+      ${tile("Picks that rose", pct(bt.hit_rate), `${pct(bt.beat_nifty_rate)} beat the ${esc(bn)} in their holding period`)}
       ${tile("Trading a year", pct(bt.turnover_per_year), bt.periods_in_cash ? `${bt.periods_in_cash} periods with no match (cash)` : "of the portfolio")}
     </div>
     <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Growth of ₹1</h2><div class="chart-wrap" id="ms-chart"></div>
-      <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Your screen</span><span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All stocks, equal weight</span><span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>Nifty 50</span></div></div>
-    <div class="card table-scroll"><h2 style="margin-top:0">Year by year</h2><table class="num"><thead><tr><th>Year</th><th class="r">Your screen</th><th class="r">Equal weight</th><th class="r">Nifty</th></tr></thead><tbody>
+      <div class="legend"><span><i class="sw" style="height:2px;width:16px;background:var(--s1)"></i>Your screen</span><span><i class="sw" style="height:2px;width:16px;background:var(--s2)"></i>All stocks, equal weight</span><span><i class="sw" style="height:2px;width:16px;background:var(--s3)"></i>${esc(bn)}</span></div></div>
+    ${attribCard(bt.attribution, bn, "Your screen")}
+    <div class="card table-scroll"><h2 style="margin-top:0">Year by year</h2><table class="num"><thead><tr><th>Year</th><th class="r">Your screen</th><th class="r">Equal weight</th><th class="r">${esc(bn)}</th></tr></thead><tbody>
       ${bt.yearly.map(y => `<tr><td>${y.year}</td><td class="r ${cls(y.screen)}"><b>${spct(y.screen)}</b></td><td class="r">${spct(y.equal_weight)}</td><td class="r">${spct(y.nifty)}</td></tr>`).join("")}</tbody></table>
-      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, 0.25% cost on every rupee traded, before tax. Stocks are today's index members, so past results are flattered.</p></div>`;
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, real trading costs for your capital (about ${money(((bt.costs || {}).charges + (bt.costs || {}).spread_impact) * r.capital || 0)} over the whole test), before tax. Stocks are today's index members, so past results are flattered.</p></div>`;
   msChart(bt.curve);
   $$("[data-msck]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.msck];
     ckFill({ instrument: "stock", product: "delivery", symbol: p.ticker, side: "buy", stop: p.price * 0.9, target: p.price * 1.2, hold: { M: 21, Q: 63, H: 126, Y: 250 }[r.screen.rebalance] }); });
@@ -1914,7 +1954,7 @@ function msChart(curve) {
     g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(x)}" y2="${Y(x)}" stroke="${v(x === 1 ? "--axis" : "--grid")}"/><text x="${W - m.r + 6}" y="${Y(x) + 4}" font-size="11" fill="${v("--muted")}">₹${x}</text>`; });
   [0, Math.floor(curve.length / 2), curve.length - 1].forEach(i => { g += `<text x="${X(i)}" y="${H - 6}" font-size="11" fill="${v("--muted")}" text-anchor="${i === 0 ? "start" : i === curve.length - 1 ? "end" : "middle"}">${curve[i].date.slice(0, 7)}</text>`; });
   const lines = keys.map(([k, col]) => `<path d="${curve.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(p[k]).toFixed(1)}`).join(" ")}" fill="none" stroke="${v(col)}" stroke-width="${k === "screen" ? 2.5 : 1.5}"/>`).join("");
-  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of 1 rupee: your screen, equal weight and Nifty"><rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${lines}</svg>`;
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of 1 rupee: your screen, equal weight and the benchmark"><rect width="${W}" height="${H}" fill="${v("--chart")}"/>${g}${lines}</svg>`;
 }
 
 /* ---------------- check my trade ---------------- */

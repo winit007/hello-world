@@ -254,16 +254,23 @@ def cmd_fund(args) -> int:
     from . import fund
     from .sizing import money
 
-    r = fund.run(fund.FundRules(universe=args.universe, size=args.size, rebalance=args.rebalance), args.capital,
+    r = fund.run(fund.FundRules(universe=args.universe, size=args.size, rebalance=args.rebalance, benchmark=args.benchmark), args.capital,
                  args.offline, args.cache_dir)
     m, a = r["metrics"], r["after_tax"]
     c = r["curve"]
     print(f"Model fund: top {args.size} of {r['universe_size']} {args.universe} stocks, rebalanced "
           f"{fund.REBALANCE[args.rebalance][0]} · backtest {c.index[0].date()} to {c.index[-1].date()}")
-    for k, label in (("fund", "Model fund"), ("equal_weight", "All stocks, equal weight"), ("nifty", "Nifty 50 ETF")):
+    bn = r["benchmark"]["short"]
+    for k, label in (("fund", "Model fund"), ("equal_weight", "All stocks, equal weight"), ("nifty", bn)):
         print(f"  {label:<26} {m[k]['cagr']:+.1%} a year · worst fall {m[k]['max_drawdown']:.0%} · ₹1 became ₹{m[k]['growth_of_1']:.2f}")
-    print(f"  After tax (you trading it): {a['fund_cagr']:+.1%} a year vs Nifty index fund {a['nifty_cagr']:+.1%}")
-    print(f"  Turnover {r['turnover_per_year']:.0%} a year · beat Nifty in {r['beat_nifty_12m']:.0%} and the equal-weight "
+    print(f"  After tax (you trading it): {a['fund_cagr']:+.1%} a year vs {bn} index fund {a['nifty_cagr']:+.1%}")
+    at = r["attribution"]
+    if at:
+        print(f"  Extra return over the {bn} {at['extra']:+.1%} a year = stock list {at['universe']:+.1%} "
+              f"+ the rules' picks {at['selection']:+.1%} + costs {at['costs']:+.1%}")
+        print(f"  Beta {at['beta']:.2f} · alpha {at['alpha']:+.1%} a year · tracking error {at['tracking_error']:.1%} "
+              f"· information ratio {at['information_ratio']:.2f}")
+    print(f"  Turnover {r['turnover_per_year']:.0%} a year · beat the {bn} in {r['beat_nifty_12m']:.0%} and the equal-weight "
           f"basket in {r['beat_equal_12m']:.0%} of 12-month periods")
     print(f"\nToday's portfolio ({r['as_of']}) for {money(args.capital, '₹')}:")
     for h in r["holdings"]:
@@ -433,6 +440,8 @@ def main(argv: list[str] | None = None) -> int:
     fp.add_argument("--universe", choices=["nifty200", "nifty100", "fno"], default="nifty200")
     fp.add_argument("--size", type=int, default=25)
     fp.add_argument("--rebalance", choices=["M", "Q", "H", "Y"], default="Q")
+    fp.add_argument("--benchmark", default="NIFTYBEES.NS", help="NIFTYBEES.NS, JUNIORBEES.NS, ^CNX200, ^CRSLDX, "
+                    "^NSEMDCP50, NIFTYSMLCAP250.NS or BANKBEES.NS")
     fp.add_argument("--capital", type=float, default=200000)
     fp.add_argument("--offline", action="store_true")
     fp.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)

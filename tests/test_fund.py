@@ -68,9 +68,6 @@ class FundTests(unittest.TestCase):
         self.assertTrue(r["yearly"][-1]["partial"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class MyScreenTests(unittest.TestCase):
     def test_screen_today_and_backtest(self):
@@ -99,3 +96,32 @@ class MyScreenTests(unittest.TestCase):
         a = M.snapshot(M.metric_frames(closes, values, bench), d)
         b = M.snapshot(M.metric_frames(closes.loc[:d], values.loc[:d], bench.loc[:d]), d)
         pd.testing.assert_frame_equal(a, b)
+
+
+class AttributionTests(unittest.TestCase):
+    def test_steps_add_up_and_beta(self):
+        from stock_agent import attribution as A
+
+        closes, values, bench, sectors = _universe(days=1300)
+        r = fund.backtest(closes, values, bench, sectors, fund.FundRules(size=10, rebalance="Q"))
+        a = r["attribution"]
+        self.assertAlmostEqual(a["universe"] + a["selection"] + a["costs"], a["extra"], places=9)
+        self.assertLess(a["costs"], 0)
+        idx = pd.bdate_range("2020-01-01", periods=600)
+        b = pd.Series(np.cumprod(1 + np.random.default_rng(1).normal(0.0004, 0.01, 600)), index=idx)
+        twice = (1 + 2 * b.pct_change().fillna(0)).cumprod()
+        self.assertAlmostEqual(A.compare(twice, twice, b, b)["beta"], 2.0, delta=0.02)    # weekly compounding
+
+    def test_index_without_dividends_gets_yield(self):
+        from stock_agent import attribution as A
+
+        idx = pd.bdate_range("2020-01-01", periods=600)
+        flat = pd.Series(100.0, index=idx)
+        tr = A.total_return("^CRSLDX", flat)
+        years = (idx[-1] - idx[0]).days / 365.25
+        self.assertAlmostEqual(tr.iloc[-1] / 100, 1.012 ** years, places=9)
+        self.assertTrue(A.total_return("NIFTYBEES.NS", flat).equals(flat))
+
+
+if __name__ == "__main__":
+    unittest.main()

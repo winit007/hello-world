@@ -4,6 +4,7 @@ Several modules are imported only when needed (inside functions or by name), whi
 tests/test_publish.py checks that this list stays complete."""
 # ruff: noqa: F401
 from . import app
+from . import attribution
 from . import backtest
 from . import broker_base
 from . import brokers

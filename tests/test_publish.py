@@ -49,6 +49,14 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(set(re.findall(r"^  (\w+): \[", block, re.M)), set(myscreen.METRICS))
         self.assertIn('id="ms-help"', html)
 
+    def test_benchmark_choices_match(self):
+        from stock_agent.attribution import BENCHMARKS
+        html = INDEX.read_text(encoding="utf-8")
+        for sel in ("f-bench", "ms-bench"):
+            block = html[html.index(f'id="{sel}"'):]
+            block = block[:block.index("</select>")]
+            self.assertEqual(re.findall(r'option value="([^"]+)"', block), list(BENCHMARKS), sel)
+
     def test_static_page_uses_relative_paths_and_static_flag(self):
         html = publish.page_html(app.WEB)
         self.assertIn('<meta name="static-site" content="1">', html)

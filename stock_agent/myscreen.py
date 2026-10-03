@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from . import attribution as A
 from . import costs as C
 from .fund import REBALANCE, _metrics, _rebalance_dates
 
@@ -118,7 +119,8 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
     if len(dates) < 3:
         raise ValueError("Not enough history to backtest")
     nav, ew, bn, held, hits, beats, turns = [1.0], [1.0], [1.0], [], [], [], []
-    seg_s, seg_e, seg_b = [], [], []          # daily values, so volatility and worst fall see every day
+    seg_s, seg_e, seg_b, seg_g = [], [], [], []   # daily values, so volatility and worst fall see every day
+    gross = [1.0]                              # the same picks with no trading costs
     prev: dict[str, float] = {}
     log = []
     values = values if values is not None else closes * 0 + 1e9
@@ -142,6 +144,8 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
             w = pd.Series(target)[picks]
             r = float((g * w).sum() - 1) - cc["fraction"]
             path = (1 + period[picks].fillna(0)).cumprod().mul(w).sum(axis=1) * (1 - cc["fraction"])
+            gpath = (1 + period[picks].fillna(0)).cumprod().mul(w).sum(axis=1)
+            r_g = float((g * w).sum() - 1)
             hits += [float(x) > 1 for x in g]
             beats += [float(x) - 1 > b for x in g]
             drift = g * w / (g * w).sum()
@@ -155,7 +159,10 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
             r = -cc["fraction"]
             prev = {}
             path = pd.Series(1.0 + r, index=period.index)
+            gpath, r_g = pd.Series(1.0, index=period.index), 0.0
         seg_s.append(path * nav[-1])
+        seg_g.append(gpath * gross[-1])
+        gross.append(gross[-1] * (1 + r_g))
         seg_e.append((1 + period[snap.index].fillna(0)).cumprod().mean(axis=1) * ew[-1])
         bseg = bench.reindex(closes.index).ffill()
         seg_b.append(bseg.loc[period.index] / bseg.loc[:d0].iloc[-1] * bn[-1])
@@ -167,6 +174,7 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
     start = pd.DataFrame({"screen": [1.0], "equal_weight": [1.0], "nifty": [1.0]}, index=[dates[0]])
     daily_curve = pd.concat([start, pd.DataFrame({"screen": pd.concat(seg_s), "equal_weight": pd.concat(seg_e),
                                                   "nifty": pd.concat(seg_b)})])
+    gross_curve = pd.concat([pd.Series([1.0], index=[dates[0]]), pd.concat(seg_g)])
     curve = daily_curve.resample("W-FRI").last().dropna()      # weekly points for the chart
     yearly = []
     for y, g in daily_curve.groupby(daily_curve.index.year):
@@ -180,11 +188,12 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
             "avg_held": float(np.mean(held)) if held else 0.0, "periods_in_cash": int(sum(1 for h in held if h == 0)),
             "turnover_per_year": float(np.mean(turns) * per_year) if turns else 0.0, "yearly": yearly,
             "last_picks": log[-1]["picks"] if log else [],
-            "costs": {**cost_tot, "capital": capital}}
+            "costs": {**cost_tot, "capital": capital}, "daily": daily_curve,
+            "attribution": A.compare(daily_curve["screen"], gross_curve, daily_curve["equal_weight"], daily_curve["nifty"])}
 
 
 def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
-        sectors: dict | None = None, progress=None, per_order: float = 0.0) -> dict:
+        sectors: dict | None = None, progress=None, per_order: float = 0.0, benchmark: str = A.DEFAULT) -> dict:
     sc.validate()
     progress = progress or (lambda m, f: None)
     progress("Computing the metrics", 0.35)
@@ -197,7 +206,9 @@ def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen
     rows = [{"ticker": t, "industry": (sectors or {}).get(t, ""), **{k: (None if pd.isna(v) else float(v)) for k, v in row.items()},
              "shares": int(per // row["price"]) if row["price"] > 0 else 0} for t, row in top.iterrows()]
     bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order)
+    bt.pop("daily")
     progress("Done", 1.0)
     return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,
             "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt,
+            "benchmark": {"symbol": benchmark, "label": A.label(benchmark), "short": A.BENCHMARKS.get(benchmark, {}).get("label", benchmark)},
             "metrics_info": {k: {"label": v[0], "kind": v[1]} for k, v in METRICS.items()}}

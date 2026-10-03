@@ -25,6 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from . import attribution as A
 from . import costs as C
 from .data import DEFAULT_CACHE, _cache_path, read_cached, refresh_many
 from .screener import load_universe
@@ -43,6 +44,7 @@ class FundRules:
     rebalance: str = "M"            # "M" monthly or "Q" quarterly
     lowvol_weight: float = 0.5
     min_turnover: float = 2e7
+    benchmark: str = "NIFTYBEES.NS"
 
 
 def scores(closes: pd.DataFrame, values: pd.DataFrame, date: pd.Timestamp, rules: FundRules) -> pd.DataFrame:
@@ -102,7 +104,7 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
     dates = [d for d in _rebalance_dates(closes.index, rules.rebalance) if len(closes.loc[:d]) >= 260]
     nav, ew_nav, bench_nav, turnover, holdings_log = [1.0], [1.0], [1.0], [], []
     gross_nav = [1.0]          # the same portfolio with no costs and no tax
-    seg_f, seg_e, seg_b = [], [], []   # daily values: volatility and worst fall must see every day, not just rebalances
+    seg_f, seg_e, seg_b, seg_g = [], [], [], []   # daily values: volatility and worst fall must see every day, not just rebalances
     bench_d = bench.reindex(closes.index).ffill()
     costs_paid = 0.0           # trading costs in the taxed account, in growth-of-1 units
     charges_paid = 0.0         # the statutory part of costs_paid (the rest is spread and impact)
@@ -175,6 +177,7 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
         tax_nav.append(sum(v[0] for v in lots.values()))
 
         seg_f.append((1 + period[picks].fillna(0)).cumprod().mul(pd.Series(target)).sum(axis=1) * (1 - cost_f) * nav[-1])
+        seg_g.append((1 + period[picks].fillna(0)).cumprod().mul(pd.Series(target)).sum(axis=1) * gross_nav[-1])
         seg_e.append((1 + period[elig].fillna(0)).cumprod().mean(axis=1) * ew_nav[-1])
         seg_b.append(bench_d.loc[period.index] / bench_d.loc[:d0].iloc[-1] * bench_nav[-1])
         nav.append(nav[-1] * (1 + r))
@@ -210,11 +213,15 @@ def backtest(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, secto
                  # expense ratio every year: what that ratio costs, per rupee invested
                  "mf_expenses": float(curve["fund"].iloc[-1] * (1 - (1 - MF_EXPENSE) ** years))}
     curve["fund_after_tax"] = tax_nav
-    daily_nav = pd.concat([pd.DataFrame({"fund": [1.0], "equal_weight": [1.0], "nifty": [1.0]}, index=[dates[0]]),
+    daily_nav = pd.concat([pd.DataFrame({"fund": [1.0], "equal_weight": [1.0], "nifty": [1.0], "gross": [1.0]}, index=[dates[0]]),
                            pd.DataFrame({"fund": pd.concat(seg_f), "equal_weight": pd.concat(seg_e),
-                                         "nifty": pd.concat(seg_b)})]) if seg_f else curve[["fund", "equal_weight", "nifty"]]
+                                         "nifty": pd.concat(seg_b), "gross": pd.concat(seg_g)})]) if seg_f \
+        else curve[["fund", "equal_weight", "nifty"]].assign(gross=gross_nav)
     return {"curve": curve, "metrics": {c: _metrics(daily_nav[c], 252) for c in ("fund", "equal_weight", "nifty")},
-            "after_tax": after_tax, "breakdown": breakdown,
+            "after_tax": after_tax, "breakdown": breakdown, "daily": daily_nav,
+            "attribution": A.compare(daily_nav["fund"], daily_nav["gross"], daily_nav["equal_weight"], daily_nav["nifty"]),
+            "benchmark": {"symbol": rules.benchmark, "label": A.label(rules.benchmark),
+                          "short": A.BENCHMARKS.get(rules.benchmark, {}).get("label", rules.benchmark)},
             "turnover_per_year": float(np.mean(turnover) * per_year) if turnover else 0.0,
             "beat_nifty_12m": _beat(curve["fund"], curve["nifty"], per_year),
             "beat_equal_12m": _beat(curve["fund"], curve["equal_weight"], per_year),
@@ -253,9 +260,10 @@ def load(rules: FundRules, offline: bool = False, cache_dir=DEFAULT_CACHE, progr
     tickers = get_universe(rules.universe, offline)
     prices = load_universe(tickers, "10y", "1d", offline, cache_dir, log=lambda *a: None,
                            progress=lambda m, f: progress(m, f * 0.4))
+    sym = rules.benchmark if rules.benchmark in A.BENCHMARKS else BENCHMARK
     if not offline:
-        refresh_many([BENCHMARK], "10y", "1d", cache_dir)
-    bench = read_cached(_cache_path(cache_dir, BENCHMARK, "10y", "1d"))["Close"]
+        refresh_many([sym], "10y", "1d", cache_dir)
+    bench = A.total_return(sym, read_cached(_cache_path(cache_dir, sym, "10y", "1d"))["Close"])
     closes = pd.DataFrame({t: df["Close"] for t, df in prices.items()}).sort_index()
     values = pd.DataFrame({t: df["Close"] * df["Volume"] for t, df in prices.items()}).reindex(closes.index)
     closes = closes.loc[closes.index >= bench.index[0]]
