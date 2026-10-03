@@ -950,6 +950,49 @@ def alerts_state() -> dict:
             "last_check": d.get("last_check")}
 
 
+def home_summary() -> dict:
+    """The dashboard: everything that needs a look today, from what is already on disk (no scans)."""
+    from . import alerts as AL
+    from . import tax
+
+    out: dict = {}
+    with _paper_lock:
+        try:
+            st = paper_account().state(refresh=False) if PAPER_FILE.exists() else None
+        except Exception:
+            st = None
+    if st:
+        pos = sorted(st["positions"], key=lambda x: x.get("pnl") or 0)
+        out["paper"] = {"equity": st["equity"], "pnl": st["pnl"], "return_pct": st["return_pct"], "trades": st["trades"],
+                        "win_rate": st["win_rate"], "positions": [{"label": x["label"], "pnl": x["pnl"], "stop": x.get("stop"),
+                                                                    "spot": x.get("spot")} for x in pos]}
+    journal = _read_json(JOURNAL_FILE, [])
+    open_ = [e for e in journal if e.get("status") == "open"]
+    out["journal"] = {"open": len(open_), "summary": journal_summary(journal),
+                      "items": [{"label": e.get("contract") or e.get("ticker"), "stop": e.get("stop"), "exit_by": e.get("time_exit"),
+                                 "live": bool(e.get("kite") and not e["kite"].get("practice"))} for e in open_[:6]]}
+    holdings = _read_json(HOLDINGS_FILE, [])
+    out["holdings"] = {"count": len(holdings), "cost": sum(float(h["qty"]) * float(h["buy_price"]) for h in holdings)}
+    a = AL.Store(ALERTS_FILE).load()
+    out["alerts"] = {"unread": sum(1 for x in a["items"] if not x.get("read")), "latest": a["items"][:3]}
+    today = date.today()
+    dates = []
+    freq = a["config"].get("fund_rebalance") or "Q"
+    dates.append({"date": AL.next_period_end(today, freq).isoformat(), "what": f"Model fund rebalance ({REBALANCE_WORD.get(freq, freq)})", "tab": "fund"})
+    dates.append({"date": tax.fy_bounds(today)[1].isoformat(), "what": "Financial year ends: last day for tax harvesting", "tab": "tax"})
+    for e in open_:
+        if e.get("time_exit"):
+            dates.append({"date": str(e["time_exit"])[:10], "what": f"Exit date: {e.get('contract') or e.get('ticker')}", "tab": "journal"})
+    for x in (st or {}).get("positions", []):
+        if x.get("exit_by"):
+            dates.append({"date": str(x["exit_by"])[:10], "what": f"Paper exit date: {x['label']}", "tab": "paper"})
+    out["dates"] = sorted((d for d in dates if d["date"] >= today.isoformat()), key=lambda d: d["date"])[:6]
+    return out
+
+
+REBALANCE_WORD = {"M": "monthly", "Q": "quarterly", "H": "half-yearly", "Y": "yearly"}
+
+
 def run_risk(body: dict, settings: dict, progress) -> dict:
     from . import risk
     from .universes import industries
@@ -1209,6 +1252,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"holdings": _read_json(HOLDINGS_FILE, []), "sales": _read_json(SALES_FILE, [])})
             if url.path == "/api/alerts":
                 return self._send(200, alerts_state())
+            if url.path == "/api/home":
+                return self._send(200, clean(home_summary()))
             if url.path == "/api/orders":
                 from . import orders
 

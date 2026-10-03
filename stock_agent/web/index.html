@@ -216,6 +216,15 @@ dialog { border: 1px solid var(--ring); border-radius: 16px; background: var(--s
 dialog::backdrop { background: rgba(0,0,0,.35); }
 .help ol { padding-left: 20px; margin: 6px 0; } .help li { margin: 6px 0; }
 .help-table td:first-child { width: 190px; }
+nav.tabs.only-home { display: none; }
+.quick { display: flex; gap: 8px; flex-wrap: wrap; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; align-items: start; }
+.home-grid .card h2 { margin: 0 0 8px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.home-grid .card h2 a { font-size: 13px; font-weight: 600; }
+.hrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--grid); font-size: 14px; }
+.hrow:first-of-type { border-top: 0; }
+.hrow .l { min-width: 0; } .hrow .l b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .hrow .l > .sub { display: block; }
+.big-num { font-size: 26px; font-weight: 700; }
 .hold-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
 .bars { display: grid; gap: 6px; }
 .bars .brow { display: grid; grid-template-columns: minmax(90px, 200px) 1fr 64px; gap: 10px; align-items: center; font-size: 13.5px; }
@@ -291,11 +300,12 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M3 2v12M8 4v10M13 1v9"/><path d="M1.5 6h3M6.5 7h3M11.5 4h3"/></svg>
     </span>Stock Agent</div>
     <nav class="groups" aria-label="Sections">
-      <button data-group="trade">Trade</button><button data-group="practice">Practice</button>
+      <button data-group="home">Home</button><button data-group="trade">Trade</button><button data-group="practice">Practice</button>
       <button data-group="invest">Invest</button><button data-group="more">Settings</button>
     </nav>
     <span class="mkt" id="mkt" title="NSE equity market hours, 9:15 am to 3:30 pm IST, Monday to Friday (holidays not included)"><i></i><span>NSE</span></span>
-    <nav class="tabs" role="tablist">
+    <nav class="tabs" role="tablist" aria-label="Pages in this section">
+      <button role="tab" data-tab="home">Home</button>
       <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
       <button role="tab" data-tab="longterm">Long-term picks</button>
       <button role="tab" data-tab="screen" class="live-only">My screener</button>
@@ -330,6 +340,20 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
 <main>
   <div class="notice" id="static-banner" hidden></div>
   <!-- ============ PICKS ============ -->
+  <!-- ============ HOME ============ -->
+  <section class="page" id="page-home">
+    <div class="head-row">
+      <div><h1 id="home-h">Today</h1><p class="sub" id="home-sub"></p></div>
+      <div class="quick" role="group" aria-label="Quick actions">
+        <button class="btn primary" data-go="picks" data-click="#scan">Scan for picks</button>
+        <button class="btn live-only" data-go="paper">Paper trade</button>
+        <button class="btn live-only" data-go="check">Check a trade</button>
+        <button class="btn live-only" data-go="risk">Portfolio risk</button>
+      </div>
+    </div>
+    <div id="home"></div>
+  </section>
+
   <section class="page active" id="page-picks">
     <div class="head-row">
       <div>
@@ -970,11 +994,12 @@ $("#theme").onclick = () => {
   if (window._lastGoal) drawFan(window._lastGoal);
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
-const TAB_GROUPS = { trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
+const TAB_GROUPS = { home: ["home"], trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
   practice: ["paper", "journal", "risk", "track", "lab"], invest: ["fund", "goals", "rebalance", "tax"], more: ["settings", "alerts", "help"] };
 const groupOf = t => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(t)) || "trade";
 const _lastInGroup = {};
 function showGroup(g) {
+  $("nav.tabs").classList.toggle("only-home", g === "home");
   $$("nav.groups button").forEach(b => b.setAttribute("aria-pressed", b.dataset.group === g));
   $$("nav.tabs button").forEach(b => b.classList.toggle("off", groupOf(b.dataset.tab) !== g));
 }
@@ -999,6 +1024,7 @@ function showTab(name) {
   if (name === "tax" && !window._taxLoaded) { window._taxLoaded = true; loadTax(); }
   if (name === "risk" && !window._lastRisk) loadRisk();
   if (name === "alerts") loadAlerts(true);
+  if (name === "home") loadHome();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
   if (name === "lab" && !window._lastLab) loadLab(STATIC);
@@ -1434,6 +1460,59 @@ function renderMarket(res, box) {
 }
 
 
+
+
+/* ---------------- home ---------------- */
+async function loadHome() {
+  const box = $("#home");
+  const now = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000), mins = now.getHours() * 60 + now.getMinutes(), wd = now.getDay();
+  const open = wd > 0 && wd < 6 && mins >= 555 && mins < 930;
+  const when = open ? "NSE is open until 3:30 pm." : wd > 0 && wd < 6 && mins < 555 ? "NSE opens at 9:15 am." : wd === 5 || wd === 6 || (wd === 0) ? "NSE opens on Monday at 9:15 am." : "NSE opens tomorrow at 9:15 am.";
+  $("#home-h").textContent = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  $("#home-sub").textContent = `${now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · ${when} ${open ? "Check your stops and exits." : mins >= 930 && wd > 0 && wd < 6 ? "A good time to scan for tomorrow's picks." : ""}`;
+  if (!box.innerHTML) box.innerHTML = stateBox("loading", "Loading your day…");
+  let h = {}, scr = window._lastScreen;
+  try { if (!STATIC) h = await api("/api/home"); } catch (e) { h = { error: e.message }; }
+  try { if (!scr) scr = await api("/api/last-screen"); } catch (e) {}
+  const card = (title, link, body) => `<div class="card"><h2>${title}${link ? `<a href="#" data-go="${link[0]}">${link[1]}</a>` : ""}</h2>${body}</div>`;
+  const chance = p => p.win_chance ?? p.success;
+  const picks = scr && scr.picks ? [...scr.picks].sort((a, b) => chance(b) - chance(a)).slice(0, 3) : [];
+  const cards = [];
+  cards.push(card("Top picks", ["picks", "All picks →"], picks.length
+    ? picks.map(p => `<div class="hrow"><div class="l"><b>${esc(bare(p.ticker))} ${sidePill(p.side, p.plan)}</b><span class="sub" style="font-size:12.5px">${esc(p.pattern)}${p.plan && p.plan.contract ? " · " + esc(p.plan.contract) : ""}</span></div>
+        <div class="r num"><b>${pct(chance(p))}</b><div class="sub" style="font-size:12px">chance of winning</div></div></div>`).join("")
+      + (scr.validation_text ? `<p class="sub" style="font-size:12.5px;margin:8px 0 0">${scr.validation && scr.validation.test_avg_ret <= 0 ? "⚠ " : ""}${esc(scr.validation_text)}</p>` : "")
+      + (scr.stats && scr.stats.as_of ? `<p class="sub" style="font-size:12px;margin:6px 0 0">From the scan of ${fmtDate(scr.stats.as_of)}.</p>` : "")
+    : `<p class="sub" style="margin:0">No scan yet. Press <b>Scan for picks</b> after 3:30 pm for tomorrow's setups.</p>`));
+  if (!STATIC) {
+    const pp = h.paper;
+    cards.push(card("Paper trading", ["paper", "Open →"], pp ? `<div class="hrow"><div class="l"><span class="sub">Account</span><span class="big-num num">${lakh(pp.equity)}</span></div>
+        <div class="r num ${pp.pnl >= 0 ? "chg up" : "chg down"}"><b>${pp.pnl >= 0 ? "+" : ""}${money(pp.pnl)}</b><div class="sub" style="font-size:12px">${spct(pp.return_pct, 1)} · ${pp.trades} closed${pp.win_rate != null ? `, ${pct(pp.win_rate)} won` : ""}</div></div></div>`
+        + pp.positions.slice(0, 4).map(x => `<div class="hrow"><div class="l"><b>${esc(x.label)}</b></div><div class="r num ${x.pnl >= 0 ? "chg up" : "chg down"}">${money(x.pnl)}</div></div>`).join("")
+        + (pp.positions.length ? "" : `<p class="sub" style="margin:4px 0 0;font-size:13px">No open positions.</p>`)
+      : `<p class="sub" style="margin:0">Practise with virtual money first: buy or short shares, options, crypto and MCX with real prices and charges.</p>`));
+    const j = h.journal || { open: 0, items: [], summary: {} };
+    cards.push(card("My trades", ["journal", "Open →"], (j.open ? j.items.map(x => `<div class="hrow"><div class="l"><b>${esc(x.label)}</b><span class="sub" style="font-size:12px">${x.live ? "live" : "logged"}${x.stop ? ` · stop ${px2(x.stop)}` : ""}${x.exit_by ? ` · exit by ${fmtDate(x.exit_by)}` : ""}</span></div></div>`).join("") : `<p class="sub" style="margin:0">No open trades.</p>`)
+      + (j.summary && j.summary.closed ? `<p class="sub" style="font-size:12.5px;margin:8px 0 0">${j.summary.closed} closed · ${pct(j.summary.win_rate)} won · ${money(j.summary.pnl)} in total</p>` : "")));
+    const al = h.alerts || { unread: 0, latest: [] };
+    cards.push(card(`Alerts${al.unread ? ` <span class="pill put" style="font-size:11px">${al.unread} new</span>` : ""}`, ["alerts", "All →"], al.latest.length
+      ? al.latest.map(x => `<div class="hrow"><div class="l"><b>${esc(x.title)}</b><span class="sub" style="font-size:12px">${esc(x.text)}</span></div></div>`).join("")
+      : `<p class="sub" style="margin:0">Nothing needs you. Stops, targets and price alerts show up here.</p>`));
+    cards.push(card("Coming up", null, (h.dates || []).map(d => `<div class="hrow"><div class="l"><a href="#" data-go="${d.tab}">${esc(d.what)}</a></div><div class="r num" style="white-space:nowrap">${fmtDate(d.date)}</div></div>`).join("") || `<p class="sub" style="margin:0">Nothing scheduled.</p>`));
+    const ho = h.holdings || { count: 0 };
+    cards.push(card("Holdings", ["tax", "Holdings & tax →"], ho.count ? `<div class="hrow"><div class="l"><span class="sub">${ho.count} holding${ho.count === 1 ? "" : "s"}, bought for</span><span class="big-num num">${lakh(ho.cost)}</span></div></div>
+      <p class="sub" style="font-size:12.5px;margin:6px 0 0">See their gains, this year's tax and what to sell before 31 March, or <a href="#" data-go="risk">measure the risk</a>.</p>`
+      : `<p class="sub" style="margin:0">Add the shares and ETFs you own to see their tax and risk.</p>`));
+  } else {
+    cards.push(card("On this phone", null, `<p class="sub" style="margin:0">This phone version shows the evening run's results. For live scans, paper trading, alerts and broker orders, <a href="#" data-go="help">install the full app</a>.</p>`));
+  }
+  box.innerHTML = (h.error ? `<div class="notice error">${esc(h.error)}</div>` : "") + `<div class="home-grid">${cards.join("")}</div>`;
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-go]"); if (!a) return;
+  e.preventDefault(); showTab(a.dataset.go);
+  if (a.dataset.click) { const t = $(a.dataset.click); if (t && !t.disabled) t.click(); }
+});
 
 /* ---------------- alerts ---------------- */
 let _alertSeen = null;
@@ -2965,7 +3044,8 @@ async function staticBoot() {
   $("#afford").checked = !!SETTINGS.affordable_only;
   renderPicks(await api("/api/last-screen"));
   api("/api/symbols").then(list => { $("#symbols").innerHTML = list.map(s => `<option value="${esc(s)}">`).join(""); });
-  try { const t = sessionStorage.getItem("tab"); if (t) showTab(t); } catch (e) {}
+  let t = null; try { t = sessionStorage.getItem("tab"); } catch (e) {}
+  showTab(t || "home");
 })();
 </script>
 </body>
