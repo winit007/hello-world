@@ -224,7 +224,8 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
 
 def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
         sectors: dict | None = None, progress=None, per_order: float = 0.0, benchmark: str = A.DEFAULT,
-        pit_n: int | None = None, fund_data: dict | None = None, cache_dir=None, offline: bool = False) -> dict:
+        pit_n: int | None = None, fund_data: dict | None = None, cache_dir=None, offline: bool = False,
+        backtest_too: bool = True) -> dict:
     """`fund_data` (company results for the whole list) is needed when the rules use them; otherwise results are
     fetched for today's picks only, to show next to them (with `cache_dir`)."""
     sc.validate()
@@ -249,13 +250,17 @@ def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen
             if pf is not None:
                 r.update({k: F.finite(pf[k][t].iloc[-1]) for k in F.METRICS})
             r["pledge"] = F.pledge(t, data.get(t), cache_dir, offline) if cache_dir is not None else None
-    bt_note = None
+    bt_note = None if backtest_too else "Not run"
     try:
+        if not backtest_too:
+            raise LookupError
         bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order, pit_n)
         daily = bt.pop("daily")
         bt["sip"] = S.report(daily["screen"], daily["nifty"])
     except ValueError as exc:
         bt, bt_note = None, str(exc)
+    except LookupError:
+        bt = None
     progress("Done", 1.0)
     return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,
             "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt, "backtest_note": bt_note,

@@ -3,6 +3,7 @@
 Several modules are imported only when needed (inside functions or by name), which a packer cannot always see.
 tests/test_publish.py checks that this list stays complete."""
 # ruff: noqa: F401
+from . import alerts
 from . import app
 from . import attribution
 from . import backtest

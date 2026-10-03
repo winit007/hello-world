@@ -23,6 +23,8 @@ APT=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 say "Updating Termux packages"
 pkg update "${APT[@]}" </dev/null || true
 pkg install "${APT[@]}" python termux-tools </dev/null
+# termux-notification for alerts (also needs the Termux:API app from F-Droid; without it alerts stay in the app)
+pkg install "${APT[@]}" termux-api </dev/null || true
 
 say "Installing numpy and pandas (ready-made Termux packages)"
 pkg install "${APT[@]}" tur-repo </dev/null

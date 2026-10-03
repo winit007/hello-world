@@ -31,6 +31,7 @@ SETTINGS_FILE = HOME / "settings.json"
 JOURNAL_FILE = HOME / "journal.json"
 HOLDINGS_FILE = HOME / "holdings.json"
 SALES_FILE = HOME / "holdings_sales.json"
+ALERTS_FILE = HOME / "alerts.json"
 LEDGER_FILE = HOME / "track.json"
 GOAL_FILE = HOME / "goal.json"
 PORTFOLIO_FILE = HOME / "portfolio.json"
@@ -537,7 +538,16 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
                                             progress=lambda m, f: progress(m, 0.42 + 0.08 * f))
     res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress,
                        per_order=float(settings.get("brokerage") or 0), benchmark=bm, pit_n=pit.size(uni),
-                       fund_data=fund_data, cache_dir=CACHE)
+                       fund_data=fund_data, cache_dir=CACHE, backtest_too=not body.get("skip_backtest"))
+    if body.get("watch"):                    # alert when today's picks change (checked daily after the close)
+        from . import alerts as AL
+
+        store = AL.Store(ALERTS_FILE)
+        with _alerts_lock:
+            d = store.load()
+            d["screen"] = {"body": {k: v for k, v in body.items() if k not in ("watch", "skip_backtest")},
+                           "picks": [r["ticker"] for r in res["picks"]]}
+            store.save(d)
     return clean({**res, "universe": uni})
 
 
@@ -763,6 +773,181 @@ def run_tax(body: dict, settings: dict, progress) -> dict:
     out = tax.plan(holdings, prices, sales, num("extra_st"), num("extra_lt"), num("cf_st"), num("cf_lt"), fno, sell_cost=sell)
     progress("Done", 1.0)
     return clean({**out, "sales": sales})
+
+
+# --------------------------------------------------------------------------- alerts
+_alerts_lock = threading.Lock()
+
+
+def _alert_items() -> list[dict]:
+    """Every open position with levels worth watching."""
+    from .paper import bearish
+
+    items = []
+    for e in _read_json(JOURNAL_FILE, []):
+        if e.get("status") == "open" and e.get("ticker"):
+            items.append({"key": f"j:{e['id']}", "label": e.get("contract") or e["ticker"], "symbol": e["ticker"],
+                          "bearish": (e.get("side") or "").upper() == "PUT", "stop": e.get("stop"),
+                          "target": e.get("target1"), "exit_by": e.get("time_exit"), "source": "My trades"})
+    for h in _read_json(HOLDINGS_FILE, []):
+        if h.get("stop"):
+            items.append({"key": f"h:{h['id']}", "label": h["symbol"].replace(".NS", ""), "symbol": h["symbol"],
+                          "bearish": False, "stop": h["stop"], "source": "Holdings"})
+    for p in (_read_json(PAPER_FILE, {}) or {}).get("positions", []):
+        if p.get("stop"):                      # paper closes itself at stop and target; warn only when near
+            items.append({"key": f"p:{p['id']}", "label": p["symbol"].replace(".NS", ""), "symbol": p["symbol"],
+                          "bearish": bearish(p), "stop": p["stop"], "source": "Paper"})
+    return items
+
+
+def _market_hours(now: datetime | None = None) -> bool:
+    from .paper import now_ist
+
+    t = now or now_ist()
+    return t.weekday() < 5 and (9, 10) <= (t.hour, t.minute) <= (15, 40)
+
+
+def run_alert_check(daily: bool = False, force: bool = False) -> list[dict]:
+    """Look at everything once; store and send what is new. Called by the background loop and 'Check now'."""
+    from . import alerts as AL
+    from .paper import PRICES, PaperError
+
+    store = AL.Store(ALERTS_FILE)
+    with _alerts_lock:
+        d = store.load()
+    cfg = d["config"]
+    if not cfg.get("enabled", True) and not force:
+        return []
+    events = []
+    with _paper_lock:
+        try:
+            for ev in paper_account().process():
+                events.append({"key": f"paper:{ev}", "kind": "paper", "level": "medium", "title": "Paper trading", "text": ev})
+        except PaperError:
+            pass
+        except Exception:
+            traceback.print_exc()
+    price_of = lambda sym: PRICES.last(sym)[0]
+    events += AL.position_events(_alert_items(), price_of, float(cfg.get("near_pct") or 1.0))
+    rule_events, fired = AL.price_rule_events(d["rules"], price_of)
+    events += rule_events
+    if daily:
+        if cfg.get("fund_rebalance"):
+            ev = AL.rebalance_event(AL.next_period_end(date.today(), cfg["fund_rebalance"]))
+            if ev:
+                events.append(ev)
+        watch = d.get("screen")
+        if watch:
+            try:
+                res = run_myscreen({**watch["body"], "skip_backtest": True}, load_settings(), lambda m, f: None)
+                now = [r["ticker"] for r in res["picks"]]
+                ev = AL.screen_change_event(watch.get("picks") or [], now)
+                if ev:
+                    events.append(ev)
+                watch["picks"] = now
+            except Exception as exc:
+                events.append({"key": f"screen-error:{date.today()}", "kind": "screen", "level": "low",
+                               "title": "Could not re-run your watched screen", "text": str(exc)[:200]})
+    with _alerts_lock:
+        d2 = store.load()                      # the page may have changed settings meanwhile
+        d2["rules"] = [r for r in d2["rules"] if r["id"] not in fired]
+        if daily and d.get("screen") and d2.get("screen"):
+            d2["screen"]["picks"] = d["screen"].get("picks")
+        new = store.add(d2, events)
+        d2["problems"] = AL.deliver(new, d2["config"]) if new else d2.get("problems", [])
+        d2["last_check"] = datetime.now().isoformat(timespec="seconds")
+        if daily:
+            d2["daily_done"] = date.today().isoformat()
+        store.save(d2)
+    return new
+
+
+def _alert_loop() -> None:
+    from . import alerts as AL
+    from .paper import now_ist
+
+    while True:
+        time.sleep(300)
+        try:
+            d = AL.Store(ALERTS_FILE).load()
+            if not d["config"].get("enabled", True):
+                continue
+            t = now_ist()
+            crypto = any(p.get("instrument") == "crypto" for p in (_read_json(PAPER_FILE, {}) or {}).get("positions", []))
+            if _market_hours(t) or crypto or d["rules"]:
+                run_alert_check()
+            if t.weekday() < 5 and (t.hour, t.minute) >= (15, 45) and d.get("daily_done") != t.date().isoformat():
+                run_alert_check(daily=True)
+        except Exception:
+            traceback.print_exc()
+
+
+def alerts_op(method: str, path: str, body: dict) -> dict:
+    from . import alerts as AL
+
+    store = AL.Store(ALERTS_FILE)
+    parts = path.strip("/").split("/")          # api, alerts, ...
+    with _alerts_lock:
+        d = store.load()
+        cfg = d["config"]
+        what = parts[2] if len(parts) > 2 else ""
+        if method == "POST" and what == "read":
+            for it in d["items"]:
+                it["read"] = True
+        elif method == "POST" and what == "config":
+            if "enabled" in body:
+                cfg["enabled"] = bool(body["enabled"])
+            if "near_pct" in body:
+                cfg["near_pct"] = min(max(float(body["near_pct"] or 1), 0.2), 10.0)
+            if "fund_rebalance" in body:
+                cfg["fund_rebalance"] = body["fund_rebalance"] if body["fund_rebalance"] in ("M", "Q", "H", "Y") else None
+            if "termux" in body:
+                cfg["termux"] = bool(body["termux"])
+            if body.get("telegram_token"):
+                cfg["telegram_token"] = str(body["telegram_token"]).strip()
+            if "telegram_chat" in body:
+                cfg["telegram_chat"] = str(body["telegram_chat"] or "").strip() or None
+            if body.get("telegram_forget"):
+                cfg.pop("telegram_token", None)
+                cfg.pop("telegram_chat", None)
+        elif method == "POST" and what == "telegram-chat":
+            if not cfg.get("telegram_token"):
+                raise ValueError("Save the bot token first")
+            chat = AL.telegram_chat_id(cfg["telegram_token"])
+            if not chat:
+                raise ValueError("No message found: open your bot in Telegram, press Start (or send it any message), then try again")
+            cfg["telegram_chat"] = chat
+        elif method == "POST" and what == "test":
+            new = store.add(d, [{"key": f"test:{uuid.uuid4().hex[:6]}", "kind": "test", "level": "low",
+                                 "title": "Test alert", "text": "Alerts are working. You will hear about stops, targets and your price alerts here."}])
+            d["problems"] = AL.deliver(new, cfg)
+        elif method == "POST" and what == "rule":
+            price = float(body.get("price") or 0)
+            if price <= 0 or body.get("op") not in ("above", "below"):
+                raise ValueError("Choose above or below and a price")
+            d["rules"].append({"id": uuid.uuid4().hex[:8], "symbol": _norm_symbol(body.get("symbol")), "op": body["op"],
+                               "price": price, "note": str(body.get("note") or "")[:80]})
+        elif method == "DELETE" and what == "rule" and len(parts) == 4:
+            d["rules"] = [r for r in d["rules"] if r["id"] != parts[3]]
+        elif method == "POST" and what == "unwatch-screen":
+            d.pop("screen", None)
+        store.save(d)
+    return alerts_state()
+
+
+def alerts_state() -> dict:
+    from . import alerts as AL
+
+    d = AL.Store(ALERTS_FILE).load()
+    cfg = d["config"]
+    return {"items": d["items"][:60], "unread": sum(1 for x in d["items"] if not x.get("read")), "rules": d["rules"],
+            "config": {"enabled": cfg.get("enabled", True), "near_pct": cfg.get("near_pct", 1.0),
+                       "fund_rebalance": cfg.get("fund_rebalance"), "termux": cfg.get("termux", True),
+                       "telegram": bool(cfg.get("telegram_token")), "telegram_chat": cfg.get("telegram_chat")},
+            "termux_available": AL.termux_available(), "problems": d.get("problems", []),
+            "screen": ({"universe": d["screen"]["body"].get("universe"), "picks": d["screen"].get("picks", []),
+                        "rules": len(d["screen"]["body"].get("filters") or [])} if d.get("screen") else None),
+            "last_check": d.get("last_check")}
 
 
 def run_risk(body: dict, settings: dict, progress) -> dict:
@@ -1022,6 +1207,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"entries": entries, "summary": journal_summary(entries)})
             if url.path == "/api/holdings":
                 return self._send(200, {"holdings": _read_json(HOLDINGS_FILE, []), "sales": _read_json(SALES_FILE, [])})
+            if url.path == "/api/alerts":
+                return self._send(200, alerts_state())
             if url.path == "/api/orders":
                 from . import orders
 
@@ -1133,6 +1320,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, holdings_op("POST", url.path, body))
                 except (ValueError, KeyError) as exc:
                     return self._send(400, {"error": str(exc).strip("'")})
+            if url.path == "/api/alerts/check":
+                new = run_alert_check(force=True)
+                return self._send(200, {**alerts_state(), "new": new})
+            if url.path.startswith("/api/alerts/"):
+                try:
+                    return self._send(200, alerts_op("POST", url.path, body))
+                except (ValueError, RuntimeError) as exc:
+                    return self._send(400, {"error": str(exc)})
             if url.path == "/api/tax":
                 return self._send(200, {"job": start_job("tax", run_tax, body, load_settings())})
             if url.path == "/api/risk":
@@ -1158,6 +1353,8 @@ class Handler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path.startswith("/api/holdings/"):
                 return self._send(200, holdings_op("DELETE", path, {}))
+            if path.startswith("/api/alerts/"):
+                return self._send(200, alerts_op("DELETE", path, {}))
             return self._send(200, journal_op("DELETE", path, {}))
         except Exception as exc:
             return self._send(500, {"error": str(exc)})
@@ -1267,6 +1464,7 @@ def serve(port: int = 8765, open_browser: bool = True, phone: bool = False, tunn
     print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
     if open_browser:
         threading.Timer(0.8, lambda: open_url(url)).start()
+    threading.Thread(target=_alert_loop, daemon=True, name="alerts").start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

@@ -76,6 +76,12 @@ nav.groups button[aria-pressed="true"] { color: var(--accent); background: var(-
 .mkt { font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .mkt i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
 .mkt.open i { background: var(--up); box-shadow: 0 0 0 3px var(--up-soft); }
+.icon-btn { position: relative; }
+.icon-btn .badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--down); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.alert-item { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--grid); }
+.alert-item:first-child { border-top: 0; }
+.alert-item .dot { margin-top: 6px; } .alert-item.unread .t { font-weight: 700; }
+.alert-item.high .dot { background: var(--down); } .alert-item.medium .dot { background: var(--warn); } .alert-item.low .dot { background: var(--s1); }
 .icon-btn { border: 1px solid var(--ring); background: var(--surface); border-radius: 10px; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; }
 main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; }
 section.page { display: none; }
@@ -96,7 +102,7 @@ h2 { font-size: 17px; margin: 0 0 10px; }
 .field { display: grid; gap: 4px; align-content: start; grid-template-columns: minmax(0, 1fr); }
 .field label { font-size: 13px; color: var(--ink-2); font-weight: 600; }
 .field .hint { font-size: 12.5px; color: var(--muted); }
-input[type=text], input[type=number], input[type=date], select, textarea { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--axis); background: var(--surface); }
+input[type=text], input[type=number], input[type=date], input[type=password], select, textarea { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--axis); background: var(--surface); }
 select, input { max-width: 100%; } .field { min-width: 0; max-width: 100%; }
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--ink-2); }
@@ -308,8 +314,13 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="rebalance">Rebalance</button>
       <button role="tab" data-tab="tax" class="live-only">Holdings &amp; tax</button>
       <button role="tab" data-tab="settings" class="live-only">Settings</button>
+      <button role="tab" data-tab="alerts" class="live-only">Alerts</button>
       <button role="tab" data-tab="help">Help</button>
     </nav>
+    <button class="icon-btn live-only" id="bell" title="Alerts" aria-label="Alerts">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="badge" id="bell-n" hidden></span>
+    </button>
     <button class="icon-btn" id="theme" title="Switch light / dark" aria-label="Switch light or dark theme">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
     </button>
@@ -391,6 +402,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <div class="field"><label for="ms-top">Hold</label><select id="ms-top" style="width:auto"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select></div>
         <div class="field"><label for="ms-bench">Compare with</label><select id="ms-bench" style="width:auto"><option value="NIFTYBEES.NS">Nifty 50</option><option value="JUNIORBEES.NS">Nifty Next 50</option><option value="^CNX200">Nifty 200</option><option value="^CRSLDX">Nifty 500</option><option value="^NSEMDCP50">Nifty Midcap 50</option><option value="NIFTYSMLCAP250.NS">Nifty Smallcap 250</option><option value="BANKBEES.NS">Nifty Bank</option></select></div>
         <div class="field"><label for="ms-reb">Rebalance</label><select id="ms-reb" style="width:auto"><option value="M">monthly</option><option value="Q" selected>quarterly</option><option value="H">half-yearly</option><option value="Y">yearly</option></select></div>
+        <label class="switch" title="Checked once a day after the market closes"><input type="checkbox" id="ms-watch"> Alert me when the picks change</label>
         <button class="btn primary" id="ms-run" type="submit">Run screen</button>
       </div>
     </form>
@@ -564,6 +576,48 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div class="notice">Prices are the US futures on Yahoo (COMEX and NYMEX). MCX contracts follow them in rupees with import duty, so stops and targets are approximate on MCX: check the MCX chart before trading. Lots are MCX mini contracts.</div>
     <div class="progress" id="commodities-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
     <div id="commodities"></div>
+  </section>
+
+  <!-- ============ ALERTS ============ -->
+  <section class="page" id="page-alerts">
+    <div class="head-row">
+      <div><h1>Alerts</h1>
+        <p class="sub" id="al-sub">While the app is running it checks your positions every 5 minutes in market hours: stops near or hit, targets reached, exit dates, your price alerts, and (after the close) a watched screen and the model fund's rebalance date.</p></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label class="switch"><input type="checkbox" id="al-on" checked> Alerts on</label>
+        <button class="btn" id="al-check">Check now</button>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="card"><div class="kite-row" style="justify-content:space-between"><h2 style="margin:0">Recent</h2><button class="btn small" id="al-read">Mark all read</button></div>
+        <div id="al-list" style="margin-top:8px"></div></div>
+      <div>
+        <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Price alerts</h2>
+          <form class="hold-form" id="al-rule" autocomplete="off">
+            <div class="field"><label for="al-sym">Symbol</label><input id="al-sym" type="text" list="symbols" placeholder="RELIANCE or BTC-USD" required></div>
+            <div class="field"><label for="al-op">When it goes</label><select id="al-op"><option value="above">above</option><option value="below">below</option></select></div>
+            <div class="field"><label for="al-px">Price</label><input id="al-px" type="number" step="any" min="0" required></div>
+            <button class="btn primary" type="submit">Add</button>
+          </form>
+          <div id="al-rules" style="margin-top:10px"></div></div>
+        <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">How to reach you</h2>
+          <div class="field"><label>In this browser</label><div class="kite-row"><button class="btn small" id="al-perm" type="button">Allow notifications</button><span class="sub" id="al-perm-st" style="font-size:13px"></span></div>
+            <span class="hint">Pop-ups while this page is open in a tab, even in the background.</span></div>
+          <div class="field" style="margin-top:12px"><label for="al-tg">Telegram (on your phone, anywhere)</label>
+            <ol class="sub" style="font-size:13px;margin:2px 0 6px;padding-left:18px"><li>In Telegram open <b>@BotFather</b>, send <code>/newbot</code>, pick a name; it replies with a token.</li><li>Paste the token here and press Save.</li><li>Open your new bot, press <b>Start</b>, then press <b>Find my chat</b> here.</li></ol>
+            <div class="kite-row"><input id="al-tg" type="password" placeholder="123456:ABC-DEF…" autocomplete="off" style="flex:1 1 200px"><button class="btn small" id="al-tg-save" type="button">Save</button><button class="btn small" id="al-tg-chat" type="button">Find my chat</button></div>
+            <span class="hint" id="al-tg-st"></span></div>
+          <div class="field" style="margin-top:12px"><label>Android (Termux)</label><span class="hint" id="al-termux"></span></div>
+          <div class="kite-row" style="margin-top:12px"><button class="btn" id="al-test" type="button">Send a test alert</button></div>
+          <div id="al-problems"></div></div>
+        <div class="card"><h2 style="margin-top:0">What to watch</h2>
+          <div class="hold-form">
+            <div class="field"><label for="al-near">Warn when this close to a stop</label><select id="al-near"><option value="0.5">0.5%</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option></select></div>
+            <div class="field"><label for="al-fund">Model fund rebalance reminder</label><select id="al-fund"><option value="">Off</option><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="H">Half-yearly</option><option value="Y">Yearly</option></select></div>
+          </div>
+          <div id="al-screen" class="sub" style="font-size:13.5px;margin-top:10px"></div></div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ PORTFOLIO RISK ============ -->
@@ -917,7 +971,7 @@ $("#theme").onclick = () => {
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
 const TAB_GROUPS = { trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
-  practice: ["paper", "journal", "risk", "track", "lab"], invest: ["fund", "goals", "rebalance", "tax"], more: ["settings", "help"] };
+  practice: ["paper", "journal", "risk", "track", "lab"], invest: ["fund", "goals", "rebalance", "tax"], more: ["settings", "alerts", "help"] };
 const groupOf = t => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(t)) || "trade";
 const _lastInGroup = {};
 function showGroup(g) {
@@ -936,7 +990,7 @@ function marketChip() {
 }
 marketChip(); setInterval(marketChip, 60000);
 function showTab(name) {
-  if (STATIC && ["stock", "paper", "settings", "check", "screen", "risk", "tax"].includes(name)) name = "picks";
+  if (STATIC && ["stock", "paper", "settings", "check", "screen", "risk", "tax", "alerts"].includes(name)) name = "picks";
   _lastInGroup[groupOf(name)] = name;
   showGroup(groupOf(name));
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
@@ -944,6 +998,7 @@ function showTab(name) {
   if (name === "journal") { loadJournal(); loadOrders(); }
   if (name === "tax" && !window._taxLoaded) { window._taxLoaded = true; loadTax(); }
   if (name === "risk" && !window._lastRisk) loadRisk();
+  if (name === "alerts") loadAlerts(true);
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
   if (name === "lab" && !window._lastLab) loadLab(STATIC);
@@ -1378,6 +1433,58 @@ function renderMarket(res, box) {
     ppFill({ instrument: "crypto", product: "positional", symbol: b.dataset.cipp, qty: +d.units.toPrecision(6), stop: d.stop, target: d.target, exit_by: exitDay(), note: "Crypto trade idea" }); });
 }
 
+
+
+/* ---------------- alerts ---------------- */
+let _alertSeen = null;
+async function loadAlerts(render = false) {
+  if (STATIC) return;
+  let a; try { a = await api("/api/alerts"); } catch (e) { return; }
+  alertBadge(a.unread);
+  // pop-ups for alerts that arrived since the last look (only after the first load)
+  if (_alertSeen !== null && "Notification" in window && Notification.permission === "granted")
+    a.items.filter(x => !x.read && x.time > _alertSeen).slice(0, 5).forEach(x => { try { new Notification(x.title, { body: x.text, tag: x.id }); } catch (e) {} });
+  _alertSeen = a.items.length ? a.items[0].time : (_alertSeen || "");
+  if (render || $("#page-alerts").classList.contains("active")) renderAlerts(a);
+}
+function alertBadge(n) {
+  const badge = $("#bell-n"); badge.hidden = !n; badge.textContent = n > 9 ? "9+" : n; $("#bell").setAttribute("aria-label", n ? `Alerts, ${n} unread` : "Alerts");
+}
+function renderAlerts(a) {
+  const c = a.config; alertBadge(a.unread);
+  $("#al-on").checked = c.enabled; $("#al-near").value = String(c.near_pct); $("#al-fund").value = c.fund_rebalance || "";
+  $("#al-sub").textContent = `While the app is running it checks your positions every 5 minutes in market hours${a.last_check ? ` (last check ${a.last_check.replace("T", " ").slice(0, 16)})` : ""}: stops near or hit, targets, exit dates, your price alerts, and after the close a watched screen and the model fund's rebalance date.`;
+  $("#al-list").innerHTML = a.items.length ? a.items.map(x => `<div class="alert-item ${x.level} ${x.read ? "" : "unread"}"><span class="dot"></span><div><div class="t">${esc(x.title)}</div><div class="sub" style="font-size:13px">${esc(x.text)}</div></div>
+    <div class="sub num" style="font-size:12px;white-space:nowrap">${esc(x.time.replace("T", " ").slice(5, 16))}</div></div>`).join("")
+    : `<div class="empty" style="padding:24px 8px"><span class="et">No alerts yet</span>They appear here when a position nears its stop, hits a target, or a price alert fires.</div>`;
+  $("#al-rules").innerHTML = a.rules.length ? `<table class="num"><tbody>${a.rules.map(r => `<tr><td><b>${esc(bare(r.symbol))}</b> ${r.op} ${px2(r.price)}</td><td class="r"><button class="btn small" data-rdel="${r.id}" aria-label="Delete alert for ${esc(bare(r.symbol))}">✕</button></td></tr>`).join("")}</tbody></table>`
+    : `<p class="sub" style="margin:0;font-size:13px">None. Each price alert fires once and is then removed.</p>`;
+  $$("[data-rdel]").forEach(b => b.onclick = async () => renderAlerts(await api("/api/alerts/rule/" + b.dataset.rdel, { method: "DELETE" })));
+  const perm = "Notification" in window ? Notification.permission : "unsupported";
+  $("#al-perm-st").textContent = { granted: "On", denied: "Blocked in this browser's site settings", default: "", unsupported: "Not supported by this browser" }[perm];
+  $("#al-perm").hidden = perm !== "default";
+  $("#al-tg-st").textContent = c.telegram ? (c.telegram_chat ? `Connected (chat ${c.telegram_chat}).` : "Token saved. Now press Start in your bot, then Find my chat.") : "Not connected.";
+  $("#al-termux").textContent = a.termux_available ? "Notifications go to the Android notification shade." : "Only when the app runs in Termux with the Termux:API app and package (pkg install termux-api).";
+  $("#al-problems").innerHTML = (a.problems || []).length ? `<div class="notice error" style="margin-top:10px;font-size:13px">${a.problems.map(esc).join("<br>")}</div>` : "";
+  $("#al-screen").innerHTML = a.screen ? `Watching a screen on ${esc(a.screen.universe)} with ${a.screen.rules} rule${a.screen.rules === 1 ? "" : "s"}; today's picks: ${a.screen.picks.map(t => esc(bare(t))).join(", ") || "none"}. <button class="btn small" id="al-unwatch" type="button">Stop watching</button>`
+    : "No screen watched. In My screener, tick <b>Alert me when the picks change</b> and run the screen.";
+  if ($("#al-unwatch")) $("#al-unwatch").onclick = async () => renderAlerts(await api("/api/alerts/unwatch-screen", { method: "POST", body: {} }));
+}
+const alCfg = async body => { try { renderAlerts(await api("/api/alerts/config", { method: "POST", body })); } catch (e) { toast(e.message, true); } };
+$("#al-on").onchange = e => alCfg({ enabled: e.target.checked });
+$("#al-near").onchange = e => alCfg({ near_pct: +e.target.value });
+$("#al-fund").onchange = e => alCfg({ fund_rebalance: e.target.value });
+$("#al-tg-save").onclick = async () => { const t = $("#al-tg").value.trim(); if (!t) return toast("Paste the token from @BotFather", true); await alCfg({ telegram_token: t }); $("#al-tg").value = ""; toast("Token saved"); };
+$("#al-tg-chat").onclick = async () => { try { renderAlerts(await api("/api/alerts/telegram-chat", { method: "POST", body: {} })); toast("Telegram connected"); } catch (e) { toast(e.message, true); } };
+$("#al-test").onclick = async () => { try { const a = await api("/api/alerts/test", { method: "POST", body: {} }); renderAlerts(a); _alertSeen = ""; loadAlerts(); toast("Test alert sent"); } catch (e) { toast(e.message, true); } };
+$("#al-check").onclick = async () => { const b = $("#al-check"); b.disabled = true; try { const a = await api("/api/alerts/check", { method: "POST", body: {} }); renderAlerts(a); toast(a.new.length ? `${a.new.length} new alert${a.new.length === 1 ? "" : "s"}` : "Nothing new"); } catch (e) { toast(e.message, true); } b.disabled = false; };
+$("#al-read").onclick = async () => { renderAlerts(await api("/api/alerts/read", { method: "POST", body: {} })); loadAlerts(); };
+$("#al-perm").onclick = async () => { if ("Notification" in window) { await Notification.requestPermission(); loadAlerts(true); } };
+$("#al-rule").onsubmit = async ev => { ev.preventDefault();
+  try { renderAlerts(await api("/api/alerts/rule", { method: "POST", body: { symbol: $("#al-sym").value, op: $("#al-op").value, price: +$("#al-px").value } })); $("#al-sym").value = $("#al-px").value = ""; toast("Price alert added"); }
+  catch (e) { toast(e.message, true); } };
+$("#bell").onclick = () => showTab("alerts");
+if (!STATIC) { loadAlerts(); setInterval(loadAlerts, 60000); }
 
 /* ---------------- portfolio risk ---------------- */
 async function loadRisk() {
@@ -2245,7 +2352,7 @@ $("#ms-form").onsubmit = async ev => {
   ev.preventDefault();
   const filters = $$("#ms-rules > div").map(r => { const m = $("[data-r=metric]", r).value, v = +$("[data-r=value]", r).value;
     return { metric: m, op: $("[data-r=op]", r).value, value: MS_METRICS[m][1] === "pct" ? v / 100 : v }; });
-  const body = { universe: $("#ms-uni").value, benchmark: $("#ms-bench").value, filters, rank_by: $("#ms-rank").value, descending: $("#ms-dir").value === "1", top: +$("#ms-top").value, rebalance: $("#ms-reb").value };
+  const body = { universe: $("#ms-uni").value, benchmark: $("#ms-bench").value, watch: $("#ms-watch").checked, filters, rank_by: $("#ms-rank").value, descending: $("#ms-dir").value === "1", top: +$("#ms-top").value, rebalance: $("#ms-reb").value };
   try { localStorage.setItem("sa-myscreen", JSON.stringify(body)); } catch (e) {}
   $("#ms-run").disabled = true; $("#ms-out").innerHTML = "";
   try { renderMyScreen(await runJob(api("/api/myscreen", { method: "POST", body }), $("#ms-progress"))); }
