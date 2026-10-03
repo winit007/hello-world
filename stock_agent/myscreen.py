@@ -17,6 +17,7 @@ import pandas as pd
 
 from . import attribution as A
 from . import costs as C
+from . import fundamentals as F
 from . import pit
 from .fund import REBALANCE, _metrics, _rebalance_dates
 
@@ -36,6 +37,9 @@ METRICS = {
     "beta_1y": ("Beta to Nifty, 1 year", "level"),
     "value_cr": ("Traded value a day (₹ crore)", "level"),
 }
+PRICE_METRICS = list(METRICS)
+METRICS.update(F.METRICS)                 # company results: P/E, ROE, debt, growth, promoter holding ...
+FUNDAMENTAL = set(F.METRICS)
 
 PRESETS = {
     "Momentum leaders": {"filters": [{"metric": "vs_sma200", "op": ">", "value": 0}, {"metric": "value_cr", "op": ">", "value": 20}],
@@ -46,6 +50,12 @@ PRESETS = {
                                "rank_by": "ret_12m", "descending": True},
     "Low volatility": {"filters": [{"metric": "beta_1y", "op": "<", "value": 0.9}],
                        "rank_by": "vol_1y", "descending": False},
+    "Quality at a fair price": {"filters": [{"metric": "roe", "op": ">", "value": 0.15}, {"metric": "de", "op": "<", "value": 0.5},
+                                            {"metric": "pe", "op": "<", "value": 40}],
+                                "rank_by": "roe", "descending": True},
+    "Growth with momentum": {"filters": [{"metric": "eps_growth", "op": ">", "value": 0.15}, {"metric": "sales_growth", "op": ">", "value": 0.1},
+                                         {"metric": "vs_sma200", "op": ">", "value": 0}],
+                             "rank_by": "ret_6m", "descending": True},
 }
 
 
@@ -56,6 +66,9 @@ class Screen:
     descending: bool = True
     top: int = 10
     rebalance: str = "Q"
+
+    def uses_fundamentals(self) -> bool:
+        return bool(({f["metric"] for f in self.filters} | {self.rank_by}) & FUNDAMENTAL)
 
     def validate(self) -> None:
         for f in self.filters:
@@ -78,7 +91,8 @@ def _rsi(c: pd.DataFrame, n: int = 14) -> pd.DataFrame:
     return rsi.mask((dn == 0) & up.notna(), 100.0)
 
 
-def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series) -> dict[str, pd.DataFrame]:
+def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series,
+                  fund_data: dict | None = None) -> dict[str, pd.DataFrame]:
     """Every metric for every stock and day, each value using only data up to that day."""
     r = closes.pct_change()
     br = bench.reindex(closes.index).ffill().pct_change()
@@ -87,7 +101,7 @@ def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series) 
     cov = r.rolling(252, min_periods=200).cov(br)
     var = br.rolling(252, min_periods=200).var()
     dd = closes / closes.rolling(252, min_periods=200).max() - 1
-    return {
+    out = {
         "price": closes,
         "ret_1m": closes / closes.shift(21) - 1, "ret_3m": closes / closes.shift(63) - 1,
         "ret_6m": closes / closes.shift(126) - 1, "ret_12m": closes / closes.shift(252) - 1,
@@ -98,6 +112,9 @@ def metric_frames(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series) 
         "beta_1y": cov.div(var, axis=0),
         "value_cr": values.rolling(60, min_periods=40).median() / 1e7,
     }
+    if fund_data is not None:
+        out.update(F.frames(closes, fund_data))
+    return out
 
 
 def snapshot(frames: dict[str, pd.DataFrame], date, allowed=None) -> pd.DataFrame:
@@ -119,8 +136,16 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
              pit_n: int | None = None) -> dict:
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, sc.rebalance) if len(closes.loc[:d]) >= 260]
+    fund_from = None
+    if sc.uses_fundamentals():           # company results only go back a few years: start when most stocks have them
+        used = ({f["metric"] for f in sc.filters} | {sc.rank_by}) & FUNDAMENTAL
+        starts = [F.coverage_start(frames[m], dates) for m in used]
+        if any(x is None for x in starts):
+            raise ValueError("Too few companies have these results yet to backtest the rules")
+        fund_from = max(starts)
+        dates = [d for d in dates if d >= fund_from]
     if len(dates) < 3:
-        raise ValueError("Not enough history to backtest")
+        raise ValueError("Not enough history to backtest" + (f": company results start {fund_from:%b %Y}" if fund_from is not None else ""))
     nav, ew, bn, held, hits, beats, turns = [1.0], [1.0], [1.0], [], [], [], []
     seg_s, seg_e, seg_b, seg_g = [], [], [], []   # daily values, so volatility and worst fall see every day
     gross = [1.0]                              # the same picks with no trading costs
@@ -192,16 +217,21 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
             "turnover_per_year": float(np.mean(turns) * per_year) if turns else 0.0, "yearly": yearly,
             "last_picks": log[-1]["picks"] if log else [],
             "costs": {**cost_tot, "capital": capital}, "daily": daily_curve,
+            "fundamentals_from": str(fund_from.date()) if fund_from is not None else None,
             "attribution": A.compare(daily_curve["screen"], gross_curve, daily_curve["equal_weight"], daily_curve["nifty"])}
 
 
 def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen, capital: float = 200_000,
         sectors: dict | None = None, progress=None, per_order: float = 0.0, benchmark: str = A.DEFAULT,
-        pit_n: int | None = None) -> dict:
+        pit_n: int | None = None, fund_data: dict | None = None, cache_dir=None, offline: bool = False) -> dict:
+    """`fund_data` (company results for the whole list) is needed when the rules use them; otherwise results are
+    fetched for today's picks only, to show next to them (with `cache_dir`)."""
     sc.validate()
     progress = progress or (lambda m, f: None)
+    if sc.uses_fundamentals() and fund_data is None:
+        raise ValueError("These rules need company results")
     progress("Computing the metrics", 0.35)
-    frames = metric_frames(closes, values, bench)
+    frames = metric_frames(closes, values, bench, fund_data)
     today = closes.index[-1]
     snap = snapshot(frames, today, pit.members(closes, values, today, pit_n) if pit_n else None)
     matches = apply(snap, sc)
@@ -209,10 +239,23 @@ def run(closes: pd.DataFrame, values: pd.DataFrame, bench: pd.Series, sc: Screen
     per = capital / max(len(top), 1)
     rows = [{"ticker": t, "industry": (sectors or {}).get(t, ""), **{k: (None if pd.isna(v) else float(v)) for k, v in row.items()},
              "shares": int(per // row["price"]) if row["price"] > 0 else 0} for t, row in top.iterrows()]
-    bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order, pit_n)
-    bt.pop("daily")
+    picks = [r["ticker"] for r in rows]
+    if picks and (fund_data is not None or cache_dir is not None):
+        data = fund_data if fund_data is not None else F.fetch_many(picks, cache_dir, offline)
+        pf = F.frames(closes[picks], {t: data.get(t) or {} for t in picks}) if fund_data is None else None
+        for r in rows:
+            t = r["ticker"]
+            if pf is not None:
+                r.update({k: F.finite(pf[k][t].iloc[-1]) for k in F.METRICS})
+            r["pledge"] = F.pledge(t, data.get(t), cache_dir, offline) if cache_dir is not None else None
+    bt_note = None
+    try:
+        bt = backtest(closes, frames, bench, sc, progress, values, capital, per_order, pit_n)
+        bt.pop("daily")
+    except ValueError as exc:
+        bt, bt_note = None, str(exc)
     progress("Done", 1.0)
     return {"as_of": str(today.date()), "universe_size": int(len(snap)), "matches": int(len(matches)), "picks": rows,
-            "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt,
+            "screen": sc.__dict__, "capital": capital, "per_stock": per, "backtest": bt, "backtest_note": bt_note,
             "benchmark": {"symbol": benchmark, "label": A.label(benchmark), "short": A.BENCHMARKS.get(benchmark, {}).get("label", benchmark)},
             "metrics_info": {k: {"label": v[0], "kind": v[1]} for k, v in METRICS.items()}}

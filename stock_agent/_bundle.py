@@ -13,6 +13,7 @@ from . import costs
 from . import data
 from . import fivepaisa
 from . import fund
+from . import fundamentals
 from . import groww
 from . import ipo
 from . import kite

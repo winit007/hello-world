@@ -702,6 +702,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>Phone app, no PC needed</b>: open <a href="https://winit007.github.io/hello-world/" target="_blank" rel="noopener">winit007.github.io/hello-world</a> in Chrome and tap <b>Install app</b>. It shows the evening run's results; Goals, Rebalance and My trades work on the phone.</li>
         <li><b>This PC app on your phone</b>: easiest is the <b>Stock Agent (anywhere)</b> launcher (works on mobile data too); then scan the QR code in Settings and Add to Home screen. Details are in Settings.</li></ol></div>
       <div class="card" id="ms-help" style="grid-column:1/-1"><h2>My screener: what each criterion means</h2>
+        <p class="sub" style="font-size:13.5px;margin:0 0 8px"><b>Company results</b> (P/E, ROE, debt, growth and so on) come from Yahoo's yearly figures for the last four financial years, and promoter holding and pledges from NSE's shareholding filings. Each year's results count only from 60 days after the year ends, so backtests using them start in mid-2023. Figures can differ slightly from the annual report. Today's picks always show P/E, ROE, debt, promoter holding and any promoter pledge.</p>
         <p class="sub" style="font-size:13.5px;margin:0 0 8px">A stock is kept only if <b>every</b> rule is true. The survivors are sorted by <b>Rank by</b> and the top ones are held in equal money. Measures marked % are typed as percentages: 20 means 20%, -5 means 5% below.</p>
         <div class="table-scroll"><table class="help-table"><thead><tr><th>Criterion</th><th>What it means</th><th>Typical values</th><th>How traders use it</th></tr></thead><tbody id="ms-help-rows"></tbody></table></div>
         <h3 style="margin:16px 0 6px;font-size:15px">The other choices</h3>
@@ -718,6 +719,8 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
           <tr><td><b>Near 52-week high</b></td><td>Within 5% of the highest price of the past year and up more than 20% over the year, ranked by 3-month return. Strong stocks about to break out to new highs.</td></tr>
           <tr><td><b>Pullback in an uptrend</b></td><td>Above the 200-day average but RSI below 40: a strong stock having a short dip. Ranked by 12-month return, so the strongest dipping stocks come first.</td></tr>
           <tr><td><b>Low volatility</b></td><td>Beta below 0.9 (moves less than the Nifty), ranked by lowest volatility. Smoother ride and smaller falls, usually with somewhat lower returns in strong markets.</td></tr>
+          <tr><td><b>Quality at a fair price</b></td><td>Return on equity above 15%, debt below half of equity and P/E below 40, ranked by the highest ROE. Profitable, lightly-borrowed companies that are not wildly priced.</td></tr>
+          <tr><td><b>Growth with momentum</b></td><td>Earnings up more than 15% and sales up more than 10% last year, in a long-term uptrend, ranked by 6-month return. Growing companies the market is already rewarding.</td></tr>
         </tbody></table>
         <h3 style="margin:16px 0 6px;font-size:15px">Reading the results</h3>
         <table class="help-table"><tbody>
@@ -1836,7 +1839,11 @@ function renderLab(res) {
 const MS_METRICS = { price: ["Price (₹)", "level"], ret_1m: ["Return, 1 month", "pct"], ret_3m: ["Return, 3 months", "pct"], ret_6m: ["Return, 6 months", "pct"],
   ret_12m: ["Return, 12 months", "pct"], from_high: ["Distance from 52-week high", "pct"], vs_sma50: ["Price vs 50-day average", "pct"],
   vs_sma200: ["Price vs 200-day average", "pct"], sma50_vs_200: ["50-day vs 200-day average", "pct"], rsi14: ["RSI (14 days)", "level"],
-  vol_1y: ["Volatility, 1 year", "pct"], max_dd_1y: ["Worst fall in the last year", "pct"], beta_1y: ["Beta to Nifty, 1 year", "level"], value_cr: ["Traded value a day (₹ crore)", "level"] };
+  vol_1y: ["Volatility, 1 year", "pct"], max_dd_1y: ["Worst fall in the last year", "pct"], beta_1y: ["Beta to Nifty, 1 year", "level"], value_cr: ["Traded value a day (₹ crore)", "level"],
+  pe: ["P/E: price / earnings", "level", 1], pb: ["P/B: price / book value", "level", 1], roe: ["Return on equity (ROE)", "pct", 1],
+  roce: ["Return on capital employed (ROCE)", "pct", 1], de: ["Debt to equity", "level", 1], eps_growth: ["Earnings growth, last year", "pct", 1],
+  sales_growth: ["Sales growth, last year", "pct", 1], net_margin: ["Net profit margin", "pct", 1], div_yield: ["Dividend yield", "pct", 1],
+  mcap_cr: ["Market value (₹ crore)", "level", 1], promoter: ["Promoter holding", "pct", 1], promoter_chg: ["Promoter holding change, 1 year", "pct", 1] };
 const MS_HELP = {
   price: ["The last closing price of one share.", "₹50 to ₹30,000.",
     "Only to make sure you can afford at least one share of each pick (₹2,00,000 over 10 stocks is about ₹20,000 each). A low price does not mean a stock is cheap."],
@@ -1866,6 +1873,30 @@ const MS_HELP = {
     "Below 0.9 is defensive (FMCG, pharma, IT services often). Above 1.2 is aggressive (metals, PSU banks, realty): bigger gains in rallies, bigger falls in crashes."],
   value_cr: ["Liquidity: the typical rupee value of shares traded in a day, in crore, over the last 60 days.", "₹5 crore to ₹2,000 crore.",
     "Above ₹20 crore you can buy and sell easily at a fair price. Below ₹5 crore, prices can jump and the bid-ask gap is wider."],
+  pe: ["Price to earnings: the company's market value divided by last year's net profit. How many years of today's profit you pay for. Empty for loss-making companies.", "10 to 60; Nifty about 20-24.",
+    "\"Below 25\" avoids expensive stocks; very low P/E (below 8) often signals trouble rather than a bargain. Compare within the same industry."],
+  pb: ["Price to book: market value divided by shareholders' equity (what the company owns minus what it owes).", "1 to 10; banks usually 1 to 4.",
+    "Most useful for banks and finance companies, where \"below 2\" is cheap-ish. Less meaningful for software or consumer brands."],
+  roe: ["Return on equity: last year's net profit divided by shareholders' equity. How hard the owners' money works.", "8% to 30%.",
+    "The classic quality test: \"above 15%\" keeps companies that earn well on their capital. Check debt too, since debt can inflate ROE."],
+  roce: ["Return on capital employed: operating profit (EBIT) divided by equity plus debt. Like ROE but counts borrowed money too.", "8% to 35%. Not shown for banks.",
+    "\"Above 15%\" finds businesses that earn well on all the money they use, borrowed or not."],
+  de: ["Debt to equity: total borrowings divided by shareholders' equity.", "0 (no debt) to 2; banks and finance companies much higher.",
+    "\"Below 0.5\" keeps companies that are not stretched by loans. Skip it for banks and NBFCs, whose business is borrowing."],
+  eps_growth: ["Growth in earnings per share in the last financial year compared with the year before.", "-30% to +50%.",
+    "\"Above 15%\" finds growing profits. One year can be noisy; combine with sales growth."],
+  sales_growth: ["Growth in revenue in the last financial year compared with the year before.", "0% to 30%.",
+    "\"Above 10%\" means the business itself is growing, not just its margins."],
+  net_margin: ["Net profit as a share of revenue.", "5% to 25%; retailers low, software and brands high.",
+    "Higher margins usually mean pricing power. Compare within an industry."],
+  div_yield: ["Dividends paid last year divided by today's market value.", "0% to 5%.",
+    "\"Above 2%\" for income-paying, usually mature companies."],
+  mcap_cr: ["Market value: share price times the number of shares, in crore.", "Large caps above ₹1,00,000 crore; small caps below ₹20,000 crore.",
+    "Use it to choose company size: \"above 50,000\" keeps large, well-known companies."],
+  promoter: ["The share of the company owned by its founders or parent (the promoter group), from the latest NSE filing.", "0% (no promoter, like HDFC Bank) to 75%.",
+    "High promoter holding means owners have skin in the game. Watch the pledge badge: pledged shares can be sold by lenders if the price falls."],
+  promoter_chg: ["Change in promoter holding over the last year, in percentage points.", "-5 to +5 points; usually 0.",
+    "Promoters buying (above 0) is often read as confidence; steady selling is a warning sign."],
 };
 $("#ms-help-rows").innerHTML = Object.entries(MS_METRICS).map(([k, [label, kind]]) =>
   `<tr><td><b>${label}</b>${kind === "pct" ? ' <span class="sub">(%)</span>' : ""}</td><td>${esc(MS_HELP[k][0])}</td><td data-label="Typical">${esc(MS_HELP[k][1])}</td><td data-label="Use">${esc(MS_HELP[k][2])}</td></tr>`).join("");
@@ -1874,8 +1905,11 @@ const MS_PRESETS = {
   "Momentum leaders": { filters: [["vs_sma200", ">", 0], ["value_cr", ">", 20]], rank_by: "ret_6m", desc: true },
   "Near 52-week high": { filters: [["from_high", ">", -5], ["ret_12m", ">", 20]], rank_by: "ret_3m", desc: true },
   "Pullback in an uptrend": { filters: [["vs_sma200", ">", 0], ["rsi14", "<", 40]], rank_by: "ret_12m", desc: true },
-  "Low volatility": { filters: [["beta_1y", "<", 0.9]], rank_by: "vol_1y", desc: false } };
-const msOpts = sel => Object.entries(MS_METRICS).map(([k, [l]]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("");
+  "Low volatility": { filters: [["beta_1y", "<", 0.9]], rank_by: "vol_1y", desc: false },
+  "Quality at a fair price": { filters: [["roe", ">", 15], ["de", "<", 0.5], ["pe", "<", 40]], rank_by: "roe", desc: true },
+  "Growth with momentum": { filters: [["eps_growth", ">", 15], ["sales_growth", ">", 10], ["vs_sma200", ">", 0]], rank_by: "ret_6m", desc: true } };
+const msOpts = sel => [["Price and trend", 0], ["Company results", 1]].map(([g, f]) => `<optgroup label="${g}">` +
+  Object.entries(MS_METRICS).filter(([, x]) => !!x[2] === !!f).map(([k, [l]]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("") + "</optgroup>").join("");
 function msRule(m = "ret_6m", op = ">", v = 0) {
   const row = document.createElement("div");
   row.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center";
@@ -1911,9 +1945,17 @@ $("#ms-form").onsubmit = async ev => {
 try { const saved = JSON.parse(localStorage.getItem("sa-myscreen") || "null");
   if (saved) { $("#ms-preset").value = ""; $("#ms-rules").innerHTML = ""; saved.filters.forEach(f => msRule(f.metric, f.op, MS_METRICS[f.metric][1] === "pct" ? Math.round(f.value * 10000) / 100 : f.value));
     $("#ms-uni").value = saved.universe; $("#ms-rank").value = saved.rank_by; $("#ms-dir").value = saved.descending ? "1" : "0"; $("#ms-top").value = saved.top; $("#ms-reb").value = saved.rebalance; if (saved.benchmark) $("#ms-bench").value = saved.benchmark; } } catch (e) {}
-function msVal(k, v) { if (v == null) return "–"; return MS_METRICS[k][1] === "pct" ? spct(v, 1) : k === "price" ? money(v, "₹", 2) : (+v).toFixed(k === "value_cr" ? 0 : 2); }
+function msVal(k, v) { if (v == null) return "–"; if (k === "promoter_chg") return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pts";
+  if (k === "promoter" || k === "div_yield" || k === "roe" || k === "roce" || k === "net_margin") return pct(v, 1);
+  return MS_METRICS[k][1] === "pct" ? spct(v, 1) : k === "price" ? money(v, "₹", 2) : k === "value_cr" || k === "mcap_cr" ? Math.round(v).toLocaleString("en-IN") : (+v).toFixed(k === "pe" || k === "pb" ? 1 : 2); }
+function msCompany(p) {
+  const bits = [p.pe != null ? `P/E ${(+p.pe).toFixed(1)}` : p.mcap_cr != null ? "loss-making" : null, p.roe != null ? `ROE ${pct(p.roe, 0)}` : null,
+                p.de != null ? `debt/equity ${(+p.de).toFixed(2)}` : null, p.promoter != null ? `promoters ${pct(p.promoter, 0)}` : null].filter(Boolean);
+  const pl = p.pledge == null ? "" : p.pledge >= 0.1 ? ` <span class="pill put" style="font-size:11px" title="Share of the promoters' shares pledged as loan security">${pct(p.pledge, 0)} pledged</span>` : p.pledge > 0 ? ` <span class="sub" style="font-size:11.5px">${pct(p.pledge, 0)} pledged</span>` : "";
+  return bits.length || pl ? `<div class="sub" style="font-size:11.5px">${bits.join(" · ")}${pl}</div>` : "";
+}
 function renderMyScreen(r) {
-  const bn = BN(r), bt = r.backtest, m = bt.metrics, cols = [...new Set([r.screen.rank_by, ...r.screen.filters.map(f => f.metric)])].filter(k => k !== "price").slice(0, 4);
+  const bn = BN(r), bt = r.backtest, m = bt ? bt.metrics : null, cols = [...new Set([r.screen.rank_by, ...r.screen.filters.map(f => f.metric)])].filter(k => k !== "price").slice(0, 4);
   const reb = { M: "monthly", Q: "quarterly", H: "half-yearly", Y: "yearly" }[r.screen.rebalance];
   const tile = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
   const cls = v => v > 0 ? "chg up" : v < 0 ? "chg down" : "";
@@ -1921,12 +1963,14 @@ function renderMyScreen(r) {
   $("#ms-out").innerHTML = `
     <div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Today's picks · ${money(r.per_stock)} each</h2>
       ${r.picks.length ? `<table class="num"><thead><tr><th>#</th><th>Stock</th><th class="r">Price</th>${cols.map(k => `<th class="r">${MS_METRICS[k][0]}</th>`).join("")}<th class="r">Shares</th><th></th></tr></thead><tbody>
-      ${r.picks.map((p, i) => `<tr><td>${i + 1}</td><td><b>${esc(bare(p.ticker))}</b><div class="sub" style="font-size:12px">${esc(p.industry || "")}</div></td><td class="r">${money(p.price, "₹", 2)}</td>
+      ${r.picks.map((p, i) => `<tr><td>${i + 1}</td><td><b>${esc(bare(p.ticker))}</b><div class="sub" style="font-size:12px">${esc(p.industry || "")}</div>${msCompany(p)}</td><td class="r">${money(p.price, "₹", 2)}</td>
         ${cols.map(k => `<td class="r">${msVal(k, p[k])}</td>`).join("")}<td class="r">${p.shares}</td>
         <td class="r" style="white-space:nowrap"><button class="btn small" data-msck="${i}">Check</button> <button class="btn small" data-mspp="${i}">Paper</button></td></tr>`).join("")}</tbody></table>`
       : `<p class="sub">No stock passes these rules today. Loosen a rule and run again.</p>`}</div>
+    ${!bt ? `<div class="notice warn"><b>No backtest for these rules.</b> ${esc(r.backtest_note || "")}. Company results on Yahoo go back about four years, so rules built only on them have little history to test.</div>` : `
+    ${bt.fundamentals_from ? `<div class="notice" style="font-size:13.5px">Company results are only known from <b>${fmtDate(bt.fundamentals_from)} ${bt.fundamentals_from.slice(0, 4)}</b> (each year's results count from 60 days after the year ends), so this backtest starts then. A few years is a short test: treat it as a sanity check, not proof.</div>` : ""}
     <div class="tiles">
-      ${tile("Your screen, a year", spct(m.screen.cagr), `${bt.yearly.length} years · rebalanced ${reb}`, cls(m.screen.cagr))}
+      ${tile("Your screen, a year", spct(m.screen.cagr), `${(m.screen.years || bt.yearly.length).toFixed(1)} years · rebalanced ${reb}`, cls(m.screen.cagr))}
       ${tile(`${esc(bn)}, a year`, spct(m.nifty.cagr), "same period")}
       ${tile("All these stocks, equal weight", spct(m.equal_weight.cagr), "shows how much is survivorship")}
       ${tile("Worst fall", pct(m.screen.max_drawdown), `${esc(bn)} ${pct(m.nifty.max_drawdown)}`, "chg down")}
@@ -1938,8 +1982,8 @@ function renderMyScreen(r) {
     ${attribCard(bt.attribution, bn, "Your screen")}
     <div class="card table-scroll"><h2 style="margin-top:0">Year by year</h2><table class="num"><thead><tr><th>Year</th><th class="r">Your screen</th><th class="r">Equal weight</th><th class="r">${esc(bn)}</th></tr></thead><tbody>
       ${bt.yearly.map(y => `<tr><td>${y.year}</td><td class="r ${cls(y.screen)}"><b>${spct(y.screen)}</b></td><td class="r">${spct(y.equal_weight)}</td><td class="r">${spct(y.nifty)}</td></tr>`).join("")}</tbody></table>
-      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, real trading costs for your capital (about ${money(((bt.costs || {}).charges + (bt.costs || {}).spread_impact) * r.capital || 0)} over the whole test), before tax. ${PIT_UNI(r.universe) ? "The stock list was rebuilt on every date from all NSE stocks, so survivorship bias is much smaller (delisted companies are still missing)." : "Stocks are today's index members, so past results are flattered; choose <b>Top 200 NSE stocks at each date</b> for a fairer test."}</p></div>`;
-  msChart(bt.curve);
+      <p class="sub" style="font-size:12.5px;margin-top:8px">Rules applied on each rebalance date with data up to that day only, equal weight, real trading costs for your capital (about ${money(((bt.costs || {}).charges + (bt.costs || {}).spread_impact) * r.capital || 0)} over the whole test), before tax. ${PIT_UNI(r.universe) ? "The stock list was rebuilt on every date from all NSE stocks, so survivorship bias is much smaller (delisted companies are still missing)." : "Stocks are today's index members, so past results are flattered; choose <b>Top 200 NSE stocks at each date</b> for a fairer test."}</p></div>`}`;
+  if (bt) msChart(bt.curve);
   $$("[data-msck]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.msck];
     ckFill({ instrument: "stock", product: "delivery", symbol: p.ticker, side: "buy", stop: p.price * 0.9, target: p.price * 1.2, hold: { M: 21, Q: 63, H: 126, Y: 250 }[r.screen.rebalance] }); });
   $$("[data-mspp]").forEach(b => b.onclick = () => { const p = r.picks[+b.dataset.mspp]; ppFill({ instrument: "stock", product: "delivery", symbol: p.ticker, qty: Math.max(p.shares, 1), note: "My screener" }); });

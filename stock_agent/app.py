@@ -527,8 +527,15 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
     if bm not in BENCHMARKS:
         raise ValueError("Unknown benchmark")
     closes, values, bench, sectors = fund.load(fund.FundRules(universe=uni, benchmark=bm), False, CACHE, progress)
+    fund_data = None
+    if sc.uses_fundamentals():
+        from . import fundamentals
+
+        fund_data = fundamentals.fetch_many(list(closes.columns), CACHE,
+                                            progress=lambda m, f: progress(m, 0.42 + 0.08 * f))
     res = myscreen.run(closes, values, bench, sc, float(settings["capital"]), sectors, progress,
-                       per_order=float(settings.get("brokerage") or 0), benchmark=bm, pit_n=pit.size(uni))
+                       per_order=float(settings.get("brokerage") or 0), benchmark=bm, pit_n=pit.size(uni),
+                       fund_data=fund_data, cache_dir=CACHE)
     return clean({**res, "universe": uni})
 
 
