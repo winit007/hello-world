@@ -25,6 +25,7 @@ from . import markets
 from . import myscreen
 from . import news
 from . import options
+from . import orders
 from . import paper
 from . import pit
 from . import patterns

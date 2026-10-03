@@ -349,6 +349,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     </div>
     <div class="tiles" id="j-tiles"></div>
     <div id="journal"></div>
+    <div class="card live-only" id="orders-rec" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ MY SCREENER ============ -->
@@ -787,6 +788,7 @@ const cur = t => /\.(NS|BO)$/i.test(t || "") ? "₹" : "$";
 /* ₹ in lakh and crore for big tiles: ₹10.70 L, ₹1.25 Cr (the exact figure goes in the title) */
 const lakh = x => { if (x == null || !isFinite(x)) return "–"; const a = Math.abs(x), sg = x < 0 ? "-" : "";
   return a >= 1e7 ? `${sg}₹${(a / 1e7).toFixed(a >= 1e9 ? 0 : 2)} Cr` : a >= 1e5 ? `${sg}₹${(a / 1e5).toFixed(2)} L` : money(x); };
+const px2 = x => x == null ? "–" : Number(x).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const big = x => `<span title="${money(x)}">${lakh(x)}</span>`;
 const money = (x, c = "₹", d = 0) => x == null ? "–" : (Number(x) < 0 ? "-" : "") + c + Math.abs(Number(x)).toLocaleString(c === "₹" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const bare = t => String(t).replace(/\.(NS|BO)$/i, "");
@@ -858,7 +860,7 @@ function showTab(name) {
   showGroup(groupOf(name));
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
   $$("section.page").forEach(s => s.classList.toggle("active", s.id === "page-" + name));
-  if (name === "journal") loadJournal();
+  if (name === "journal") { loadJournal(); loadOrders(); }
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
   if (name === "lab" && !window._lastLab) loadLab(STATIC);
@@ -1018,6 +1020,29 @@ function logTrade(p) {
       target2: plan.target2_underlying, time_exit: plan.time_stop, pattern: p.pattern, notes: f.notes.value } });
     showTab("journal");
   };
+}
+/* order record: planned price vs the fill, for broker and paper orders */
+let _ordersFilter = "all";
+async function loadOrders() {
+  if (STATIC) return;
+  const box = $("#orders-rec");
+  let r; try { r = await api("/api/orders"); } catch (e) { box.innerHTML = `<h2 style="margin-top:0">Order record</h2><div class="notice error">${esc(e.message)}</div>`; return; }
+  const keep = x => _ordersFilter === "all" || (_ordersFilter === "real" ? !x.practice : _ordersFilter === "paper" ? x.source === "Paper" : x.practice && x.source !== "Paper");
+  const rows = r.rows.filter(keep);
+  const sum = Object.entries(r.summary).map(([k, v]) => `<div class="card tile"><div class="k">${esc(k)}</div><div class="v num ${v.avg_slip_pct > 0.002 ? "chg down" : ""}">${spct(v.avg_slip_pct, 2)}</div>
+    <div class="sub" style="font-size:12px">average slippage over ${v.orders} order${v.orders === 1 ? "" : "s"} · ${money(v.total_rupees)} in total</div></div>`).join("");
+  box.innerHTML = `<div class="kite-row" style="justify-content:space-between"><h2 style="margin:0">Order record</h2>
+      <select id="ord-filter" style="width:auto" aria-label="Which orders"><option value="all">All orders</option><option value="real">Real orders</option><option value="practice">Broker practice orders</option><option value="paper">Paper trading</option></select></div>
+    <p class="sub" style="font-size:13.5px;margin:6px 0 10px">Every order with the price you planned next to the price you got. Slippage is counted against you: paying more on a buy or getting less on a sell is positive. Stops that fill beyond their level because the price jumped show up here.</p>
+    ${sum ? `<div class="tiles" style="margin:0 0 10px">${sum}</div>` : ""}
+    ${rows.length ? `<div class="table-scroll"><table class="num"><thead><tr><th>When</th><th>Where</th><th>Order</th><th class="r">Qty</th><th class="r">Planned</th><th class="r">Filled</th><th class="r">Slippage</th></tr></thead><tbody>
+      ${rows.slice(0, 200).map(x => `<tr><td>${esc(String(x.time || "").replace("T", " ").slice(0, 16))}</td><td>${esc(x.source)}${x.practice && x.source !== "Paper" ? ' <span class="sub" style="font-size:11px">practice</span>' : ""}</td>
+        <td><b>${esc(x.symbol)}</b><div class="sub" style="font-size:12px">${esc(x.action)}</div></td><td class="r">${x.qty}</td>
+        <td class="r">${px2(x.planned)}<div class="sub" style="font-size:11.5px">${esc(x.planned_what)}</div></td><td class="r">${px2(x.filled)}</td>
+        <td class="r ${x.slip > 0 ? "chg down" : x.slip < 0 ? "chg up" : ""}">${spct(x.slip_pct, 2)}<div style="font-size:12px">${money(x.slip_rupees)}</div></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty" style="padding:24px 12px"><span class="et">No orders yet</span>Orders placed from a pick (real or practice) and paper trades appear here with their slippage.</div>`}`;
+  $("#ord-filter").value = _ordersFilter;
+  $("#ord-filter").onchange = e => { _ordersFilter = e.target.value; loadOrders(); };
 }
 async function loadJournal(sync = true) {
   let { entries, summary } = await api("/api/journal");

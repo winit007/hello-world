@@ -683,6 +683,7 @@ def kite_place(body: dict) -> dict:
     rec = K.place(b, pv, confirmed=body.get("confirm") or [])
     rec["checklist"] = pv.get("checklist")
     plan = body["plan"]
+    rec.setdefault("planned", {})["estimate"] = plan.get("premium")
     entry = {"ticker": body["ticker"], "contract": pv["tradingsymbol"], "side": pv["side"], "lots": pv["lots"],
              "lot_size": pv["lot_size"], "entry_premium": rec.get("avg_price") or pv["limit"],
              "stop": plan["stop_underlying"], "target1": plan["target1_underlying"], "target2": plan["target2_underlying"],
@@ -900,6 +901,10 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/journal":
                 entries = _read_json(JOURNAL_FILE, [])
                 return self._send(200, {"entries": entries, "summary": journal_summary(entries)})
+            if url.path == "/api/orders":
+                from . import orders
+
+                return self._send(200, clean(orders.build(_read_json(JOURNAL_FILE, []), _read_json(PAPER_FILE, None))))
             if url.path == "/api/symbols":
                 from .universes import get_universe
 

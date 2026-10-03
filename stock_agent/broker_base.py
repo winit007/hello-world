@@ -267,7 +267,10 @@ def place(broker: Broker, pv: dict, wait_seconds: float = 20, confirmed: list | 
     c = pv.get("contract") or {"tradingsymbol": pv["tradingsymbol"]}
     rec = {"broker": broker.key, "practice": pv["practice"], "tradingsymbol": pv["tradingsymbol"], "contract": c,
            "quantity": pv["qty"], "buy_price": pv["limit"], "gtt_legs": pv["gtt_legs"], "gtt_ids": [], "exits": [],
-           "events": []}
+           "events": [],
+           # for the order record: what the screen showed when you pressed Place, to compare with the fill
+           "planned": {"quote": (pv.get("live") or {}).get("ask") or (pv.get("live") or {}).get("ltp"), "limit": pv["limit"],
+                       "at": now_ist().isoformat(timespec="seconds")}}
     if pv["practice"]:
         rec.update(buy_order_id="PRACTICE", buy_status="COMPLETE", filled_qty=pv["qty"], avg_price=pv["limit"],
                    gtt_ids=[f"PRACTICE-{i + 1}" for i in range(len(pv["gtt_legs"]))])

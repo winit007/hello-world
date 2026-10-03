@@ -305,7 +305,7 @@ class Account:
             at_stop = self._unit_price(pos, stop)
             risk = ((at_stop - fill) if short else (fill - at_stop)) * qty
         return {**pos, "qty": qty, "lots": qty / lot if lot > 1 else None, "spot": spot, "price_time": asof,
-                "fill": round(fill, 4), "value": round(value, 2), "blocked": round(blocked, 2), "charges": fee,
+                "fill": round(fill, 4), "quote": round(unit, 4), "value": round(value, 2), "blocked": round(blocked, 2), "charges": fee,
                 "margin_rate": margin_rate, "stop": stop, "target": target, "risk_at_stop": risk,
                 "exit_by": o.get("exit_by") or None, "entry_bar": entry_bar, "warnings": warnings, "notes": notes,
                 "fit": fit, "can_place": not warnings}
@@ -389,7 +389,7 @@ class Account:
         return f"{base} × {p['qty']:g}"
 
     # ---- closing
-    def _close(self, p: dict, unit_price: float, reason: str, at: datetime | None = None) -> None:
+    def _close(self, p: dict, unit_price: float, reason: str, at: datetime | None = None, planned: float | None = None) -> None:
         short = p["side"] == "short"
         slip = SLIPPAGE[p["instrument"]]
         fill = unit_price * (1 + slip if short else 1 - slip)
@@ -400,7 +400,9 @@ class Account:
         self.data["cash"] = round(self.data["cash"] + blocked + pnl_gross - fee, 2)
         net = pnl_gross - fee - p["entry_charges"]
         t = (at or now_ist()).isoformat(timespec="minutes")
-        self.data["closed"].insert(0, {**p, "exit_price": round(fill, 4), "exit_time": t, "exit_reason": reason,
+        self.data["closed"].insert(0, {**p, "exit_price": round(fill, 4), "exit_quote": round(unit_price, 4),
+                                       "exit_planned": round(planned, 4) if planned is not None else None,
+                                       "exit_time": t, "exit_reason": reason,
                                        "exit_charges": fee, "pnl": round(net, 2),
                                        "return_pct": net / (p["entry_price"] * qty) if p["entry_price"] else 0})
         self.data["positions"] = [x for x in self.data["positions"] if x["id"] != p["id"]]
@@ -435,25 +437,26 @@ class Account:
                 o, h, l = float(b["Open"]), float(b["High"]), float(b["Low"])
                 if p.get("stop") is not None and ((h >= p["stop"]) if short else (l <= p["stop"])):
                     lvl = max(o, p["stop"]) if short else min(o, p["stop"])
-                    hit = ("Stop-loss hit", lvl, ts)
+                    hit = ("Stop-loss hit", lvl, ts, p["stop"])
                     break
                 if p.get("target") is not None and ((l <= p["target"]) if short else (h >= p["target"])):
                     lvl = min(o, p["target"]) if short else max(o, p["target"])
-                    hit = ("Target hit", lvl, ts)
+                    hit = ("Target hit", lvl, ts, p["target"])
                     break
                 if sq and (ts.date() > entry_day or (ts.hour, ts.minute) >= sq):
-                    hit = ("Auto square-off", float(b["Open"]), ts)
+                    hit = ("Auto square-off", float(b["Open"]), ts, None)
                     break
             if not hit and sq and now_ist().date() > entry_day and len(since) == 0:
-                hit = ("Auto square-off", float(bars["Close"].iloc[-1]), now_ist())
+                hit = ("Auto square-off", float(bars["Close"].iloc[-1]), now_ist(), None)
             if not hit and p.get("exit_by") and now_ist().date() > date.fromisoformat(p["exit_by"]):
-                hit = ("Exit date reached", float(bars["Close"].iloc[-1]), now_ist())
+                hit = ("Exit date reached", float(bars["Close"].iloc[-1]), now_ist(), None)
             if not hit and p["instrument"] == "option" and now_ist().date() > date.fromisoformat(p["expiry"]):
-                hit = ("Expired", float(bars["Close"].iloc[-1]), now_ist())
+                hit = ("Expired", float(bars["Close"].iloc[-1]), now_ist(), None)
             if hit:
-                reason, level, ts = hit
+                reason, level, ts, planned_level = hit
                 at = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
-                self._close(p, self._unit_price(p, level, at), reason, at)
+                planned = self._unit_price(p, planned_level, at) if planned_level is not None else None
+                self._close(p, self._unit_price(p, level, at), reason, at, planned)
                 events.append(f"{reason}: {self._label(p)}")
         if events:
             self._snapshot()
