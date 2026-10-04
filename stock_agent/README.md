@@ -505,6 +505,57 @@ These apply to both the model fund and My screener.
   (yearly results 60 days after the year end), so rules using them are backtested from mid-2023.
   Today's picks also show any promoter pledge from the latest NSE filing.
 
+## Penny picks: an automatic long-term screen for cheap shares and small coins
+
+The *Penny picks* tab (Trade) finds low-priced NSE shares and low-priced coins that are more than a
+lottery ticket, and runs again by itself: after your first scan, every weekday after 4:15 pm for shares
+and once a day for coins, while the app is open. A new name or a dropped name raises an alert (the bell,
+Telegram, Android). The phone site shows the latest published lists.
+
+```bash
+python -m stock_agent publish --out _site --only penny pennycrypto   # what the evening Action does
+```
+
+**Penny stocks (`pennystocks.py`).** One download of NSE's daily file of all ~2,600 equities (price,
+volume, delivery %) gives the cheap, tradable ones; their ten-year prices and company results are then
+loaded for a few hundred names only (about a minute from cache). Three groups of rules, every one explained
+on the page and with a count of what it removed:
+
+* *Price and liquidity*: price between ₹2 and ₹50 (your choice of cap), median traded value at least ₹25 lakh a day.
+* *Safety*: three years of history, above the 200-day average, not up 100% in 3 months or 300% in a year,
+  worst fall of the last year better than -65%, at most 4 of the last 60 days at a 5/10/20% price limit,
+  market value of at least ₹150 crore.
+* *Quality*: profitable last year, ROE of at least 8%, debt no more than equity, sales not shrinking,
+  promoters holding at least 20% and no more than half of it pledged (the pledge is read from NSE's latest
+  shareholding filing).
+
+The survivors are ranked by a long-run score (ROE and ROCE, earnings and sales growth, low debt, promoter
+holding and buying, 12-month momentum, calm price, valuation) and the top few get an equal slice of a bucket
+(10% of your capital by default, never more than 5% of a day's trading in the stock). Each card shows why it
+passes and what to watch (pledges, a fast run-up, circuit days, a high P/E, mostly day-traded volume). *Almost
+made it* lists shares that failed a single rule. On 1 October 2026 only 5 of 2,566 shares passed every
+rule: the screen would rather show nothing than lower its standards. ETFs are excluded.
+
+**Penny crypto (`pennycrypto.py`).** CoinPaprika's list of every coin (CoinGecko if it is down) gives price,
+market value, volume, supply and age in one call. Rules: a real coin (no stablecoins, wrapped, staked or gold
+tokens), price under $1, market value $50 million to $3 billion, $2 million or more traded a day (0.5% to 80%
+of its value), at least two years old, fully diluted value at most 3x market value (limits token-release
+risk), then, from Yahoo's daily history of the few that pass, above the 200-day average, not up 100% in 30
+days or 200% in 90 days, within 85% of the 1-year high. Ranked on strength against Bitcoin, momentum,
+volatility, supply health, liquidity and age. A Yahoo price that does not match the list is ignored. The
+bucket is 5% of capital by default; the page reminds you that many small coins are not on Indian exchanges and
+that Indian crypto gains are taxed at 30% with 1% TDS and no loss set-off.
+
+**What the history test says (and does not).** *Test it on history* replays the price and safety rules over
+every NSE share, picking the top ten each year with real costs (the spreads of thin shares are large). On the
+October 2026 data it shows 43.9% a year against 15.0% for every cheap, tradable share and 11.5% for the Nifty
+Smallcap 250. **Do not read that as a forecast**: the data holds only shares that still trade today, and the
+cheap shares that collapsed and were delisted are missing, which flatters a momentum-style screen most. The
+number to take away is the spread: of 888 cheap shares followed for three years, 28% were lower, 12% lost
+more than half and 46% doubled, even among survivors. Company-results rules cannot be tested over ten years
+(free results cover four), and coins get no history test at all, because a list of coins that survived would
+mislead.
+
 ## Portfolio risk, holdings and tax, alerts, order record
 
 * **Portfolio risk**: paper positions, open trades and holdings re-priced together (options by
@@ -620,6 +671,8 @@ stock_agent/
   tax.py        capital-gains tax for the financial year and harvesting ideas
   alerts.py     alert rules, the alert store, Telegram and Termux delivery
   orders.py     order record: planned price vs fill for broker and paper orders
+  pennystocks.py  penny stocks for the long run: NSE daily file, safety and quality rules, score, history test
+  pennycrypto.py  penny coins for the long run: coin list, rules, Yahoo history, score
   planner.py    long-term goal planner (allocation, Monte Carlo, required monthly investment)
   rebalance.py  current vs target mix, full rebalance and new-money-only trades
   sizing.py     exact order: contract, lots for your capital/risk, stop-loss, targets, time exit

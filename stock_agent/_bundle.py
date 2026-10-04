@@ -28,6 +28,8 @@ from . import news
 from . import options
 from . import orders
 from . import paper
+from . import pennycrypto
+from . import pennystocks
 from . import pit
 from . import patterns
 from . import planner

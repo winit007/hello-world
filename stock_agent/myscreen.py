@@ -134,7 +134,9 @@ def apply(snap: pd.DataFrame, sc: Screen) -> pd.DataFrame:
 
 def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Series, sc: Screen, progress=None,
              values: pd.DataFrame | None = None, capital: float = 200_000, per_order: float = 0.0,
-             pit_n: int | None = None) -> dict:
+             pit_n: int | None = None, allowed_fn=None) -> dict:
+    """`allowed_fn(date)` may restrict the stocks a date can pick from (and the equal-weight basket) to a list
+    that is known on that date, such as the penny stocks of the day."""
     daily = closes.pct_change()
     dates = [d for d in _rebalance_dates(closes.index, sc.rebalance) if len(closes.loc[:d]) >= 260]
     fund_from = None
@@ -157,7 +159,8 @@ def backtest(closes: pd.DataFrame, frames: dict[str, pd.DataFrame], bench: pd.Se
     for k, (d0, d1) in enumerate(zip(dates[:-1], dates[1:])):
         if progress and k % 6 == 0:
             progress(f"Backtesting {d0:%b %Y}", 0.4 + 0.5 * k / len(dates))
-        snap = snapshot(frames, d0, pit.members(closes, values, d0, pit_n) if pit_n else None)
+        allowed = allowed_fn(d0) if allowed_fn else (pit.members(closes, values, d0, pit_n) if pit_n else None)
+        snap = snapshot(frames, d0, allowed)
         picks = list(apply(snap, sc).index[: int(sc.top)])
         period = daily.loc[(daily.index > d0) & (daily.index <= d1)]
         grow_all = (1 + period[snap.index].fillna(0)).prod()

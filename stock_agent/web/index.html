@@ -223,6 +223,23 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
 #main:focus { outline: none; }
 .tour-body { font-size: 15px; } .tour-body ol { padding-left: 20px; } .tour-body li { margin: 6px 0; }
 #dlg { max-width: min(560px, calc(100vw - 32px)); }
+.seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; color: var(--ink-2); font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+.pn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+.pn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 14px; align-items: start; margin-bottom: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { display: inline-flex; gap: 5px; align-items: baseline; border: 1px solid var(--grid); border-radius: 8px; padding: 2px 8px; font-size: 12.5px; background: var(--surface-2); }
+.chip i { font-style: normal; color: var(--muted); } .chip b { font-weight: 600; }
+ul.why { margin: 6px 0; padding: 0; list-style: none; font-size: 13.5px; } ul.why li { padding-left: 18px; position: relative; margin: 3px 0; }
+ul.why li::before { content: "✓"; position: absolute; left: 0; color: var(--up-text); font-weight: 700; }
+.slice { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; margin: 8px 0; }
+.funnel { display: grid; gap: 4px; } .fgroup { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+.frow { display: grid; grid-template-columns: minmax(140px, 1.6fr) 2fr 56px; gap: 10px; align-items: center; font-size: 13.5px; }
+.fbar { height: 10px; background: var(--surface-2); border-radius: 4px; overflow: hidden; } .fbar i { display: block; height: 100%; background: var(--s1); border-radius: 4px; }
+.frow .fn { text-align: right; font-weight: 600; }
+@media (max-width: 640px) { .frow { grid-template-columns: 1fr 56px; } .frow .fbar { grid-column: 1 / -1; grid-row: 2; } }
+details.card > summary { cursor: pointer; font-weight: 700; }
 .set-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .set-nav a { border: 1px solid var(--ring); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; color: var(--ink-2); text-decoration: none; background: var(--surface); }
 .set-nav a:hover { color: var(--ink); border-color: var(--axis); }
@@ -344,6 +361,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
       <button role="tab" data-tab="picks" aria-selected="true">Stock picks</button>
       <button role="tab" data-tab="longterm">Long-term picks</button>
       <button role="tab" data-tab="screen" class="live-only">My screener</button>
+      <button role="tab" data-tab="penny">Penny picks</button>
       <button role="tab" data-tab="stock" class="live-only">Lookup</button>
       <button role="tab" data-tab="journal">My trades</button>
       <button role="tab" data-tab="paper" class="live-only">Paper trading</button>
@@ -635,6 +653,21 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div class="notice">Prices are the US futures on Yahoo (COMEX and NYMEX). MCX contracts follow them in rupees with import duty, so stops and targets are approximate on MCX: check the MCX chart before trading. Lots are MCX mini contracts.</div>
     <div class="progress" id="commodities-progress" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
     <div id="commodities"></div>
+  </section>
+
+  <!-- ============ PENNY PICKS ============ -->
+  <section class="page" id="page-penny">
+    <div class="head-row">
+      <div><h1>Penny picks for the long run</h1>
+        <p class="sub" id="pn-sub">Low-priced NSE shares and small coins that pass a long list of safety and quality rules, found again every evening.</p></div>
+      <div class="seg" role="group" aria-label="What to screen">
+        <button type="button" data-pn="stocks" aria-pressed="true">Penny stocks (India)</button>
+        <button type="button" data-pn="crypto" aria-pressed="false">Penny crypto</button>
+      </div>
+    </div>
+    <div class="notice warn"><b>Know the odds first.</b> Cheap shares and small coins are the riskiest things in this app: most go nowhere and some go to zero. This screen only removes the obvious traps and ranks the rest; it cannot tell you which one will rise. Keep the whole bucket small, buy in stages, and expect to be wrong on some.</div>
+    <div id="pn-stocks"></div>
+    <div id="pn-crypto" hidden></div>
   </section>
 
   <!-- ============ ALERTS ============ -->
@@ -942,6 +975,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         </tbody></table></div>
       <div class="card" style="grid-column:1/-1"><h2>Tools for investors and fund managers</h2>
         <ol><li><b>Home</b>: what needs you today: top picks, paper account, open trades, alerts, dates coming up and your holdings.</li>
+        <li><b>Penny picks</b> (Trade): an automatic screen for low-priced NSE shares and small coins for the long run. It reads NSE's daily file of every share, keeps the cheap ones that trade enough to be sold, and removes the traps (no trading, pump-and-dump runs, loss makers, heavy debt, pledged promoter shares, stablecoins, coins with huge token releases ahead). What is left is ranked on quality, growth and steadiness and gets a small equal slice of a bucket you size. After your first scan it repeats by itself every weekday evening (coins daily) while the app is open, and an alert tells you when names join or leave the list. <i>Almost made it</i> shows what failed a single rule; the history test shows the spread of outcomes for cheap shares, which is a lottery even among survivors.</li>
         <li><b>Portfolio risk</b> (Practice): every position re-priced together: money lost if all stops hit, exposure and beta-weighted exposure, what a 5% Nifty fall does, a bad day (1 in 20, from the last 500 days), sectors and how much your positions move together.</li>
         <li><b>Holdings &amp; tax</b> (Invest): your long-term shares with buy price and date; this financial year's capital-gains tax (20% short-term, 12.5% long-term above ₹1.25 lakh, with the set-off rules) and what to do before 31 March: book losses that cut this year's tax, sell and buy back long-term winners inside the exemption, or wait for holdings about to turn long-term.</li>
         <li><b>Alerts</b> (the bell): stop near or hit, target reached, exit date, your own price alerts, a watched screen's changes and model-fund rebalance reminders, in the browser, on Telegram, or in Android's notifications.</li>
@@ -1055,7 +1089,7 @@ $("#theme").onclick = () => {
   if (window._lastGoal) drawFan(window._lastGoal);
   if (window._lastPaper) drawEquity(window._lastPaper);
 };
-const TAB_GROUPS = { home: ["home"], trade: ["picks", "longterm", "screen", "check", "stock", "crypto", "commodities", "ipo"],
+const TAB_GROUPS = { home: ["home"], trade: ["picks", "longterm", "screen", "penny", "check", "stock", "crypto", "commodities", "ipo"],
   practice: ["paper", "journal", "risk", "track", "lab"], invest: ["fund", "goals", "rebalance", "tax"], more: ["settings", "alerts", "help"] };
 const groupOf = t => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(t)) || "trade";
 const _lastInGroup = {};
@@ -1086,6 +1120,7 @@ function showTab(name) {
   if (name === "risk" && !window._lastRisk) loadRisk();
   if (name === "alerts") loadAlerts(true);
   if (name === "home") loadHome();
+  if (name === "penny") loadPenny();
   if (name === "track") loadTrack(0);
   if (name === "paper") loadPaper(true);
   if (name === "lab" && !window._lastLab) loadLab(STATIC);
@@ -1634,6 +1669,8 @@ async function loadHome() {
       ? al.latest.map(x => `<div class="hrow"><div class="l"><b>${esc(x.title)}</b><span class="sub" style="font-size:12px">${esc(x.text)}</span></div></div>`).join("")
       : `<p class="sub" style="margin:0">Nothing needs you. Stops, targets and price alerts show up here.</p>`));
     cards.push(card("Coming up", null, (h.dates || []).map(d => `<div class="hrow"><div class="l"><a href="#" data-go="${d.tab}">${esc(d.what)}</a></div><div class="r num" style="white-space:nowrap">${fmtDate(d.date)}</div></div>`).join("") || `<p class="sub" style="margin:0">Nothing scheduled.</p>`));
+    const pn = h.penny || {}, pnRow = (k, label) => pn[k] ? `<div class="hrow"><div class="l"><b>${label}: ${pn[k].count} pass${pn[k].count === 1 ? "es" : ""} every rule</b><span class="sub" style="font-size:12px">${pn[k].top.map(t => esc(bare(t).replace("-USD", ""))).join(", ") || "none today"}${pn[k].new.length ? ` · new: ${pn[k].new.map(t => esc(bare(t).replace("-USD", ""))).join(", ")}` : ""}</span></div></div>` : "";
+    cards.push(card("Penny picks", ["penny", "Open →"], (pnRow("stocks", "Stocks") + pnRow("crypto", "Coins")) || `<p class="sub" style="margin:0">Cheap shares and small coins that pass a long list of safety and quality rules, found again every evening. Press <b>Scan now</b> once to start.</p>`));
     const ho = h.holdings || { count: 0 };
     cards.push(card("Holdings", ["tax", "Holdings & tax →"], ho.count ? `<div class="hrow"><div class="l"><span class="sub">${ho.count} holding${ho.count === 1 ? "" : "s"}, bought for</span><span class="big-num num">${lakh(ho.cost)}</span></div></div>
       <p class="sub" style="font-size:12.5px;margin:6px 0 0">See their gains, this year's tax and what to sell before 31 March, or <a href="#" data-go="risk">measure the risk</a>.</p>`
@@ -1650,6 +1687,213 @@ document.addEventListener("click", e => {
   showTab(a.dataset.go);
   if (a.dataset.click) { const t = $(a.dataset.click); if (t && !t.disabled) t.click(); }
 });
+
+
+/* ---------------- penny picks ---------------- */
+let PENNY = null, _pnKind = "stocks";
+const PN = {
+  stocks: { caps: [["20", "₹20"], ["50", "₹50"], ["100", "₹100"], ["200", "₹200"]], tops: [5, 10, 15], buckets: [5, 10, 15, 20], name: "penny stocks", per: "stock" },
+  crypto: { caps: [["0.1", "$0.10"], ["1", "$1"], ["5", "$5"]], tops: [5, 8, 12], buckets: [2, 5, 10], name: "penny coins", per: "coin" },
+};
+const pnCr = v => v == null ? "–" : v >= 100 ? "₹" + Math.round(v).toLocaleString("en-IN") + " cr" : "₹" + v.toFixed(1) + " cr";
+const pnUsd = v => v == null ? "–" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + " B" : v >= 1e6 ? "$" + Math.round(v / 1e6).toLocaleString("en-IN") + " M" : "$" + Math.round(v).toLocaleString("en-IN");
+const pnFmt = (kind, v) => v == null ? "–" : { pct: () => pct(v, 1), price: () => px2(v), crore: () => pnCr(v), years: () => v.toFixed(1) + " yrs",
+  int: () => String(Math.round(v)), x: () => v.toFixed(2) + "x", usd: () => "$" + (+v).toPrecision(3), usdm: () => pnUsd(v) }[kind]();
+const chip = (k, v) => v == null || v === "–" ? "" : `<span class="chip"><i>${k}</i><b>${v}</b></span>`;
+const pnPrice = v => v >= 1 ? "$" + (+v).toFixed(2) : "$" + (+v).toPrecision(3);
+
+async function loadPenny() {
+  const box = $("#pn-stocks");
+  if (!PENNY && !box.innerHTML) box.innerHTML = stateBox("loading", "Loading…");
+  try { PENNY = await api("/api/penny"); }
+  catch (e) { box.innerHTML = stateBox("error", "Could not load the penny screens", e.message, loadPenny); return; }
+  renderPenny();
+}
+$$(".seg [data-pn]").forEach(b => b.onclick = () => { _pnKind = b.dataset.pn; showPennyKind(); });
+function showPennyKind() {
+  $$(".seg [data-pn]").forEach(b => b.setAttribute("aria-pressed", b.dataset.pn === _pnKind));
+  $("#pn-stocks").hidden = _pnKind !== "stocks"; $("#pn-crypto").hidden = _pnKind !== "crypto";
+}
+function renderPenny() {
+  if (!PENNY) return;
+  for (const kind of ["stocks", "crypto"]) {
+    const box = $("#pn-" + kind), res = PENNY[kind], cfg = Object.assign({}, PENNY.defaults[kind] || {}, (PENNY.settings || {})[kind] || {}), pn = PN[kind];
+    const sel = (id, opts, cur) => `<select id="${id}">${opts.map(([v, l]) => `<option value="${v}" ${String(+v) === String(+cur) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+    const form = STATIC ? "" : `<form class="card form pn-form" id="pn-form-${kind}" style="max-width:none;margin-bottom:14px" autocomplete="off">
+      <div class="pn-row">
+        <div class="field"><label for="pn-${kind}-cap">Price under</label>${sel(`pn-${kind}-cap`, pn.caps, cfg.price_cap)}</div>
+        ${kind === "stocks" ? `<div class="field"><label for="pn-${kind}-liq">Trades at least</label>${sel(`pn-${kind}-liq`, [["10", "₹10 lakh a day"], ["25", "₹25 lakh a day"], ["100", "₹1 crore a day"]], cfg.min_lakh)}</div>` : ""}
+        <div class="field"><label for="pn-${kind}-top">Show the best</label>${sel(`pn-${kind}-top`, pn.tops.map(x => [x, x]), cfg.top)}</div>
+        <div class="field"><label for="pn-${kind}-bucket">Bucket, % of capital</label>${sel(`pn-${kind}-bucket`, pn.buckets.map(x => [x, x + "%"]), cfg.bucket_pct)}</div>
+        <label class="switch"><input type="checkbox" id="pn-${kind}-trend" ${cfg.uptrend ? "checked" : ""}> Only in an uptrend</label>
+      </div>
+      <div class="kite-row"><button class="btn primary" id="pn-run-${kind}" type="submit">Scan now</button>
+        <label class="switch"><input type="checkbox" id="pn-auto-${kind}" ${PENNY.settings && PENNY.settings.auto ? "checked" : ""}> Repeat by itself every ${kind === "stocks" ? "weekday evening" : "day"}</label>
+        <span class="sub" style="font-size:13px" id="pn-st-${kind}"></span></div>
+      <div class="progress" id="pn-prog-${kind}" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>
+      ${(PENNY.error || {})[kind] ? `<div class="notice error" style="margin:0">The last automatic scan failed: ${esc(PENNY.error[kind])}</div>` : ""}
+    </form>`;
+    const body = res ? (kind === "stocks" ? pennyStocksView(res) : pennyCryptoView(res))
+      : `<div class="card empty"><span class="et">No scan yet</span>${STATIC ? "The evening run has not published this yet." : "Press <b>Scan now</b>. The first run downloads ten years of prices for a few hundred cheap shares and takes several minutes; after that it repeats by itself and takes seconds."}</div>`;
+    box.innerHTML = form + `<div id="pn-out-${kind}">${body}</div>` + (kind === "stocks" ? `<div id="pn-test"></div>` : "");
+    if (!STATIC) wirePenny(kind);
+    if (res) wirePennyResult(kind, res);
+    const st = $("#pn-st-" + kind);
+    if (st && res) st.textContent = `Last scan ${res.generated.replace("T", " ")} · prices to ${fmtDate(res.as_of)} ${String(res.as_of).slice(0, 4)} · ${res.source}`;
+  }
+  if (PENNY.stocks) renderPennyTest();
+  showPennyKind();
+  $("#pn-sub").textContent = STATIC ? "The latest evening scan, published to this phone. Scan, change the rules and test them in the full app."
+    : "Found again every evening while the app is open (after your first scan). New names raise an alert.";
+}
+function wirePenny(kind) {
+  $("#pn-form-" + kind).onsubmit = async ev => {
+    ev.preventDefault();
+    const body = { price_cap: +$(`#pn-${kind}-cap`).value, top: +$(`#pn-${kind}-top`).value, bucket_pct: +$(`#pn-${kind}-bucket`).value, uptrend: $(`#pn-${kind}-trend`).checked };
+    if (kind === "stocks") body.min_lakh = +$("#pn-stocks-liq").value;
+    const btn = $("#pn-run-" + kind); btn.disabled = true;
+    try { PENNY[kind] = await runJob(api("/api/penny/" + kind, { method: "POST", body }), $("#pn-prog-" + kind)); PENNY.settings = { ...PENNY.settings, [kind]: body }; renderPenny(); }
+    catch (e) { $("#pn-out-" + kind).innerHTML = stateBox("error", "The scan failed", e.message, () => $("#pn-form-" + kind).requestSubmit()); }
+    btn.disabled = false;
+  };
+  $("#pn-auto-" + kind).onchange = async e => { try { PENNY = { ...PENNY, ...(await api("/api/penny/auto", { method: "POST", body: { on: e.target.checked } })), stocks: PENNY.stocks, crypto: PENNY.crypto }; toast(e.target.checked ? "Automatic scans on" : "Automatic scans off"); } catch (er) { toast(er.message, true); } };
+}
+function pennyFunnel(res, kind) {
+  const max = Math.max(...res.funnel.slice(1).map(f => f.count), 1);
+  let g = "", html = "";
+  res.funnel.forEach((f, i) => {
+    if (f.group && f.group !== g) { g = f.group; html += `<div class="fgroup">${esc(g)}</div>`; }
+    const w = i === 0 ? 100 : Math.max(f.count ? 3 : 0, f.count / max * 100);
+    html += `<div class="frow"><div>${esc(f.label)}</div><div class="fbar"><i style="width:${w}%"></i></div><div class="fn num">${f.count.toLocaleString("en-IN")}</div></div>`;
+  });
+  return `<div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">How the list was cut down</h2><div class="funnel">${html}</div>
+    <p class="sub" style="font-size:12.5px;margin:10px 0 0">Each line keeps only what passed every rule above it. The list is short on purpose: most cheap ${PN[kind].name} fail at least one.</p></div>`;
+}
+function pennyChanges(res) {
+  const c = res.changes || {};
+  if (c.first) return `<div class="notice" style="font-size:13.5px">This is the first scan. From the next one, names that join or leave the list are shown here and raise an alert.</div>`;
+  if (!(c.new || []).length && !(c.out || []).length) return `<div class="notice" style="font-size:13.5px">No change since ${fmtDate(c.since)} ${String(c.since).slice(0, 4)}.</div>`;
+  const b = x => x.map(t => `<b>${esc(bare(t).replace("-USD", ""))}</b>`).join(", ");
+  return `<div class="notice" style="font-size:13.5px"><b>Since ${fmtDate(c.since)}:</b> ${(c.new || []).length ? `new on the list: ${b(c.new)}. ` : ""}${(c.out || []).length ? `Dropped off: ${b(c.out)}.` : ""}</div>`;
+}
+function pennyNear(res, crypto) {
+  if (!res.near_misses.length) return "";
+  return `<div class="card table-scroll" style="margin-bottom:14px"><h2 style="margin-top:0">Almost made it</h2>
+    <p class="sub" style="font-size:13px;margin:0 0 8px">These passed everything except one rule. One of them may qualify tomorrow; none is a recommendation.</p>
+    <table class="num"><thead><tr><th>${crypto ? "Coin" : "Stock"}</th><th class="r">Price</th><th>Missed only</th><th class="r">Its value</th></tr></thead><tbody>
+    ${res.near_misses.map(n => `<tr><td><b>${esc(bare(n.ticker).replace("-USD", ""))}</b><div class="sub" style="font-size:12px">${esc(n.name || "")}</div></td><td class="r">${crypto ? pnPrice(n.price) : px2(n.price)}</td><td>${esc(n.rule)}</td><td class="r">${pnFmt(n.fmt, n.actual)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function pennyRules(res) {
+  let g = "";
+  return `<details class="card" style="margin-bottom:14px"><summary>All the rules, and why each one is there</summary>
+    ${res.rule_list.map(r => { const h = r.group !== g ? `<h3 style="margin:12px 0 4px;font-size:14px">${esc(g = r.group)}</h3>` : ""; return h + `<div style="font-size:13.5px;margin:3px 0"><b>${esc(r.label)}</b><div class="sub" style="font-size:12.5px">${esc(r.why)}</div></div>`; }).join("")}</details>`;
+}
+function pennyStocksView(res) {
+  const n = res.picks.length;
+  const cards = res.picks.map((p, i) => `<article class="card pn-card">
+      <div class="pick-top"><span class="rank">${i + 1}</span><div><div class="ticker">${esc(bare(p.ticker))}</div><div class="sub" style="font-size:12.5px">${esc(p.name || "")}${p.industry ? " · " + esc(p.industry) : ""}</div></div>
+        <div class="price num"><b>${money(p.price, "₹", 2)}</b><div class="sub" style="font-size:12px">${p.days_on_list > 1 ? `on the list ${p.days_on_list} days` : (res.changes && res.changes.first ? "" : '<span class="pill call" style="font-size:11px">new</span>')}</div></div></div>
+      <div class="meter"><div class="meter-row"><span>Long-run score</span><span><b>#${i + 1}</b> of ${res.passers} that passed every rule</span></div>
+        <div class="track" role="img" aria-label="Long-run score, better than ${pct(p.score_pct)} of the stocks that passed"><div class="fill" style="width:${Math.max(p.score_pct * 100, 4)}%"></div></div></div>
+      <div class="chips">${chip("ROE", pct(p.roe))}${chip("Debt/equity", p.de == null ? null : p.de.toFixed(2))}${chip("Sales", p.sales_growth == null ? null : spct(p.sales_growth, 0))}${chip("EPS", p.eps_growth == null ? null : spct(p.eps_growth, 0))}
+        ${chip("Promoters", p.promoter == null ? null : pct(p.promoter) + (p.pledge ? ` (${pct(p.pledge)} pledged)` : ""))}${chip("P/E", p.pe == null ? null : p.pe.toFixed(1))}${chip("Value", pnCr(p.mcap_cr))}${chip("Trades", pnCr(p.value_cr) + "/day")}${chip("12m", p.ret_12m == null ? null : spct(p.ret_12m, 0))}</div>
+      <ul class="why">${p.why.map(w => `<li>${esc(w)}</li>`).join("")}</ul>
+      ${p.flags.length ? `<div class="warns">${p.flags.map(f => `<span class="pill warn">⚠ ${esc(f)}</span>`).join("")}</div>` : ""}
+      <div class="slice"><b>Suggested slice</b> · ${p.shares ? `${money(p.amount)} = ${p.shares} share${p.shares === 1 ? "" : "s"} (${pct(p.amount / res.capital, 1)} of your capital)` : "one share costs more than your slice of the bucket"}</div>
+      <div class="actions"><button class="btn small live-only" data-pn-detail="${esc(p.ticker)}">Chart &amp; details</button>
+        ${p.shares ? `<button class="btn small live-only" data-pn-paper="${i}">Paper trade</button><button class="btn small live-only" data-pn-hold="${i}">Add to my holdings</button>` : ""}</div>
+    </article>`).join("");
+  return `${pennyChanges(res)}
+    <div class="tiles">
+      <div class="card tile"><div class="k">Passed every rule</div><div class="v num">${res.passers}</div><div class="sub" style="font-size:12px">of ${res.universe.toLocaleString("en-IN")} NSE shares</div></div>
+      <div class="card tile"><div class="k">Bucket</div><div class="v num">${big(res.bucket)}</div><div class="sub" style="font-size:12px">${res.rules.bucket_pct}% of your capital</div></div>
+      <div class="card tile"><div class="k">Per stock</div><div class="v num">${big(res.per_stock)}</div><div class="sub" style="font-size:12px">${n} ${n === 1 ? "stock" : "stocks"}, equal slices</div></div>
+    </div>
+    ${n ? "" : `<div class="notice warn">No share passes every rule today. That is normal on many days: sitting out is a valid answer. Loosen a control above, or look at the near misses below.</div>`}
+    ${n && n < res.rules.top ? `<div class="notice" style="font-size:13.5px">Only ${n} share${n === 1 ? "" : "s"} passed (you asked for up to ${res.rules.top}), so the bucket is split over ${n === 1 ? "that one" : `those ${n}`}. Do not lower the standards to fill the list.</div>` : ""}
+    ${(res.dropped || []).length ? `<div class="notice warn" style="font-size:13.5px">Dropped for pledged shares: ${res.dropped.map(d => `<b>${esc(bare(d.ticker))}</b> (${esc(d.why)})`).join(", ")}.</div>` : ""}
+    ${n ? `<div class="pn-grid">${cards}</div>` : ""}
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">How to use this list</h2>
+      <ol class="reasons" style="padding-left:20px;margin:0"><li><b>Keep the bucket small:</b> ${res.rules.bucket_pct}% of your capital here, the rest elsewhere. Even good-looking cheap shares can fall by half.</li>
+        <li><b>Buy in stages:</b> a quarter of each slice now and the rest over the next three months, so one bad week does not set your price.</li>
+        <li><b>Hold for years, review each quarter:</b> read the new results. Sell or stop adding if profits turn into losses, promoters pledge more than 30% of their shares or keep selling, or the share starts hitting circuit limits every few days.</li>
+        <li><b>Do not average down</b> on a fall just because it is cheaper. Re-check the story first.</li>
+        <li><b>Mind the exit:</b> in a lower circuit you cannot sell at any price. Also check NSE's surveillance (ASM/GSM) lists before you buy; this screen does not see them.</li></ol></div>
+    ${pennyFunnel(res, "stocks")}${pennyNear(res, false)}${pennyRules(res)}`;
+}
+function pennyCryptoView(res) {
+  const n = res.picks.length;
+  const cards = res.picks.map((p, i) => `<article class="card pn-card">
+      <div class="pick-top"><span class="rank">${i + 1}</span><div><div class="ticker">${esc(p.symbol)}</div><div class="sub" style="font-size:12.5px">${esc(p.name)} · rank ${p.rank}</div></div>
+        <div class="price num"><b>${pnPrice(p.price)}</b><div class="sub" style="font-size:12px">${p.days_on_list > 1 ? `on the list ${p.days_on_list} days` : (res.changes && res.changes.first ? "" : '<span class="pill call" style="font-size:11px">new</span>')}</div></div></div>
+      <div class="meter"><div class="meter-row"><span>Long-run score</span><span><b>#${i + 1}</b> of ${res.passers} that passed every rule</span></div>
+        <div class="track" role="img" aria-label="Long-run score, better than ${pct(p.score_pct)} of the coins that passed"><div class="fill" style="width:${Math.max(p.score_pct * 100, 4)}%"></div></div></div>
+      <div class="chips">${chip("Value", pnUsd(p.mcap))}${chip("Trades", pnUsd(p.volume) + "/day")}${chip("Age", p.years_all == null ? null : p.years_all.toFixed(1) + " yrs")}${chip("Supply out", p.fdv_ratio == null ? null : pct(1 / p.fdv_ratio))}
+        ${chip("30d", p.ret_30d == null ? null : spct(p.ret_30d, 0))}${chip("90d", p.ret_90d == null ? null : spct(p.ret_90d, 0))}${chip("1y", p.ret_365d == null ? null : spct(p.ret_365d, 0))}${chip("vs Bitcoin 6m", p.rs_180d == null ? null : spct(p.rs_180d, 0))}${chip("From top", p.from_ath == null ? null : pct(p.from_ath, 0))}</div>
+      <ul class="why">${p.why.map(w => `<li>${esc(w)}</li>`).join("")}</ul>
+      ${p.flags.length ? `<div class="warns">${p.flags.map(f => `<span class="pill warn">⚠ ${esc(f)}</span>`).join("")}</div>` : ""}
+      <div class="slice"><b>Suggested slice</b> · ${money(p.amount)} = ${p.units >= 1 ? p.units.toFixed(p.units >= 100 ? 0 : 2) : p.units.toPrecision(3)} ${esc(p.symbol)} (${pct(p.amount / res.capital, 1)} of your capital)</div>
+      <div class="actions"><button class="btn small live-only" data-pn-cpaper="${i}">Paper trade</button></div>
+    </article>`).join("");
+  return `${pennyChanges(res)}
+    <div class="tiles">
+      <div class="card tile"><div class="k">Passed every rule</div><div class="v num">${res.passers}</div><div class="sub" style="font-size:12px">of ${res.funnel[0].count.toLocaleString("en-IN")} coins listed</div></div>
+      <div class="card tile"><div class="k">Bucket</div><div class="v num">${big(res.bucket)}</div><div class="sub" style="font-size:12px">${res.rules.bucket_pct}% of your capital</div></div>
+      <div class="card tile"><div class="k">Per coin</div><div class="v num">${big(res.per_coin)}</div><div class="sub" style="font-size:12px">${n} ${n === 1 ? "coin" : "coins"}, equal slices</div></div>
+    </div>
+    ${n ? "" : `<div class="notice warn">No coin passes every rule today. Loosen a control above, or look at the near misses below.</div>`}
+    ${n ? `<div class="pn-grid">${cards}</div>` : ""}
+    <div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">How to use this list</h2>
+      <ol class="reasons" style="padding-left:20px;margin:0"><li><b>Smaller than the stock bucket:</b> ${res.rules.bucket_pct}% of your capital at most. Small coins can lose 90% and stay there.</li>
+        <li><b>Buy in stages</b> over several months, and spread over the list rather than picking one.</li>
+        <li><b>Re-check every quarter:</b> sell or stop adding if a coin leaves the list for good, loses most of its trading, or announces large token releases.</li>
+        <li>${esc(res.note)}</li>
+        <li><b>No history test for coins.</b> Coin lists only contain coins that survived, so any test would flatter the group badly; the app does not show one rather than show a misleading number.</li></ol></div>
+    ${pennyFunnel(res, "crypto")}${pennyNear(res, true)}${pennyRules(res)}`;
+}
+function wirePennyResult(kind, res) {
+  const box = $("#pn-out-" + kind);
+  $$("[data-pn-detail]", box).forEach(b => b.onclick = () => { showTab("stock"); $("#stock-input").value = b.dataset.pnDetail; analyse(b.dataset.pnDetail); });
+  $$("[data-pn-paper]", box).forEach(b => b.onclick = () => { const p = res.picks[+b.dataset.pnPaper];
+    ppFill({ instrument: "stock", product: "delivery", symbol: p.ticker, qty: Math.max(p.shares, 1), stop: Math.round(p.price * 65) / 100, note: "Penny pick" }); });
+  $$("[data-pn-hold]", box).forEach(b => b.onclick = async () => { const p = res.picks[+b.dataset.pnHold];
+    try { await api("/api/holdings", { method: "POST", body: { symbol: p.ticker, qty: p.shares, buy_price: p.price, buy_date: new Date().toISOString().slice(0, 10), stop: Math.round(p.price * 65) / 100, note: "Penny pick" } });
+      toast(`${bare(p.ticker)} added to Holdings & tax (at today's price; edit it there if you pay differently)`); window._lastRisk = null; window._taxLoaded = false; }
+    catch (e) { toast(e.message, true); } });
+  $$("[data-pn-cpaper]", box).forEach(b => b.onclick = () => { const p = res.picks[+b.dataset.pnCpaper];
+    ppFill({ instrument: "crypto", product: "positional", symbol: p.ticker, qty: +p.units.toPrecision(6), stop: +(p.price * 0.65).toPrecision(5), note: "Penny coin" }); });
+}
+function renderPennyTest() {
+  const box = $("#pn-test"); if (!box) return;
+  const t = PENNY.test;
+  const head = `<div class="card" style="margin-bottom:14px"><div class="kite-row" style="justify-content:space-between"><h2 style="margin:0">Does a screen like this work? Ten years of history</h2>
+      ${STATIC ? "" : `<button class="btn" id="pn-test-run">${t ? "Run it again" : "Test it on history"}</button>`}</div>
+    <div class="progress" id="pn-test-prog" hidden><div class="track"><div class="fill" style="width:0%"></div></div><div class="msg">Starting…</div></div>`;
+  if (!t) { box.innerHTML = head + `<p class="sub" style="margin:8px 0 0;font-size:13.5px">${STATIC ? "Run this in the full app." : "Replays the price and safety rules (trend, no pump, no collapse, enough trading) over every NSE share, picking the top ten each year. Takes a few minutes the first time because it loads every NSE share."}</p></div>`; if (!STATIC) wireTest(); return; }
+  const bt = t.backtest, m = bt.metrics, o = t.outcomes, bn = t.benchmark.label;
+  const tile = (k, v, sub, cls = "") => `<div class="card tile"><div class="k">${k}</div><div class="v num ${cls}">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`;
+  box.innerHTML = head + `
+    <div class="notice error" style="margin:10px 0"><b>Do not read these numbers as a forecast.</b> The history contains only shares that still trade today. Cheap shares that collapsed and were delisted are missing, and they are exactly the ones a momentum-style screen would have bought. The real result would have been much worse. What the test is good for is the <i>spread</i> below, and for seeing that the safety rules did not make things worse.</div>
+    <div class="tiles">
+      ${tile("Safety rules, top ten each year", spct(m.screen.cagr), `a year · worst fall ${pct(m.screen.max_drawdown)}`, "chg up")}
+      ${tile("Every cheap, tradable share", spct(m.equal_weight.cagr), `a year · worst fall ${pct(m.equal_weight.max_drawdown)}`)}
+      ${tile(esc(bn), spct(m.nifty.cagr), `a year · worst fall ${pct(m.nifty.max_drawdown)}`)}
+      ${tile("Picks that rose in a year", pct(bt.hit_rate), `${bt.avg_held.toFixed(1)} stocks held on average`)}
+    </div>
+    <div class="chart-wrap" id="pn-test-chart"></div>
+    ${o ? `<p style="font-size:14px;margin:12px 0 4px"><b>The spread, even among survivors.</b> Of ${o.n.toLocaleString("en-IN")} cheap shares followed for ${o.years} years from each year-end: <b>${pct(o.share_down)}</b> were lower, <b>${pct(o.share_lost_half)}</b> lost more than half, <b>${pct(o.share_doubled)}</b> doubled and <b>${pct(o.share_tripled)}</b> tripled. The best tenth gained over ${pct(o.p90, 0)}, the worst tenth lost over ${pct(-o.p10, 0)}. That is a lottery: spread small amounts over many.</p>` : ""}
+    <p class="sub" style="font-size:12.5px;margin:6px 0 0">Costs include the wide spreads of thinly traded shares. Only the price and liquidity rules are tested; the company-results rules cannot be tested over ten years because free results data covers four. Prices are split-adjusted, so a share that later split can look cheaper in the past than it was. ${t.stocks_seen} shares were ever cheap and tradable. Tested ${fmtDate(t.generated.slice(0, 10))} ${t.generated.slice(0, 4)}.</p></div>`;
+  lineChart($("#pn-test-chart"), bt.curve, [{ key: "screen", label: "Safety rules, top ten each year", color: "--s1" }, { key: "equal_weight", label: "Every cheap, tradable share", color: "--s2" }, { key: "nifty", label: bn, color: "--s3" }],
+    { fmt: v => "₹" + v.toFixed(2), log: true, rebase: true, height: 240, label: "Growth of one rupee in the screen, in every cheap share and in the benchmark" });
+  if (!STATIC) wireTest();
+}
+function wireTest() {
+  $("#pn-test-run").onclick = async () => {
+    const b = $("#pn-test-run"); b.disabled = true;
+    try { PENNY.test = await runJob(api("/api/penny/test", { method: "POST", body: {} }), $("#pn-test-prog")); renderPennyTest(); }
+    catch (e) { $("#pn-test").innerHTML = stateBox("error", "The history test failed", e.message, () => { renderPennyTest(); $("#pn-test-run").click(); }); }
+  };
+}
 
 /* ---------------- alerts ---------------- */
 let _alertSeen = null;
@@ -2984,6 +3228,8 @@ async function staticApi(path, opts) {
   if (p === "/api/markets") return done(pubData(q.get("market") === "commodities" ? "commodities" : "crypto"));
   if (p === "/api/fund") return done(pubData("fund"));
   if (p === "/api/longterm") return done(pubData("longterm"));
+  if (p === "/api/penny") return { stocks: await pubData("penny").catch(() => null), crypto: await pubData("pennycrypto").catch(() => null), test: null,
+                                  settings: {}, defaults: { stocks: {}, crypto: {} }, running: [], error: {} };
   if (p === "/api/robust") return q.get("last") ? pubData("robust").catch(() => null) : done(pubData("robust"));
   if (p === "/api/ipo") {
     const days = +q.get("days") || 90, d = await pubData("ipo"), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);

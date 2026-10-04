@@ -89,6 +89,16 @@ def screen_change_event(prev: list[str], now: list[str], name: str = "your scree
     return {"key": f"screen:{date.today()}", "kind": "screen", "level": "low", "title": f"Picks changed in {name}", "text": text.strip()}
 
 
+def penny_change_event(label: str, new: list[str], out: list[str], today: date | None = None) -> dict | None:
+    """The automatic penny-stock or penny-coin screen found different names than last time."""
+    if not new and not out:
+        return None
+    bare = lambda xs: ", ".join(x.replace(".NS", "").replace("-USD", "") for x in xs)
+    text = (f"New: {bare(new)}. " if new else "") + (f"Dropped: {bare(out)}." if out else "")
+    return {"key": f"penny:{label}:{today or date.today()}", "kind": "penny", "level": "low",
+            "title": f"{label}: the list changed", "text": text.strip()}
+
+
 def rebalance_event(next_date: date, today: date | None = None, days: int = 3) -> dict | None:
     today = today or date.today()
     if 0 <= (next_date - today).days <= days:

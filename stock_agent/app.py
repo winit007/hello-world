@@ -32,6 +32,7 @@ JOURNAL_FILE = HOME / "journal.json"
 HOLDINGS_FILE = HOME / "holdings.json"
 SALES_FILE = HOME / "holdings_sales.json"
 ALERTS_FILE = HOME / "alerts.json"
+PENNY_FILE = HOME / "penny.json"
 LEDGER_FILE = HOME / "track.json"
 GOAL_FILE = HOME / "goal.json"
 PORTFOLIO_FILE = HOME / "portfolio.json"
@@ -43,6 +44,8 @@ DEFAULT_SETTINGS = {
     "capital": 200000, "risk": 2.0, "universe": "nifty50", "custom": "", "horizon": 5,
     "affordable_only": False, "top": 10, "broker": "kite",
     "brokerage": 0.0,          # delivery brokerage per order in ₹ (0 at Zerodha; up to 20 elsewhere)
+    # automatic penny-stock and penny-coin screens: rule overrides stay empty until you change them in the tab
+    "penny": {"auto": True, "stocks": {}, "crypto": {}},
 }
 
 _lock = threading.Lock()
@@ -551,6 +554,175 @@ def run_myscreen(body: dict, settings: dict, progress) -> dict:
     return clean({**res, "universe": uni})
 
 
+# --------------------------------------------------------------------------- penny stocks and penny crypto
+_penny_lock = threading.Lock()            # one heavy scan at a time
+_penny_file_lock = threading.Lock()
+_penny_running: set[str] = set()
+PENNY_KEYS = {"stocks": ("price_cap", "min_lakh", "top", "bucket_pct", "uptrend"),
+              "crypto": ("price_cap", "top", "bucket_pct", "uptrend")}
+
+
+def _penny_clean(p) -> dict:
+    """Only the choices the page offers, checked."""
+    from . import pennycrypto as PC
+    from . import pennystocks as PS
+
+    p = p if isinstance(p, dict) else {}
+    out = {"auto": bool(p.get("auto", True))}
+    for kind, mod in (("stocks", PS), ("crypto", PC)):
+        given = {k: v for k, v in (p.get(kind) or {}).items() if k in PENNY_KEYS[kind]}
+        rules = asdict(mod.rules_from(given))
+        out[kind] = {k: rules[k] for k in given}
+    return out
+
+
+def _penny_rules(kind: str, settings: dict, body: dict | None = None):
+    from . import pennycrypto as PC
+    from . import pennystocks as PS
+
+    mod = PS if kind == "stocks" else PC
+    base = ((settings.get("penny") or {}).get(kind) or {})
+    return mod.rules_from({**base, **{k: v for k, v in (body or {}).items() if k in PENNY_KEYS[kind]}})
+
+
+def _penny_remember(kind: str, body: dict) -> None:
+    """Keep the choices made on the page, so the automatic evening run uses them too."""
+    mine = {k: v for k, v in (body or {}).items() if k in PENNY_KEYS[kind]}
+    if not mine:
+        return
+    s = _read_json(SETTINGS_FILE, {})
+    pen = _penny_clean({**(s.get("penny") or {}), kind: {**((s.get("penny") or {}).get(kind) or {}), **mine}})
+    s["penny"] = pen
+    _write_json(SETTINGS_FILE, s)
+
+
+def _penny_after_close(t) -> bool:
+    return t.weekday() < 5 and (t.hour, t.minute) >= (16, 15)
+
+
+def _penny_save(kind: str, res: dict, today: date | None = None, now=None) -> dict:
+    """Store the latest scan, work out what changed since the last day's list, and how long each pick has been on it."""
+    from .paper import now_ist
+
+    today = today or date.today()
+    res = clean(res)
+    with _penny_file_lock:
+        data = _read_json(PENNY_FILE, {})
+        old = data.get(kind) or {}
+        prev = [p["ticker"] for p in (old.get("result") or {}).get("picks", [])]
+        base = old.get("baseline") or {"date": None, "picks": []}
+        if old.get("date") and old["date"] != today.isoformat():         # first scan of a new day: yesterday's list is the baseline
+            base = {"date": old["date"], "picks": prev}
+        hist = old.get("history", {})
+        now_l = [p["ticker"] for p in res["picks"]]
+        new_hist = {t: {"first": (hist.get(t) or {}).get("first", today.isoformat())} for t in now_l}
+        for p in res["picks"]:
+            p["first_seen"] = new_hist[p["ticker"]]["first"]
+            p["days_on_list"] = (today - date.fromisoformat(p["first_seen"])).days + 1
+        res["changes"] = {"first": not old, "since": base["date"], "new": [t for t in now_l if t not in base["picks"]] if base["date"] else [],
+                          "out": [t for t in base["picks"] if t not in now_l]}
+        data[kind] = {"result": res, "history": new_hist, "baseline": base, "date": today.isoformat()}
+        t = now or now_ist()
+        if kind == "crypto" or _penny_after_close(t):                      # a scan after the close counts as the evening run
+            data.setdefault("auto", {})[kind] = today.isoformat()
+        _write_json(PENNY_FILE, data)
+    return res
+
+
+def run_penny_stocks(body: dict, settings: dict, progress) -> dict:
+    from . import pennystocks as PS
+
+    rules = _penny_rules("stocks", settings, body)
+    with _penny_lock:
+        res = PS.scan(rules, float(settings["capital"]), CACHE, progress)
+    return _penny_save("stocks", res)
+
+
+def run_penny_crypto(body: dict, settings: dict, progress) -> dict:
+    from . import pennycrypto as PC
+
+    rules = _penny_rules("crypto", settings, body)
+    with _penny_lock:
+        res = PC.scan(rules, float(settings["capital"]), CACHE, progress)
+    return _penny_save("crypto", res)
+
+
+def run_penny_test(body: dict, settings: dict, progress) -> dict:
+    from . import pennystocks as PS
+
+    rules = _penny_rules("stocks", settings, body)
+    with _penny_lock:
+        res = clean(PS.backtest(rules, float(settings["capital"]), CACHE, progress, per_order=float(settings.get("brokerage") or 0)))
+    with _penny_file_lock:
+        data = _read_json(PENNY_FILE, {})
+        data["test"] = {"result": res, "date": date.today().isoformat()}
+        _write_json(PENNY_FILE, data)
+    return res
+
+
+def penny_state() -> dict:
+    data = _read_json(PENNY_FILE, {})
+    st = load_settings()
+    return {"stocks": (data.get("stocks") or {}).get("result"), "crypto": (data.get("crypto") or {}).get("result"),
+            "test": (data.get("test") or {}).get("result"), "settings": _penny_clean(st.get("penny")),
+            "defaults": {"stocks": _penny_defaults("stocks"), "crypto": _penny_defaults("crypto")},
+            "running": sorted(_penny_running), "error": data.get("error") or {}}
+
+
+def _penny_defaults(kind: str) -> dict:
+    return {k: v for k, v in asdict(_penny_rules(kind, {})).items() if k in PENNY_KEYS[kind]}
+
+
+def _penny_due(t) -> list[str]:
+    """Which automatic scans are due now: after the first manual scan, every evening for stocks and once a day for coins."""
+    pen = _penny_clean(load_settings().get("penny"))
+    if not pen["auto"]:
+        return []
+    data = _read_json(PENNY_FILE, {})
+    done, today = data.get("auto", {}), t.date().isoformat()
+    due = []
+    if data.get("stocks") and _penny_after_close(t) and done.get("stocks") != today:
+        due.append("stocks")
+    if data.get("crypto") and t.hour >= 9 and done.get("crypto") != today:
+        due.append("crypto")
+    return [k for k in due if k not in _penny_running]
+
+
+def run_penny_auto(kind: str) -> None:
+    """The evening scan: run it with the saved choices and raise an alert when the list changed."""
+    from . import alerts as AL
+
+    _penny_running.add(kind)
+    try:
+        settings = load_settings()
+        try:
+            res = (run_penny_stocks if kind == "stocks" else run_penny_crypto)({}, settings, lambda m, f: None)
+        except Exception as exc:
+            traceback.print_exc()
+            with _penny_file_lock:
+                data = _read_json(PENNY_FILE, {})
+                data.setdefault("error", {})[kind] = f"{type(exc).__name__}: {exc}"
+                data.setdefault("auto", {})[kind] = date.today().isoformat()      # try again tomorrow, not every 5 minutes
+                _write_json(PENNY_FILE, data)
+            return
+        with _penny_file_lock:
+            data = _read_json(PENNY_FILE, {})
+            data.setdefault("error", {}).pop(kind, None)
+            _write_json(PENNY_FILE, data)
+        ch = res.get("changes") or {}
+        if not ch.get("first"):
+            ev = AL.penny_change_event("Penny stocks" if kind == "stocks" else "Penny coins", ch.get("new", []), ch.get("out", []))
+            if ev:
+                store = AL.Store(ALERTS_FILE)
+                with _alerts_lock:
+                    d = store.load()
+                    new = store.add(d, [ev])
+                    d["problems"] = AL.deliver(new, d["config"]) if new else d.get("problems", [])
+                    store.save(d)
+    finally:
+        _penny_running.discard(kind)
+
+
 def run_longterm(settings: dict, progress) -> dict:
     from . import longterm
 
@@ -869,6 +1041,8 @@ def _alert_loop() -> None:
     while True:
         time.sleep(300)
         try:
+            for kind in _penny_due(now_ist()):                  # heavy: in its own thread so stop alerts keep running
+                threading.Thread(target=run_penny_auto, args=(kind,), daemon=True, name=f"penny-{kind}").start()
             d = AL.Store(ALERTS_FILE).load()
             if not d["config"].get("enabled", True):
                 continue
@@ -986,6 +1160,10 @@ def home_summary() -> dict:
     for x in (st or {}).get("positions", []):
         if x.get("exit_by"):
             dates.append({"date": str(x["exit_by"])[:10], "what": f"Paper exit date: {x['label']}", "tab": "paper"})
+    pd_ = _read_json(PENNY_FILE, {})
+    out["penny"] = {k: {"as_of": r.get("as_of"), "count": len(r.get("picks", [])), "top": [x["ticker"] for x in r.get("picks", [])[:3]],
+                        "new": (r.get("changes") or {}).get("new", [])}
+                    for k in ("stocks", "crypto") if (r := (pd_.get(k) or {}).get("result"))}
     out["dates"] = sorted((d for d in dates if d["date"] >= today.isoformat()), key=lambda d: d["date"])[:6]
     return out
 
@@ -1252,6 +1430,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"holdings": _read_json(HOLDINGS_FILE, []), "sales": _read_json(SALES_FILE, [])})
             if url.path == "/api/alerts":
                 return self._send(200, alerts_state())
+            if url.path == "/api/penny":
+                return self._send(200, clean(penny_state()))
             if url.path == "/api/home":
                 return self._send(200, clean(home_summary()))
             if url.path == "/api/orders":
@@ -1344,6 +1524,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["horizon"] = int(s["horizon"]) if int(s["horizon"]) in (3, 5, 10) else 5
                 s["top"] = min(max(int(s["top"]), 1), 20)
                 s["brokerage"] = min(max(float(s.get("brokerage") or 0), 0.0), 100.0)
+                s["penny"] = _penny_clean(s.get("penny"))
                 _write_json(SETTINGS_FILE, s)
                 return self._send(200, s)
             if url.path == "/api/screen":
@@ -1365,6 +1546,19 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, holdings_op("POST", url.path, body))
                 except (ValueError, KeyError) as exc:
                     return self._send(400, {"error": str(exc).strip("'")})
+            if url.path in ("/api/penny/stocks", "/api/penny/crypto", "/api/penny/test"):
+                kind = "crypto" if url.path.endswith("crypto") else "stocks"
+                try:
+                    _penny_remember(kind, body)
+                except (ValueError, TypeError) as exc:
+                    return self._send(400, {"error": str(exc)})
+                fn = {"stocks": run_penny_stocks, "crypto": run_penny_crypto}.get(url.path.rsplit("/", 1)[-1], run_penny_test)
+                return self._send(200, {"job": start_job("penny", fn, body, load_settings())})
+            if url.path == "/api/penny/auto":
+                s = _read_json(SETTINGS_FILE, {})
+                s["penny"] = _penny_clean({**(s.get("penny") or {}), "auto": bool(body.get("on"))})
+                _write_json(SETTINGS_FILE, s)
+                return self._send(200, clean(penny_state()))
             if url.path == "/api/alerts/check":
                 new = run_alert_check(force=True)
                 return self._send(200, {**alerts_state(), "new": new})

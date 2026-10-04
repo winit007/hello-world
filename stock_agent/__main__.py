@@ -422,7 +422,7 @@ def main(argv: list[str] | None = None) -> int:
 
     pb = sub.add_parser("publish", help="build the phone app (static site + tonight's results) into a folder")
     pb.add_argument("--out", default="_site")
-    pb.add_argument("--only", nargs="*", help="publish only these parts: screen track crypto commodities fund ipo prices")
+    pb.add_argument("--only", nargs="*", help="publish only these parts: screen track crypto commodities fund longterm ipo penny pennycrypto prices")
     pb.set_defaults(func=lambda a: __import__("stock_agent.publish", fromlist=["main"]).main(a.out, a.only))
 
     sh = sub.add_parser("shortcut", help="put a 'Stock Agent' launcher on your desktop")

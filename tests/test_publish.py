@@ -57,6 +57,17 @@ class BuildTests(unittest.TestCase):
             block = block[:block.index("</select>")]
             self.assertEqual(re.findall(r'option value="([^"]+)"', block), list(BENCHMARKS), sel)
 
+    def test_penny_lists_are_published_for_the_phone(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        with mock.patch.object(app, "HOME", tmp / "home"), \
+                mock.patch.object(app, "run_penny_stocks", return_value={"picks": [{"ticker": "A.NS"}], "changes": {}}), \
+                mock.patch.object(app, "run_penny_crypto", return_value={"picks": [], "changes": {}}):
+            meta = publish.build(tmp / "site", steps=["penny", "pennycrypto"], log=lambda *a: None)
+        self.assertEqual(meta["ok"], ["penny", "pennycrypto"])
+        self.assertEqual(json.loads((tmp / "site" / "data" / "penny.json").read_text())["picks"][0]["ticker"], "A.NS")
+        self.assertTrue((tmp / "site" / "data" / "pennycrypto.json").exists())
+
     def test_static_page_uses_relative_paths_and_static_flag(self):
         html = publish.page_html(app.WEB)
         self.assertIn('<meta name="static-site" content="1">', html)

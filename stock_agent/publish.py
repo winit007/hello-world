@@ -83,6 +83,8 @@ def build(out: Path, steps: list[str] | None = None, log=print) -> dict:
         "fund": lambda: app.run_fund({}, settings, _quiet),
         "longterm": lambda: app.run_longterm(settings, _quiet),
         "ipo": lambda: app.run_ipo(365, _quiet),
+        "penny": lambda: app.run_penny_stocks({}, settings, _quiet),
+        "pennycrypto": lambda: app.run_penny_crypto({}, settings, _quiet),
         "prices": lambda: stats_and_prices(_quiet),
     }
     for name, fn in jobs.items():
