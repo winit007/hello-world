@@ -18,6 +18,8 @@ import math
 import numpy as np
 import pandas as pd
 
+from .data import MONTH_END
+
 BENCHMARKS = {
     "NIFTYBEES.NS": {"label": "Nifty 50", "yield": 0.0},
     "JUNIORBEES.NS": {"label": "Nifty Next 50", "yield": 0.0},
@@ -63,7 +65,7 @@ def compare(strategy: pd.Series, gross: pd.Series, equal_weight: pd.Series, benc
     var = float(rb.var())
     beta = float(rs.cov(rb) / var) if var > 0 else float("nan")
     te = float((rs - rb).std() * math.sqrt(52))
-    m = df.resample("ME").last().pct_change().dropna()
+    m = df.resample(MONTH_END).last().pct_change().dropna()
     up, dn = m["b"] > 0, m["b"] < 0
     out.update({
         "beta": beta,

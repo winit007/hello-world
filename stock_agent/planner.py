@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass
 import numpy as np
 import pandas as pd
 
-from .data import DEFAULT_CACHE, _cache_path, read_cached, refresh_many
+from .data import DEFAULT_CACHE, MONTH_END, _cache_path, read_cached, refresh_many
 from .sizing import money
 
 PROXIES = {"equity": "NIFTYBEES.NS", "gold": "GOLDBEES.NS", "crypto": "BTC-INR"}
@@ -82,7 +82,7 @@ def market_stats(offline: bool = False, cache_dir=DEFAULT_CACHE) -> dict:
     for k, sym in PROXIES.items():
         path = _cache_path(cache_dir, sym, "10y", "1d")
         df = read_cached(path)
-        monthly[k] = df["Close"].resample("ME").last().pct_change().dropna()
+        monthly[k] = df["Close"].resample(MONTH_END).last().pct_change().dropna()
     m = pd.DataFrame(monthly).dropna()
     out = {}
     for k in PROXIES:

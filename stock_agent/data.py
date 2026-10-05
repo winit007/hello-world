@@ -6,6 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 
+# pandas 2.2 renamed the month-end code "M" to "ME"; the Android app ships pandas 2.1, so ask the library which one it knows
+try:
+    pd.Timestamp("2020-01-31").to_period("M")
+    pd.date_range("2020-01-31", periods=2, freq="ME")
+    MONTH_END = "ME"
+except ValueError:
+    MONTH_END = "M"
+
 DEFAULT_CACHE = Path(os.environ.get("STOCK_AGENT_CACHE", ".cache"))
 COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
 
