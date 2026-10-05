@@ -181,8 +181,19 @@ def telegram_chat_id(token: str) -> str | None:
     return None
 
 
+def android_app() -> bool:
+    """True inside the Android app (the app sets this before starting the server)."""
+    return bool(os.environ.get("STOCK_AGENT_ANDROID"))
+
+
+def android_notify(title: str, text: str) -> None:
+    from java import jclass          # only exists inside the Android app (Chaquopy)
+
+    jclass("com.stockagent.app.Notifier").post(title, text)
+
+
 def termux_available() -> bool:
-    return bool(shutil.which("termux-notification"))
+    return android_app() or bool(shutil.which("termux-notification"))
 
 
 def deliver(new: list[dict], config: dict) -> list[str]:
@@ -195,7 +206,12 @@ def deliver(new: list[dict], config: dict) -> list[str]:
                 telegram_send(config["telegram_token"], config["telegram_chat"], "📈 " + line)
             except Exception as exc:
                 problems.append(f"Telegram: {exc}")
-        if config.get("termux", True) and termux_available():
+        if config.get("termux", True) and android_app():
+            try:
+                android_notify(e["title"], e["text"])
+            except Exception as exc:
+                problems.append(f"Android: {exc}")
+        elif config.get("termux", True) and termux_available():
             try:
                 subprocess.run(["termux-notification", "--title", e["title"], "--content", e["text"], "--group", "stock-agent"],
                                timeout=10, check=False)

@@ -2563,6 +2563,7 @@ function drawPnl(ev) {
 /* ---------------- phone ---------------- */
 async function loadPhone() {
   const p = await api("/api/phone");
+  if (p.android_app) { $("#phone-card").hidden = true; return; }              // you are already on the phone
   const link = p.tunnel_url || (p.urls || [])[0];
   const body = $("#phone-body");
   if (p.on && link) {

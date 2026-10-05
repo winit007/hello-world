@@ -1,0 +1,95 @@
+# Builds StockAgent.apk: the whole app (Python, pandas and the program) inside an Android app, so it runs by itself
+# on the phone. The app is started in an Android emulator (the Python server inside must come up, be locked to the
+# app, serve the page and pass its self-test) and then attached to a GitHub release, so it can be downloaded from:
+#   https://github.com/<owner>/<repo>/releases/latest/download/StockAgent.apk
+name: Android app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["stock_agent/**", "android/**", ".github/workflows/android-app.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-app
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Tests on the same library versions the app ships
+        run: |
+          python -m pip install pandas==2.1.3 numpy==1.26.2 requests feedparser vaderSentiment qrcode tzdata
+          python -m unittest discover -s tests -q
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Version
+        id: v
+        run: |
+          v=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('stock_agent/__init__.py').read()).group(1))")
+          IFS=. read -r a b c <<< "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "code=$((a*10000 + b*100 + c))" >> "$GITHUB_OUTPUT"
+      - name: Build the phone app (release, arm64)
+        run: gradle -p android assembleRelease -PVERSION_NAME=${{ steps.v.outputs.version }} -PVERSION_CODE=${{ steps.v.outputs.code }} --no-daemon
+      - name: Build the test version for the emulator (x86_64)
+        run: gradle -p android assembleDebug -PABIS=x86_64 -PVERSION_NAME=${{ steps.v.outputs.version }} -PVERSION_CODE=${{ steps.v.outputs.code }} --no-daemon
+      - name: Collect the files
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/*.apk out/StockAgent.apk
+          cp android/app/build/outputs/apk/debug/*.apk out/test-x86_64.apk
+          ls -l out
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs out/StockAgent.apk | head -5
+      - name: Allow the emulator to use the hardware
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start the app in an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash android/ci/smoke_test.sh out/test-x86_64.apk smoke_out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-build
+          path: |
+            out/StockAgent.apk
+            smoke_out/
+          if-no-files-found: ignore
+      - name: Publish the release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-v${{ steps.v.outputs.version }}
+          name: Stock Agent ${{ steps.v.outputs.version }}
+          body: |
+            **StockAgent.exe**: the whole app for Windows, no Python needed. Download it, double-click, and the app
+            opens in your browser at http://127.0.0.1:8765. Windows may warn about an unknown publisher (the file
+            is not code-signed): click "More info" and "Run anyway". Your data is kept in %USERPROFILE%\.stock_agent.
+
+            **StockAgent.apk**: the whole app for Android phones, running on the phone itself (no PC, no Termux).
+            Download it on the phone, allow "install unknown apps" for your browser, open the file, and install.
+            iPhone: use the phone page (add it to the Home Screen) instead.
+          files: out/StockAgent.apk
+          make_latest: true

@@ -57,6 +57,7 @@ _kite = None
 # Phone mode: the server also listens on the Wi-Fi network. Other devices must present this key once
 # (from the link printed at start-up); it is then kept in a cookie. It is stored so that a phone's
 # home-screen icon keeps working after restarts.
+LISTEN_PORT = 0
 PHONE = {"on": False, "key": None, "urls": [], "tunnel_host": None, "tunnel_url": None}
 PHONE_KEY_FILE = HOME / "phone_key.txt"
 
@@ -1288,7 +1289,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _key_ok(self) -> bool:
         """Devices other than this computer need the phone key (in the cookie, after the first visit)."""
-        if self._local_client():
+        if self._local_client() and not PHONE.get("lock_local"):
             return True
         if not PHONE["on"]:
             return False
@@ -1344,7 +1345,13 @@ class Handler(BaseHTTPRequestHandler):
                 if not self._token_ok():
                     return self._send(403, {"error": "missing app token; reload the page"})
                 return self._send(200, {"on": PHONE["on"], "urls": PHONE["urls"], "tunnel_url": PHONE.get("tunnel_url"),
-                                        "tunnel_only": bool(PHONE.get("tunnel_only"))})
+                                        "tunnel_only": bool(PHONE.get("tunnel_only")), "android_app": bool(os.environ.get("STOCK_AGENT_ANDROID"))})
+            if url.path == "/api/selftest":
+                if not self._token_ok():
+                    return self._send(403, {"error": "missing app token; reload the page"})
+                from . import selftest
+
+                return self._send(200, clean(selftest.run()))
             if url.path in ("/", "/index.html"):
                 html = (WEB / "index.html").read_text(encoding="utf-8").replace("__AGENT_TOKEN__", SESSION_TOKEN)
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
@@ -1680,6 +1687,8 @@ def serve(port: int = 8765, open_browser: bool = True, phone: bool = False, tunn
     else:
         raise SystemExit(f"No free port between {port} and {port + 19}")
     real_port = httpd.server_address[1]
+    global LISTEN_PORT
+    LISTEN_PORT = real_port                 # the Android app reads this to know where to point its window
     url = f"http://127.0.0.1:{real_port}/"
     print(f"Stock Agent is running at {url}")
     if tunnel:

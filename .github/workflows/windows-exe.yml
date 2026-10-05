@@ -63,10 +63,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: app-v${{ steps.v.outputs.version }}
-          name: Stock Agent ${{ steps.v.outputs.version }} for Windows
+          name: Stock Agent ${{ steps.v.outputs.version }}
           body: |
             **StockAgent.exe**: the whole app for Windows, no Python needed. Download it, double-click, and the app
             opens in your browser at http://127.0.0.1:8765. Windows may warn about an unknown publisher (the file
             is not code-signed): click "More info" and "Run anyway". Your data is kept in %USERPROFILE%\.stock_agent.
+
+            **StockAgent.apk**: the whole app for Android phones, running on the phone itself (no PC, no Termux).
+            Download it on the phone, allow "install unknown apps" for your browser, open the file, and install.
+            iPhone: use the phone page (add it to the Home Screen) instead.
           files: dist/StockAgent.exe
           make_latest: true

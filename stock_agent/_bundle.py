@@ -39,6 +39,7 @@ from . import risk
 from . import report
 from . import robust
 from . import screener
+from . import selftest
 from . import sip
 from . import tax
 from . import sizing
