@@ -178,6 +178,24 @@ class Account:
         self.save()
         return self.state(refresh=False)
 
+    def add_money(self, amount: float) -> dict:
+        """Put virtual money in (or take free cash out) without touching the open positions. The starting
+        balance moves by the same amount, so profit and return stay what the trades earned."""
+        amount = round(float(amount), 2)
+        if amount == 0 or abs(amount) > 1e9:
+            raise PaperError("Enter an amount to add (or a negative one to take out), up to ₹100 crore")
+        if amount < 0 and -amount > self.data["cash"]:
+            raise PaperError(f"You can take out at most your free cash, ₹{self.data['cash']:,.0f}; the rest is held by open positions")
+        if self.data["start_cash"] + amount < 1_000:
+            raise PaperError("The account must keep at least ₹1,000")
+        self.data["cash"] = round(self.data["cash"] + amount, 2)
+        self.data["start_cash"] = round(self.data["start_cash"] + amount, 2)
+        for h in self.data["equity"]:                    # same base all along, so the chart does not show a false jump
+            h["equity"] = round(h["equity"] + amount, 2)
+        self.data.setdefault("deposits", []).append({"t": now_ist().isoformat(timespec="minutes"), "amount": amount})
+        self.save()
+        return self.state(refresh=False)
+
     # ---- pricing of one instrument, in rupees per unit of quantity
     def _unit_price(self, pos: dict, spot: float | None = None, at: datetime | None = None) -> float:
         inst = pos["instrument"]
@@ -344,7 +362,7 @@ class Account:
                                                       f"{money(self._cost(pos, spot, n * lot, side), '₹')}."}
         if inst != "option" or side == "sell":
             one = self._cost(pos, spot, lot, side)
-            return {"order": None, "text": f"Even 1 lot needs {money(one, '₹')}. Add virtual money with Reset account "
+            return {"order": None, "text": f"Even 1 lot needs {money(one, '₹')}. Press Add money to put in more virtual cash "
                                            f"or choose a smaller contract."}
         from .sizing import strike_step
 
@@ -361,7 +379,7 @@ class Account:
                         "text": f"Buy 1 lot of the {strike:g} {pos['option_type']} instead: premium about ₹{prem:,.2f}, "
                                 f"needs {money(need, '₹')}. It is further from the share price, so it needs a bigger "
                                 f"move and wins less often."}
-        return {"order": None, "text": "No strike of this option fits your cash. Add virtual money with Reset account."}
+        return {"order": None, "text": "No strike of this option fits your cash. Press Add money to put in more virtual cash."}
 
     def place(self, o: dict) -> dict:
         pv = self.preview(o)

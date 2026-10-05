@@ -544,7 +544,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
     <div class="head-row">
       <div><h1>Paper trading</h1>
         <p class="sub">Practise with virtual money: real prices, real lot sizes and charges, no real orders.</p></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="pp-refresh">Refresh prices</button><button class="btn" id="pp-reset">Reset account</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="pp-refresh">Refresh prices</button><button class="btn" id="pp-add">Add money</button><button class="btn" id="pp-reset">Reset account</button></div>
     </div>
     <div class="notice">Orders fill at the latest Yahoo price (NSE prices run about 15 minutes late) plus a little slippage, and only while the market is open
       (NSE 9:15 am to 3:30 pm, MCX 9 am to 11:30 pm, crypto any time). Stop-loss and target are prices of the <b>stock, coin or US future</b>, checked against
@@ -1008,7 +1008,7 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li>Then type <b>stock-agent</b>. The app opens in Chrome at <b>127.0.0.1:8765</b>. Keep Termux running in the background while you use it.</li>
         <li>Home-screen icon: install <b>Termux:Widget</b> and add its widget, then tap <b>Stock Agent</b>. Set Termux's battery use to <b>Unrestricted</b> so Android does not stop it.</li></ol></details></div>
       <div class="card"><h2>Paper trading</h2>
-        <ol><li>Open <b>Paper trading</b>. You start with virtual money equal to your capital in Settings; <b>Reset account</b> starts again with any amount.</li>
+        <ol><li>Open <b>Paper trading</b>. You start with virtual money equal to your capital in Settings; <b>Add money</b> puts in more virtual cash while your positions stay open (profit and return still count only what the trades earned); <b>Reset account</b> starts again from scratch.</li>
         <li>Options can be bought or sold (written). Selling blocks about 18% of the contract value as margin, earns at most the premium and can lose much more, so practise it here before trying it for real.</li>
         <li>On any pick, lookup, crypto or commodity card press <b>Paper trade</b> to copy its lots, stop, Target 1 and exit date into the order form, then <b>Preview</b> and <b>Place order</b>.</li>
         <li>The tab refreshes every minute while open: stops and targets close positions automatically, intraday trades square off at 3:20 pm, and charges are deducted like a real broker.</li>
@@ -3181,6 +3181,11 @@ async function loadPaper(refresh) {
   _ppBusy = false;
 }
 $("#pp-refresh").onclick = () => loadPaper(true);
+$("#pp-add").onclick = async () => {
+  const amt = prompt("Add this much virtual money (₹). Open positions stay open. Use a minus sign to take free cash out.", 100000);
+  if (amt == null) return;
+  try { renderPaper(await api("/api/paper/add-money", { method: "POST", body: { amount: +String(amt).replace(/[,₹\s]/g, "") } })); } catch (e) { alert(e.message); }
+};
 $("#pp-reset").onclick = async () => {
   const amt = prompt("Start again with this much virtual money (₹). All paper positions and history are cleared.", (window._lastPaper && window._lastPaper.start_cash) || SETTINGS.capital || 200000);
   if (amt == null) return;

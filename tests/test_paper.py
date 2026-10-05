@@ -310,6 +310,25 @@ class PaperTests(unittest.TestCase):
         with self.assertRaises(PaperError):
             self.acct().reset(10)
 
+    def test_add_money_keeps_positions_and_profit(self):
+        a = self.acct()
+        a.place({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": 10})
+        before = self.acct().state(refresh=False)
+        st = self.acct().add_money(100_000)
+        self.assertEqual(len(st["positions"]), 1)                       # still open
+        self.assertAlmostEqual(st["cash"], before["cash"] + 100_000, places=2)
+        self.assertAlmostEqual(st["start_cash"], 300_000)
+        self.assertAlmostEqual(st["pnl"], before["pnl"], places=2)     # profit is what the trades earned, not the deposit
+        self.assertAlmostEqual(st["equity"], before["equity"] + 100_000, places=2)
+        self.assertEqual(len(self.acct().data["positions"]), 1)         # saved
+        self.assertEqual(self.acct().data["deposits"][0]["amount"], 100_000)
+        out = self.acct().add_money(-50_000)                            # free cash can be taken out again
+        self.assertAlmostEqual(out["start_cash"], 250_000)
+        with self.assertRaises(PaperError):
+            self.acct().add_money(-1_000_000)                           # more than the free cash
+        with self.assertRaises(PaperError):
+            self.acct().add_money(0)
+
     def test_charges_are_plausible(self):
         self.assertAlmostEqual(paper.charges("stock", "delivery", "buy", 100_000), 100 + 2.97 + 15 + 0.1 + 0.18 * 3.07, places=1)
         # ₹10 lakh intraday buy: ₹20 brokerage + exchange ₹29.7 + stamp ₹30 + SEBI ₹1 + GST on them ≈ ₹90

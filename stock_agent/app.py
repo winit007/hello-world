@@ -436,6 +436,8 @@ def paper_op(path: str, body: dict) -> dict:
             return acct.place(body)
         if path.startswith("/api/paper/close/"):
             return acct.close(path.rsplit("/", 1)[-1])
+        if path == "/api/paper/add-money":
+            return acct.add_money(float(body.get("amount") or 0))
         if path == "/api/paper/reset":
             return acct.reset(float(body.get("start_cash") or load_settings()["capital"]))
     raise KeyError(path)

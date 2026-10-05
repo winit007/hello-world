@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stock-agent"
-version = "0.20.0"
+version = "0.20.1"
 description = "Offline stock research agent: candlestick backtests, news sentiment, call/put verdicts and a top-5 screener"
 readme = "stock_agent/README.md"
 requires-python = ">=3.10"

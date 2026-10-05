@@ -16,4 +16,4 @@ if tuple(int(x) for x in _pd.__version__.split(".")[:2]) < (3, 0):
     for _cls in (_pd.Series, _pd.DataFrame):
         _cls.pct_change = _no_fill(_cls.pct_change)
 
-__version__ = "0.20.0"
+__version__ = "0.20.1"
