@@ -83,6 +83,34 @@ class PaperTests(unittest.TestCase):
         self.assertEqual(st["equity_curve"][0]["equity"], 200_000)   # starting point survives snapshots
         self.assertEqual(st["positions"], [])
 
+    def test_totals_predict_what_closing_everything_books(self):
+        self.px.set("INFY.NS", [1500.0, 1500.0, 1500.0])
+        a = self.acct()
+        a.place({"instrument": "stock", "symbol": "RELIANCE", "side": "buy", "product": "delivery", "qty": 10})
+        st = a.place({"instrument": "stock", "symbol": "INFY", "side": "buy", "product": "delivery", "qty": 4})
+        self.px.extend("RELIANCE.NS", [(1100, 1100, 1100, 1100)])
+        self.px.extend("INFY.NS", [(1440, 1440, 1440, 1440)])
+        self.now = T0 + timedelta(minutes=10)
+        st = self.acct().state()
+        t = st["open_totals"]
+        self.assertEqual(t["count"], 2)
+        self.assertAlmostEqual(t["money_in"], sum(p["blocked"] for p in st["positions"]), places=2)
+        self.assertAlmostEqual(t["money_in"], 10 * 1000.5 + 4 * 1500.75, places=1)
+        self.assertGreater(t["exit_charges_est"], 0)
+        self.assertAlmostEqual(t["return_pct"], t["net_pnl"] / t["money_in"], places=9)
+        a = self.acct()
+        for p in st["positions"]:
+            st = a.close(p["id"])
+        booked = sum(c["pnl"] for c in st["closed"])
+        self.assertAlmostEqual(t["net_pnl"], booked, places=1)                       # the estimate was right
+        ct = st["closed_totals"]
+        self.assertEqual(ct["count"], 2)
+        self.assertAlmostEqual(ct["net_pnl"], booked, places=2)
+        self.assertAlmostEqual(ct["charges"], st["charges_paid"], places=2)
+        self.assertAlmostEqual(ct["return_pct"], booked / ct["entry_value"], places=9)
+        self.assertEqual(st["open_totals"]["count"], 0)
+        self.assertIsNone(st["open_totals"]["return_pct"])
+
     def test_stop_checked_before_target_in_the_same_bar(self):
         a = self.acct()
         a.place({"instrument": "stock", "symbol": "RELIANCE.NS", "side": "buy", "product": "delivery", "qty": 5,

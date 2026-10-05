@@ -223,6 +223,9 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
 #main:focus { outline: none; }
 .tour-body { font-size: 15px; } .tour-body ol { padding-left: 20px; } .tour-body li { margin: 6px 0; }
 #dlg { max-width: min(560px, calc(100vw - 32px)); }
+.pp-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; }
+.pp-sum .k { font-size: 12.5px; color: var(--muted); font-weight: 600; } .pp-sum .v { font-size: 19px; font-weight: 700; } .pp-sum .sub { font-size: 11.5px; }
+tr.total td { border-top: 2px solid var(--axis); background: var(--surface-2); }
 .seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .seg button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; color: var(--ink-2); font-weight: 600; }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); }
@@ -3092,24 +3095,36 @@ function renderPaper(st) {
     ["Worst drop", dd ? `<span class="chg down">${pct(dd, 1)}</span>` : "0%", "from the highest account value"],
   ].map(([k, v, sub]) => `<div class="card tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="sub" style="font-size:12px">${sub}</div></div>`).join("");
   $("#pp-events").innerHTML = (st.events || []).map(e => `<div class="notice warn">${esc(e)}</div>`).join("");
-  const pos = st.positions;
+  const pos = st.positions, ot = st.open_totals;
+  const sumBox = (items) => `<div class="pp-sum">${items.map(([k, v, sub, cls]) => `<div><div class="k">${k}</div><div class="v num ${cls || ""}">${v}</div><div class="sub">${sub}</div></div>`).join("")}</div>`;
+  const openSummary = pos.length ? sumBox([
+    ["Money put in", money(ot.money_in), `cash set aside for ${ot.count} position${ot.count === 1 ? "" : "s"}`],
+    ["Charges", money(ot.entry_charges + ot.exit_charges_est), `${money(ot.entry_charges)} paid to enter + about ${money(ot.exit_charges_est)} to close`],
+    ["Profit before charges", ppPnl(ot.gross_pnl), "price gain or loss only", ot.gross_pnl >= 0 ? "chg up" : "chg down"],
+    ["Net profit", ppPnl(ot.net_pnl), "after all charges, if you closed everything now", ot.net_pnl >= 0 ? "chg up" : "chg down"],
+    ["Return", spct(ot.return_pct, 2), `net profit ÷ money put in`, ot.net_pnl >= 0 ? "chg up" : "chg down"],
+    ["Cash back if closed", money(ot.back_if_closed), "money put in + price gain − the closing charges"],
+  ]) : "";
   $("#pp-positions").innerHTML = !pos.length ? `<div class="empty" style="padding:20px 8px"><span class="et">No open positions</span>Place an order on the left, or press <b>Paper trade</b> on any pick.</div>`
     : `<div class="table-scroll"><table class="num"><thead><tr><th>Position</th><th class="r">Bought / sold at</th><th class="r">Now</th><th class="r">Stop / target</th><th class="r">P&amp;L</th><th></th></tr></thead><tbody>` +
       pos.map(p => `<tr><td><b>${esc(p.label)}</b>${ppTag(p)}<div class="sub" style="font-size:12px">${fmtDate(p.entry_time.slice(0, 10))} ${p.entry_time.slice(11, 16)}${p.spot != null ? ` · ${p.instrument === "crypto" || p.instrument === "commodity" ? "$" + pxj(p.spot) : "spot " + p.spot.toFixed(2)} at ${esc(p.price_time)}` : ""}${p.note ? " · " + esc(p.note) : ""}</div></td>
         <td class="r">${money(p.entry_price, "₹", p.entry_price < 10 ? 4 : 2)}</td><td class="r">${money(p.now, "₹", p.now < 10 ? 4 : 2)}</td>
         <td class="r">${ppLevel(p)}${p.exit_by ? `<div class="sub" style="font-size:12px">exit ${fmtDate(p.exit_by)}</div>` : ""}</td>
-        <td class="r"><b>${ppPnl(p.pnl)}</b></td><td class="r"><button class="btn small" data-ppclose="${p.id}">Close</button></td></tr>`).join("") + `</tbody></table></div>`;
+        <td class="r"><b>${ppPnl(p.pnl)}</b></td><td class="r"><button class="btn small" data-ppclose="${p.id}">Close</button></td></tr>`).join("") +
+      `</tbody><tfoot><tr class="total"><td colspan="4"><b>Total of ${ot.count} position${ot.count === 1 ? "" : "s"}</b><div class="sub" style="font-size:12px">P&amp;L after the charges paid so far; closing also costs about ${money(ot.exit_charges_est)}</div></td><td class="r"><b>${ppPnl(ot.gross_pnl - ot.entry_charges)}</b><div class="sub" style="font-size:12px">${spct(ot.money_in ? (ot.gross_pnl - ot.entry_charges) / ot.money_in : null, 2)} of the money put in</div></td><td></td></tr></tfoot></table></div>`;
+  if (pos.length) $("#pp-positions").insertAdjacentHTML("afterbegin", openSummary);
   $$("[data-ppclose]").forEach(b => b.onclick = async () => {
     const p = pos.find(x => x.id === b.dataset.ppclose);
     if (!confirm(`Close ${p.label} at the market price?`)) return;
     try { renderPaper(await api("/api/paper/close/" + p.id, { method: "POST", body: {} })); } catch (e) { alert(e.message); }
   });
-  const cl = st.closed;
+  const cl = st.closed, ct = st.closed_totals;
   $("#pp-closed").innerHTML = !cl.length ? `<p class="sub">Closed trades appear here with their result after charges.</p>`
     : `<div class="table-scroll"><table class="num"><thead><tr><th>Closed</th><th>Position</th><th class="r">Entry</th><th class="r">Exit</th><th>Why</th><th class="r">Charges</th><th class="r">P&amp;L</th><th class="r">Return</th></tr></thead><tbody>` +
       cl.map(c => `<tr><td>${fmtDate(c.exit_time.slice(0, 10))} ${c.exit_time.slice(11, 16)}</td><td><b>${esc(c.label)}</b>${ppTag(c)}</td>
         <td class="r">${money(c.entry_price, "₹", c.entry_price < 10 ? 4 : 2)}</td><td class="r">${money(c.exit_price, "₹", c.exit_price < 10 ? 4 : 2)}</td><td>${esc(c.exit_reason)}</td>
-        <td class="r">${money(c.entry_charges + c.exit_charges, "₹")}</td><td class="r"><b>${ppPnl(c.pnl)}</b></td><td class="r">${spct(c.return_pct, 1)}</td></tr>`).join("") + `</tbody></table></div>`;
+        <td class="r">${money(c.entry_charges + c.exit_charges, "₹")}</td><td class="r"><b>${ppPnl(c.pnl)}</b></td><td class="r">${spct(c.return_pct, 1)}</td></tr>`).join("") +
+      `</tbody><tfoot><tr class="total"><td colspan="2"><b>Total of ${ct.count} closed trade${ct.count === 1 ? "" : "s"}</b><div class="sub" style="font-size:12px">${money(ct.entry_value)} bought or sold in all</div></td><td colspan="3"></td><td class="r"><b>${money(ct.charges)}</b></td><td class="r"><b>${ppPnl(ct.net_pnl)}</b></td><td class="r"><b>${spct(ct.return_pct, 1)}</b></td></tr></tfoot></table></div>`;
   $("#pp-log").innerHTML = st.orders.length ? `<ul class="pp-log">${st.orders.map(o => `<li><span class="t num">${fmtDate(o.t.slice(0, 10))} ${o.t.slice(11, 16)}</span>${esc(o.text)}</li>`).join("")}</ul>` : `<p class="sub">Nothing yet.</p>`;
   drawEquity(st);
 }

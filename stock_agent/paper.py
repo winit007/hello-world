@@ -493,14 +493,33 @@ class Account:
             except Exception:
                 spot, asof, unit = None, None, p["entry_price"]
             pnl = (p["entry_price"] - unit) * p["qty"] if p["side"] == "short" else (unit - p["entry_price"]) * p["qty"]
+            # what closing it right now would cost: the same charges and slippage a real close pays
+            exit_fill = unit * (1 + SLIPPAGE[p["instrument"]] if p["side"] == "short" else 1 - SLIPPAGE[p["instrument"]])
+            exit_fee = charges(p["instrument"], p["product"], "buy" if p["side"] == "short" else "sell", exit_fill * p["qty"])
+            gross_if_closed = (p["entry_price"] - exit_fill) * p["qty"] if p["side"] == "short" else (exit_fill - p["entry_price"]) * p["qty"]
             positions.append({**p, "label": self._label(p), "spot": spot, "price_time": asof, "now": round(unit, 4),
-                              "pnl": round(pnl - p["entry_charges"], 2)})
+                              "pnl": round(pnl - p["entry_charges"], 2), "entry_value": round(p["entry_price"] * p["qty"], 2),
+                              "exit_charges_est": round(exit_fee, 2),
+                              "net_if_closed": round(gross_if_closed - p["entry_charges"] - exit_fee, 2)})
         if refresh:
             self._snapshot()
             self.save()
         closed = self.data["closed"]
         wins = [c for c in closed if c["pnl"] > 0]
         eq = self.equity()
+        sums = lambda rows, k: round(sum(r[k] for r in rows), 2)
+        blocked = sums(positions, "blocked")
+        open_totals = {"count": len(positions), "money_in": blocked, "entry_value": sums(positions, "entry_value"),
+                       "entry_charges": sums(positions, "entry_charges"), "exit_charges_est": sums(positions, "exit_charges_est"),
+                       "gross_pnl": round(sum(r["pnl"] + r["entry_charges"] for r in positions), 2),
+                       "net_pnl": sums(positions, "net_if_closed"),
+                       "return_pct": (sum(r["net_if_closed"] for r in positions) / blocked) if blocked else None}
+        open_totals["back_if_closed"] = round(blocked + open_totals["net_pnl"] + open_totals["entry_charges"], 2)
+        spent = sum(c["entry_price"] * c["qty"] for c in closed)
+        closed_totals = {"count": len(closed), "entry_value": round(spent, 2),
+                         "charges": round(sum(c["entry_charges"] + c["exit_charges"] for c in closed), 2),
+                         "net_pnl": round(sum(c["pnl"] for c in closed), 2),
+                         "return_pct": (sum(c["pnl"] for c in closed) / spent) if spent else None}
         curve = [x["equity"] for x in self.data["equity"]]
         peak, dd = 0.0, 0.0
         for v in curve:
@@ -509,6 +528,7 @@ class Account:
         return {"start_cash": self.data["start_cash"], "cash": self.data["cash"], "equity": eq,
                 "pnl": round(eq - self.data["start_cash"], 2), "return_pct": eq / self.data["start_cash"] - 1,
                 "positions": positions, "closed": [{**c, "label": self._label(c)} for c in closed[:200]],
+                "open_totals": open_totals, "closed_totals": closed_totals,
                 "trades": len(closed), "wins": len(wins), "win_rate": len(wins) / len(closed) if closed else None,
                 "avg_win": sum(c["pnl"] for c in wins) / len(wins) if wins else None,
                 "avg_loss": (sum(c["pnl"] for c in closed if c["pnl"] <= 0) / max(len(closed) - len(wins), 1)) if len(closed) > len(wins) else None,
