@@ -20,6 +20,13 @@ from a Command Prompt in its folder for a desktop launcher. Data lives in `%USER
 as the Python install. A GitHub Actions workflow (`.github/workflows/windows-exe.yml`) builds it on Windows,
 checks that it starts and serves the app, and attaches it to a release for every new version.
 
+**Android phone, no PC:** download **StockAgent.apk** from
+https://github.com/winit007/hello-world/releases/latest/download/StockAgent.apk on the phone, open it and allow
+"install unknown apps" once. It contains Python, pandas and the whole app, runs a small background service on
+the phone (alerts arrive as normal notifications) and keeps its data in the app. Details: `android/README.md`.
+Built and started in an Android emulator by `.github/workflows/android-app.yml` for every new version.
+iPhone: use the phone page and add it to the Home Screen.
+
 **With Python:**
 
 As an app (needs Python 3.10+; Git is not required):

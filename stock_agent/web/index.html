@@ -994,13 +994,19 @@ body.static [data-detail], body.static [data-ipo], body.static .live-only { disp
         <li><b>No big events</b>: no results, RBI decision or budget before your exit?</li>
         <li><b>Intraday timing</b>: not in the first 15 minutes after 9:15, and out before the 3:20 pm square-off?</li></ol></div>
       <div class="card" id="full-app" style="grid-column:1/-1"><h2>The full app on your Android phone (no PC)</h2>
-        <p class="sub" style="font-size:13.5px;margin:0 0 8px">Runs the complete app on the phone itself: live scans, stock lookup, paper trading and broker orders. Nothing is uploaded; it only answers this phone.</p>
+        <p class="sub" style="font-size:13.5px;margin:0 0 8px">Runs the complete app on the phone itself: live scans, stock lookup, paper trading, alerts and broker orders. Nothing is uploaded; it only answers this phone.</p>
+        <h3 style="font-size:14px;margin:6px 0">Easiest: the Android app (APK)</h3>
+        <ol><li>On the phone, download <a href="https://github.com/winit007/hello-world/releases/latest/download/StockAgent.apk" target="_blank" rel="noopener"><b>StockAgent.apk</b></a>.</li>
+        <li>Open the file. Android asks to allow <b>installing unknown apps</b> for your browser: allow it once, then press Install.</li>
+        <li>Open <b>Stock Agent</b>. The first start takes about a minute while it unpacks. Allow notifications (for alerts) and set the app's battery use to <b>Unrestricted</b> so the evening scans and alerts keep running.</li>
+        <li>It keeps running in the background with a small notification. After a phone restart, open the app once. New versions install over the old one and keep your data.</li>
+        <li>Kite: use the redirect URL <b>http://127.0.0.1:8765/kite/callback</b> and enter your API key in Settings.</li></ol>
+        <details style="margin-top:8px"><summary>Instead: through Termux</summary>
         <ol><li>Install <b>Termux</b> from <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noopener">F-Droid</a> or <a href="https://github.com/termux/termux-app/releases" target="_blank" rel="noopener">GitHub</a> (the old Play Store version does not work).</li>
         <li>Open Termux, paste this and press Enter. It takes 5 to 10 minutes the first time:
           <div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><code id="fa-cmd" style="background:var(--surface-2);padding:6px 8px;border-radius:8px;font-size:12.5px;word-break:break-all;flex:1 1 220px">curl -fsSL https://winit007.github.io/hello-world/termux.sh | bash</code><button class="btn small" id="fa-copy" type="button">Copy</button></div></li>
         <li>Then type <b>stock-agent</b>. The app opens in Chrome at <b>127.0.0.1:8765</b>. Keep Termux running in the background while you use it.</li>
-        <li>Home-screen icon: install <b>Termux:Widget</b> and add its widget, then tap <b>Stock Agent</b>. Set Termux's battery use to <b>Unrestricted</b> so Android does not stop it.</li>
-        <li>Kite: use the same redirect URL as on the PC, <b>http://127.0.0.1:8765/kite/callback</b>, and enter your API key in Settings on the phone.</li></ol></div>
+        <li>Home-screen icon: install <b>Termux:Widget</b> and add its widget, then tap <b>Stock Agent</b>. Set Termux's battery use to <b>Unrestricted</b> so Android does not stop it.</li></ol></details></div>
       <div class="card"><h2>Paper trading</h2>
         <ol><li>Open <b>Paper trading</b>. You start with virtual money equal to your capital in Settings; <b>Reset account</b> starts again with any amount.</li>
         <li>Options can be bought or sold (written). Selling blocks about 18% of the contract value as margin, earns at most the premium and can lose much more, so practise it here before trying it for real.</li>
@@ -1598,7 +1604,7 @@ function welcome(force = false) {
     ["Welcome", `<p>This is the phone version of <b>Stock Agent</b>: each weekday evening it scans NSE stocks for candlestick setups that worked in ten years of history, and publishes the picks, long-term ideas, crypto and commodity trades and a model fund here.</p>
       <p class="sub">It shows the odds honestly: most short-term trades lose, and the app says so when a strategy has no proven edge.</p>`],
     ["Your routine", `<ol><li><b>Evening:</b> open <b>Home</b> after 4:30 pm for the new picks.</li><li><b>Morning:</b> check the contract in your broker app before buying.</li><li><b>During the day:</b> keep to the stop-loss and exit date.</li></ol>`],
-    ["Want the full app?", `<p>Live scans, paper trading with virtual money, alerts, tax and risk tools and broker orders run in the full app, on a PC or on this phone through Termux.</p><p><a href="#" data-go="help">How to install it</a></p>`],
+    ["Want the full app?", `<p>Live scans, paper trading with virtual money, alerts, tax and risk tools and broker orders run in the full app: on a PC, or on an Android phone through the StockAgent.apk app.</p><p><a href="#" data-go="help">How to install it</a></p>`],
   ] : [
     ["Welcome to Stock Agent", `<p>It scans stocks for setups that worked in ten years of history, sizes each trade for your money, and checks everything against real costs and tax.</p>
       <p class="sub">It is honest about the odds: most short-term trading loses money, and the app tells you when a strategy has no proven edge. Practise before you use real money.</p>`],
@@ -2563,7 +2569,7 @@ function drawPnl(ev) {
 /* ---------------- phone ---------------- */
 async function loadPhone() {
   const p = await api("/api/phone");
-  if (p.android_app) { $("#phone-card").hidden = true; return; }              // you are already on the phone
+  if (p.android_app) { $("#phone-card").hidden = true; const fa = $("#full-app"); if (fa) fa.hidden = true; return; }              // you are already on the phone
   const link = p.tunnel_url || (p.urls || [])[0];
   const body = $("#phone-body");
   if (p.on && link) {
