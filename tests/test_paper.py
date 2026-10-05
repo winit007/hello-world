@@ -96,6 +96,7 @@ class PaperTests(unittest.TestCase):
         self.assertEqual(t["count"], 2)
         self.assertAlmostEqual(t["money_in"], sum(p["blocked"] for p in st["positions"]), places=2)
         self.assertAlmostEqual(t["money_in"], 10 * 1000.5 + 4 * 1500.75, places=1)
+        self.assertEqual([round(p["blocked"], 1) for p in st["positions"]], [round(10 * 1000.5, 1), round(4 * 1500.75, 1)])   # each one separately
         self.assertGreater(t["exit_charges_est"], 0)
         self.assertAlmostEqual(t["return_pct"], t["net_pnl"] / t["money_in"], places=9)
         a = self.acct()
@@ -108,6 +109,7 @@ class PaperTests(unittest.TestCase):
         self.assertAlmostEqual(ct["net_pnl"], booked, places=2)
         self.assertAlmostEqual(ct["charges"], st["charges_paid"], places=2)
         self.assertAlmostEqual(ct["return_pct"], booked / ct["entry_value"], places=9)
+        self.assertAlmostEqual(ct["money_in"], sum(c["blocked"] for c in st["closed"]), places=2)
         self.assertEqual(st["open_totals"]["count"], 0)
         self.assertIsNone(st["open_totals"]["return_pct"])
 

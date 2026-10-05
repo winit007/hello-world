@@ -516,7 +516,7 @@ class Account:
                        "return_pct": (sum(r["net_if_closed"] for r in positions) / blocked) if blocked else None}
         open_totals["back_if_closed"] = round(blocked + open_totals["net_pnl"] + open_totals["entry_charges"], 2)
         spent = sum(c["entry_price"] * c["qty"] for c in closed)
-        closed_totals = {"count": len(closed), "entry_value": round(spent, 2),
+        closed_totals = {"count": len(closed), "entry_value": round(spent, 2), "money_in": round(sum(c["blocked"] for c in closed), 2),
                          "charges": round(sum(c["entry_charges"] + c["exit_charges"] for c in closed), 2),
                          "net_pnl": round(sum(c["pnl"] for c in closed), 2),
                          "return_pct": (sum(c["pnl"] for c in closed) / spent) if spent else None}
